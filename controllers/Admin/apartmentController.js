@@ -2,7 +2,7 @@ const fs = require("fs");
 const Apartment = require("../../models/Admin/apartment");
 const readExcelFile = require("../../utils/excelHelper");
 const { successResponse, errorResponse } = require('../../utils/response');
-// Upload Excel
+// Upload Excels
 const uploadExcel = async (req, res) => {
   try {
     if (!req.file) {

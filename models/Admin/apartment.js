@@ -76,9 +76,9 @@ const apartmentSchema = new mongoose.Schema(
       min: 0,
     },
     startingTGValues: {
-      type: String,
-      trim: true,
-      default: "",
+      type: Number,
+      default: 0,
+      min: 0,
     },
     existingEventsHistory: [
       {

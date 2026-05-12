@@ -1,6 +1,7 @@
 const fs = require("fs");
 const Apartment = require("../../models/Admin/apartment");
 const readExcelFile = require("../../utils/excelHelper");
+const ApartmentFilters = require("../../middleware/ApartmentFilters")
 const { successResponse, errorResponse } = require('../../utils/response');
 // Upload Excels
 const uploadExcel = async (req, res) => {
@@ -36,7 +37,7 @@ const uploadExcel = async (req, res) => {
         const contactPersonPhone = item.contactPersonPhone?.toString().trim();
         const email = item.email?.toString().trim().toLowerCase();
         const bankDetails = item.bankDetails?.toString().trim();
-        const startingTGValues = item.startingTGValues?.toString().trim();
+        const startingTGValues = Number(item.startingTGValues || 0);
         const residencyCount = Number(item.residencyCount);
         const approxPeopleCount = Number(item.approxPeopleCount || 0);
         const perDayRent = Number(item.perDayRent);
@@ -288,37 +289,295 @@ const uploadExcel = async (req, res) => {
   }
 };
 // GET APARTMENTS
+// const getApartments = async (req, res) => {
+//   try {
+//     // pageNumber & count from frontend
+//     const pageNumber = parseInt(req.body.pageNumber) || 1;
+//     const count = parseInt(req.body.count) || 10;
+//     // skip calculation
+//     const skip = (pageNumber - 1) * count;
+//     // total records
+//     const totalCount = await Apartment.countDocuments();
+//    // fetch data
+//     const apartments = await Apartment.find()
+//       .sort({ updatedAt: -1 })
+//       .skip(skip)
+//       .limit(count);
+
+//     return res.status(200).json({
+//       success: true,
+//       pageNumber, // current page
+//       count,  // records per page
+//       totalCount,// total DB records
+//       totalPages: Math.ceil(totalCount / count), // total pages
+//       apartments,
+//     });
+//   } catch (error) {
+//     console.log(error);
+//     return errorResponse(
+//       res,
+//       "Error Fetching Apartments",
+//       null,
+//       500
+//     );
+//   }
+// };
+// const getApartments = async (req, res) => {
+//   try {
+//     // Pagination
+//     const pageNumber = parseInt(req.body.pageNumber) || 1;
+//     const count = parseInt(req.body.count) || 10;
+//     const skip = (pageNumber - 1) * count;
+
+//     // Filters from frontend
+//     const {
+//       search,
+//       location,
+//       minRent,
+//       maxRent,
+//       minTG,
+//       maxTG,
+//     } = req.body;
+
+//     // Dynamic filter object
+//     let filter = {};
+
+//     // Search by any field
+//     if (search) {
+//       filter.$or = [
+//         { apartmentName: { $regex: search, $options: "i" } },
+//         { city: { $regex: search, $options: "i" } },
+//         { location: { $regex: search, $options: "i" } },
+//         { contactPersonName: { $regex: search, $options: "i" } },
+//         { email: { $regex: search, $options: "i" } },
+//         { startingTGValues: { $regex: search, $options: "i" } },
+//       ];
+//     }
+
+//     // Exact location filter
+//     if (location) {
+//       filter.location = {
+//         $regex: location,
+//         $options: "i",
+//       };
+//     }
+
+//     // Per Day Rent Filter
+//     if (minRent || maxRent) {
+//       filter.perDayRent = {};
+
+//       if (minRent) {
+//         filter.perDayRent.$gte = Number(minRent);
+//       }
+
+//       if (maxRent) {
+//         filter.perDayRent.$lte = Number(maxRent);
+//       }
+//     }
+
+//     // TG / Residency Count Filter
+//     if (minTG || maxTG) {
+//       filter.residencyCount = {};
+
+//       if (minTG) {
+//         filter.residencyCount.$gte = Number(minTG);
+//       }
+
+//       if (maxTG) {
+//         filter.residencyCount.$lte = Number(maxTG);
+//       }
+//     }
+
+//     // Total Count
+//     const totalCount = await Apartment.countDocuments(filter);
+
+//     // Fetch Apartments
+//     const apartments = await Apartment.find(filter)
+//       .sort({ updatedAt: -1 })
+//       .skip(skip)
+//       .limit(count);
+
+//     return res.status(200).json({
+//       success: true,
+//       pageNumber,
+//       count,
+//       totalCount,
+//       totalPages: Math.ceil(totalCount / count),
+//       apartments,
+//     });
+
+//   } catch (error) {
+//     return errorResponse(
+//       res,
+//       "Error Fetching Apartments",
+//       null,
+//       500
+//     );
+//   }
+// };
+// const getApartments = async (req, res) => {
+//   try {
+//     // Pagination
+//     const pageNumber = parseInt(req.body.pageNumber) || 1;
+//     const count = parseInt(req.body.count) || 10;
+
+//     const skip = (pageNumber - 1) * count;
+
+//     // Filters from frontend
+//     const {
+//       search,
+//       location,
+//       minRent,
+//       maxRent,
+//       minTG,
+//       maxTG,
+//     } = req.body;
+
+//     // Main filter object
+//     let filter = {};
+
+//     // Search Filter
+//     if (search) {
+//       filter.$or = [
+//         {
+//           apartmentName: {
+//             $regex: search,
+//             $options: "i",
+//           },
+//         },
+//         {
+//           city: {
+//             $regex: search,
+//             $options: "i",
+//           },
+//         },
+//         {
+//           location: {
+//             $regex: search,
+//             $options: "i",
+//           },
+//         },
+//         {
+//           contactPersonName: {
+//             $regex: search,
+//             $options: "i",
+//           },
+//         },
+//         {
+//           email: {
+//             $regex: search,
+//             $options: "i",
+//           },
+//         },
+//       ];
+
+//       // Number search for TG Values
+//       if (!isNaN(search)) {
+//         filter.$or.push({
+//           startingTGValues: Number(search),
+//         });
+//       }
+//     }
+
+//     // Location Filter
+//     if (location) {
+//       filter.location = {
+//         $regex: location,
+//         $options: "i",
+//       };
+//     }
+
+//     // Rent Filter
+//     if (minRent || maxRent) {
+//       filter.perDayRent = {};
+
+//       if (minRent) {
+//         filter.perDayRent.$gte = Number(minRent);
+//       }
+
+//       if (maxRent) {
+//         filter.perDayRent.$lte = Number(maxRent);
+//       }
+//     }
+
+//     // TG Filter
+//     if (minTG || maxTG) {
+//       filter.startingTGValues = {};
+
+//       if (minTG) {
+//         filter.startingTGValues.$gte = Number(minTG);
+//       }
+
+//       if (maxTG) {
+//         filter.startingTGValues.$lte = Number(maxTG);
+//       }
+//     }
+
+
+//     // Total Count
+//     const totalCount = await Apartment.countDocuments(filter);
+
+//     // Fetch Apartments
+//     const apartments = await Apartment.find(filter)
+//       .sort({ updatedAt: -1 })
+//       .skip(skip)
+//       .limit(count);
+
+//     return res.status(200).json({
+//       success: true,
+//       pageNumber,
+//       count,
+//       totalCount,
+//       totalPages: Math.ceil(totalCount / count),
+//       apartments,
+//     });
+
+//   } catch (error) {
+
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error Fetching Apartments",
+//       error: error.message,
+//     });
+//   }
+// };
 const getApartments = async (req, res) => {
   try {
-    // pageNumber & count from frontend
+
+    // Pagination
     const pageNumber = parseInt(req.body.pageNumber) || 1;
     const count = parseInt(req.body.count) || 10;
-    // skip calculation
+
     const skip = (pageNumber - 1) * count;
-    // total records
-    const totalCount = await Apartment.countDocuments();
-   // fetch data
-    const apartments = await Apartment.find()
+
+    // Common Filter Function
+    const filter = ApartmentFilters(req.body);
+
+    // Total Count
+    const totalCount = await Apartment.countDocuments(filter);
+
+    // Data
+    const apartments = await Apartment.find(filter)
       .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(count);
 
     return res.status(200).json({
       success: true,
-      pageNumber, // current page
-      count,  // records per page
-      totalCount,// total DB records
-      totalPages: Math.ceil(totalCount / count), // total pages
+      pageNumber,
+      count,
+      totalCount,
+      totalPages: Math.ceil(totalCount / count),
       apartments,
     });
+
   } catch (error) {
-    console.log(error);
-    return errorResponse(
-      res,
-      "Error Fetching Apartments",
-      null,
-      500
-    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Error Fetching Apartments",
+      error: error.message,
+    });
   }
 };
 module.exports = {

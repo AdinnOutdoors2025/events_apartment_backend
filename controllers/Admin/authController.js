@@ -6,11 +6,11 @@ const { successResponse, errorResponse } = require('../../utils/response');
 // REGISTER
 exports.register = async (req, res) => {
   try {
-    const { name,phoneNumber, password } = req.body;
+    const { name, phoneNumber, password } = req.body;
 
     // validation
     if (!phoneNumber || !password) {
-       return errorResponse(res, 'Name, phone and password are required', 400);
+      return errorResponse(res, 'Name, phone and password are required', 400);
     }
 
     // check existing user
@@ -19,7 +19,7 @@ exports.register = async (req, res) => {
     });
 
     if (existingUser) {
-     return errorResponse(res, 'Phone number already exists', 400);
+      return errorResponse(res, 'Phone number already exists', 400);
     }
 
     // hash password
@@ -44,7 +44,7 @@ exports.register = async (req, res) => {
       user: {
         id: user._id,
         phoneNumber: user.phoneNumber,
-        name:user.name
+        name: user.name
       }
     });
 
@@ -61,7 +61,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
 
-    const { phoneNumber, password,name } = req.body;
+    const { phoneNumber, password, name } = req.body;
 
     // validation
     if (!phoneNumber || !password) {
@@ -115,18 +115,18 @@ exports.login = async (req, res) => {
     // generate token
     const token = generateToken(user);
 
-return successResponse(
-  res,
-  "Login successful",
-  {
-    user: {
-      id: user._id,
-      phoneNumber: user.phoneNumber,
-      name: user.name,
-    },
-    token,
-  }
-);
+    return successResponse(
+      res,
+      "Login successful",
+      {
+        user: {
+          id: user._id,
+          phoneNumber: user.phoneNumber,
+          name: user.name,
+        },
+        token,
+      }
+    );
 
   } catch (error) {
 

@@ -67,8 +67,13 @@ const apartmentSchema = new mongoose.Schema(
     ],
     permissionStatus: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected"],
-      default: "Pending",
+      trim: true,
+      default: "",
+    },
+    rating: {
+      type: String,
+      trim: true,
+      default: "",
     },
     residencyCount: {
       type: Number,

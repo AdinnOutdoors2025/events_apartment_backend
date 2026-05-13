@@ -12,7 +12,7 @@ const buildApartmentFilters = (body) => {
 
   let filter = {};
 
-  // Search Filter
+  // Search Filters
   if (search) {
 
     filter.$or = [

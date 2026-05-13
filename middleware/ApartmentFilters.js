@@ -7,7 +7,7 @@ const buildApartmentFilters = (body) => {
     maxRent,
     minTG,
     maxTG,
-    
+  
   } = body;
 
   let filter = {};

@@ -41,6 +41,12 @@ const buildApartmentFilters = (body) => {
         },
       },
       {
+        contactPersonPhone: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+      {
         email: {
           $regex: search,
           $options: "i",

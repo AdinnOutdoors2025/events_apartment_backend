@@ -55,11 +55,16 @@ const apartmentSchema = new mongoose.Schema(
       lowercase: true,
       unique: true,
     },
-    bankDetails: {
-      type: String,
-      trim: true,
-      default: "",
-    },
+    bankDetails: [
+      {
+        accountName: String,
+        bankName: String,
+        accountNumber: String,
+        ifscCode: String,
+        phoneNumber: String,
+        upiId: String,
+      },
+    ],
     permissionStatus: {
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
@@ -83,7 +88,7 @@ const apartmentSchema = new mongoose.Schema(
     existingEventsHistory: [
       {
         eventName: String,
-        eventDate: Date,
+        eventDate: String,
         remarks: String,
       },
     ],
@@ -91,7 +96,93 @@ const apartmentSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0,
-    }
+    },
+    fileName: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    totalRows: {
+      type: Number,
+      default: 0,
+    },
+
+    insertedCount: {
+      type: Number,
+      default: 0,
+    },
+
+    updatedCount: {
+      type: Number,
+      default: 0,
+    },
+
+    skippedCount: {
+      type: Number,
+      default: 0,
+    },
+
+    insertedData: [
+      {
+        id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Apartment",
+        },
+
+        email: {
+          type: String,
+          trim: true,
+        },
+
+        phone: {
+          type: String,
+          trim: true,
+        },
+
+        message: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
+
+    updatedData: [
+      {
+        id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Apartment",
+        },
+
+        email: {
+          type: String,
+          trim: true,
+        },
+
+        phone: {
+          type: String,
+          trim: true,
+        },
+
+        message: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
+
+    skippedData: [
+      {
+        row: {
+          type: Object,
+          default: {},
+        },
+
+        message: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

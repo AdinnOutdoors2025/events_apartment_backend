@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
+    name: {
+      type: String,
+      required: true
+    },
     phoneNumber: {
       type: String,
       required: [true, 'Phone number is required'],
@@ -13,11 +17,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true
     },
-    role: {
-      type: Number,
-      enum: [0, 1, 2],  // 0 - Client  1 - Admin  2 - SuperAdmin
-      default: 0
-    }
+    // role: {
+    //   type: Number,
+    //   enum: [0, 1, 2],  // 0 - Client  1 - Admin  2 - SuperAdmin
+    //   default: 0
+    // }
   },
   {
     timestamps: true

@@ -6,7 +6,7 @@ const { successResponse, errorResponse } = require('../../utils/response');
 // REGISTER
 exports.register = async (req, res) => {
   try {
-    const { phoneNumber, password,role } = req.body;
+    const { name,phoneNumber, password } = req.body;
 
     // validation
     if (!phoneNumber || !password) {
@@ -31,8 +31,9 @@ exports.register = async (req, res) => {
     // create user
     const user = await User.create({
       phoneNumber,
+      name,
       password: hashedPassword,
-      role
+      // role
     });
 
     // response
@@ -43,7 +44,7 @@ exports.register = async (req, res) => {
       user: {
         id: user._id,
         phoneNumber: user.phoneNumber,
-        role:user.role
+        name:user.name
       }
     });
 
@@ -60,7 +61,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
 
-    const { phoneNumber, password, role } = req.body;
+    const { phoneNumber, password,name } = req.body;
 
     // validation
     if (!phoneNumber || !password) {
@@ -102,26 +103,30 @@ exports.login = async (req, res) => {
     }
 
     // role check
-    if (role !== undefined && user.role !== role) {
-      return errorResponse(
-        res,
-        "Access denied",
-        null,
-        403
-      );
-    }
+    // if (role !== undefined && user.role !== role) {
+    //   return errorResponse(
+    //     res,
+    //     "Access denied",
+    //     null,
+    //     403
+    //   );
+    // }
 
     // generate token
     const token = generateToken(user);
 
-    return successResponse(
-      res,
-      "Login successful",
-      {
-        role: user.role,
-        token
-      }
-    );
+return successResponse(
+  res,
+  "Login successful",
+  {
+    user: {
+      id: user._id,
+      phoneNumber: user.phoneNumber,
+      name: user.name,
+    },
+    token,
+  }
+);
 
   } catch (error) {
 

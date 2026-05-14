@@ -9,7 +9,7 @@ exports.register = async (req, res) => {
     const { name, phoneNumber, password } = req.body;
 
     // validation
-    if (!phoneNumber || !password) {
+    if (!name || !phoneNumber || !password) {
       return errorResponse(res, 'Name, phone and password are required', 400);
     }
 
@@ -33,20 +33,25 @@ exports.register = async (req, res) => {
       phoneNumber,
       name,
       password: hashedPassword,
-      // role
     });
 
     // response
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      token: generateToken(user._id),
-      user: {
-        id: user._id,
-        phoneNumber: user.phoneNumber,
-        name: user.name
+    const token =
+      generateToken(user._id);
+
+    return successResponse(
+      res,
+      "User registered successfully",
+      {
+        user: {
+          id: user._id,
+          phoneNumber:
+            user.phoneNumber,
+          name: user.name,
+        },
+        token,
       }
-    });
+    );
 
   } catch (error) {
     res.status(500).json({
@@ -61,7 +66,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
 
-    const { phoneNumber, password, name } = req.body;
+    const { phoneNumber, password } = req.body;
 
     // validation
     if (!phoneNumber || !password) {
@@ -102,15 +107,6 @@ exports.login = async (req, res) => {
       );
     }
 
-    // role check
-    // if (role !== undefined && user.role !== role) {
-    //   return errorResponse(
-    //     res,
-    //     "Access denied",
-    //     null,
-    //     403
-    //   );
-    // }
 
     // generate token
     const token = generateToken(user);

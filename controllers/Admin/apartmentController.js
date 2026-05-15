@@ -700,6 +700,7 @@ const listApartments = async (req, res) => {
 
     const filter = ApartmentFilters(req.body);
     const totalCount = await Apartment.countDocuments(filter);
+    
 
     const apartments = await Apartment.find(filter)
       .populate("createdBySession", "fileName createdAt")

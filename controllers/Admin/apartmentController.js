@@ -950,107 +950,6 @@ const getUploadSessions = async (req, res) => {
 // ─────────────────────────────────────────────
 // 3. GET APARTMENTS BY SESSION (file-wise)
 // ─────────────────────────────────────────────
-
-// const getApartmentsBySession = async (req, res) => {
-//   try {
-
-//     // ONLY SESSION ID REQUIRED
-//     const { sessionId } =
-//       req.query;
-
-//     if (!sessionId) {
-//       return res.status(400).json({
-//         success: false,
-//         message:
-//           "sessionId is required",
-//       });
-//     }
-
-//     // VERIFY SESSION EXISTS
-//     const session =
-//       await UploadSession.findById(
-//         sessionId
-//       ).lean();
-
-//     if (!session) {
-//       return res.status(404).json({
-//         success: false,
-//         message:
-//           "Upload session not found",
-//       });
-//     }
-
-//     // FILTER APARTMENTS
-//     const sessionFilter = {
-//       $or: [
-//         {
-//           createdBySession:
-//             sessionId,
-//         },
-//         {
-//           lastUpdatedBySession:
-//             sessionId,
-//         },
-//       ],
-//     };
-
-//     const apartments =
-//       await Apartment.find(
-//         sessionFilter
-//       )
-//         .sort({ updatedAt: -1 })
-//         .lean();
-
-//     return successResponse(
-//       res,
-//       "Apartments fetched by session successfully",
-//       {
-//         sessionId,
-
-//         fileName:
-//           session.fileName,
-
-//         uploadedAt: new Date(
-//           session.createdAt
-//         ).toLocaleString(
-//           "en-IN",
-//           {
-//             day: "2-digit",
-//             month: "short",
-//             year: "numeric",
-//             hour: "numeric",
-//             minute: "2-digit",
-//             hour12: true,
-//           }
-//         ),
-
-//         insertedCount:
-//           session.insertedCount,
-
-//         updatedCount:
-//           session.updatedCount,
-
-//         skippedCount:
-//           session.skippedCount,
-
-//         totalRows:
-//           session.totalRows,
-
-//         totalCount:
-//           apartments.length,
-
-//         apartments,
-//       }
-//     );
-
-//   } catch (error) {
-//     return errorResponse(
-//       res,
-//       "Error Fetching Apartments by Session",
-//       error.message
-//     );
-//   }
-// };
 const getApartmentsBySession = async (req, res) => {
   try {
 
@@ -1097,7 +996,7 @@ const getApartmentsBySession = async (req, res) => {
       await Apartment.find(
         sessionFilter
       )
-        .sort({ updatedAt: -1 })
+        .sort({ updatedAt: 1 })
         .lean();
 
     // FORMAT SKIPPED DATA
@@ -1184,7 +1083,7 @@ const getApartments = async (req, res) => {
     const apartments = await Apartment.find(filter)
       .populate("createdBySession",     "fileName createdAt")
       .populate("lastUpdatedBySession", "fileName createdAt")
-      .sort({ updatedAt: -1 })
+      .sort({ updatedAt: 1 })
       .skip(skip)
       .limit(count)
       .lean();

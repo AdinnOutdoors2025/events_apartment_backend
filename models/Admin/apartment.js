@@ -219,14 +219,14 @@ const apartmentSchema = new mongoose.Schema(
     // ── WHICH SESSION FIRST INSERTED THIS RECORD ──
     createdBySession: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "UploadSession",
+      ref: "ExcelUploadSession",
       default: null,
     },
 
     // ── WHICH SESSION LAST UPDATED THIS RECORD ──
     lastUpdatedBySession: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "UploadSession",
+      ref: "ExcelUploadSession",
       default: null,
     },
 

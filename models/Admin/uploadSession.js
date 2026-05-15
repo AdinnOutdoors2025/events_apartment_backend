@@ -35,4 +35,4 @@ const uploadSessionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("UploadSession", uploadSessionSchema);
+module.exports = mongoose.model("ExcelUploadSession", uploadSessionSchema);

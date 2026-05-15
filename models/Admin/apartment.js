@@ -229,7 +229,7 @@ const apartmentSchema = new mongoose.Schema(
       ref: "ExcelUploadSession",
       default: null,
     },
-
+// ajay
     apartmentName:      { type: String, required: true, trim: true },
     apartmentAddress:   { type: String, required: true, trim: true },
     city:               { type: String, required: true, trim: true },

@@ -1,4 +1,3 @@
-
 const orderBooking = require("../../../models/Admin/EventHandling/eventOrderSchema");
 const Apartment = require("../../../models/Admin/apartment")
 const EventBook = require("../../../models/Admin/EventHandling/eventRateSchema")
@@ -7,118 +6,278 @@ const asyncHandler = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
 
 // ─── CREATE Booking ──────────────────────────────────────────────────────────
-/**
- * POST /api/promoter-bookings
- *
- * Validates that promoters.length === promoterCount before saving.
- */
-const createBooking =
-  asyncHandler(
-    async (req, res) => {
 
-      const {
-        apartmentId,
-        eventId,
-        fromDate,
-        toDate,
-        daysOfEvent,
-        promoterRequired,
-        promoterCount,
-        promoters,
-        customerDetails,
-        discountPercentage,
-      } = req.body;
+// const createBooking = asyncHandler(
+//     async (req, res) => {
 
-      // FIND EXISTING BOOKING
-      let booking =
-        await orderBooking.findOne({
-          apartmentId,
-          eventId,
-        });
+//       const {
+//         apartmentId,
+//         eventId,
+//         fromDate,
+//         toDate,
+//         daysOfEvent,
+//         daysOfApartment,
+//         promoterRequired,
+//         promoterCount,
+//         promoters,
+//         customerDetails,
+//         discountPercentage,
+//         discountType,
+//       } = req.body;
 
-      // ======================
-      // UPDATE EXISTING
-      // ======================
+//       // FIND EXISTING BOOKING
+//       let booking =
+//         await orderBooking.findOne({
+//           apartmentId,
+//           eventId,
+//         });
 
-      if (booking) {
+//       // ======================
+//       // UPDATE EXISTING
+//       // ======================
 
-        booking.fromDate =
-          fromDate ||
-          booking.fromDate;
+//       if (booking) {
 
-        booking.toDate =
-          toDate ||
-          booking.toDate;
+//         booking.fromDate =
+//           fromDate ||
+//           booking.fromDate;
 
-        booking.daysOfEvent =
-          daysOfEvent ||
-          booking.daysOfEvent;
+//         booking.toDate =
+//           toDate ||
+//           booking.toDate;
 
-        booking.promoterRequired =
-          promoterRequired ??
-          booking.promoterRequired;
+//         booking.daysOfEvent =
+//           daysOfEvent ||
+//           booking.daysOfEvent;
 
-        booking.promoterCount =
-          promoterCount ||
-          booking.promoterCount;
+//         booking.daysOfApartment =
+//           daysOfApartment ||
+//           booking.daysOfApartment;
 
-        booking.promoters =
-          promoters ||
-          booking.promoters;
+//         booking.promoterRequired =
+//           promoterRequired ??
+//           booking.promoterRequired;
 
-        booking.customerDetails =
-          customerDetails ||
-          booking.customerDetails;
+//         booking.promoterCount =
+//           promoterCount ||
+//           booking.promoterCount;
 
-        booking.discountPercentage =
-          discountPercentage ??
-          booking.discountPercentage;
-        updatedBy: req.user.name,
-          await booking.save();
+//         booking.promoters =
+//           promoters ||
+//           booking.promoters;
 
-        return res.status(200).json({
-          success: true,
-          message:
-            "Booking updated successfully",
+//         booking.customerDetails =
+//           customerDetails ||
+//           booking.customerDetails;
 
-          data: booking,
-          updatedBy: req.user.name,
-        });
-      }
+//         booking.discountPercentage =
+//           discountPercentage ??
+//           booking.discountPercentage;
+//         booking.discountType =
+//           discountType ??
+//           booking.discountType;
+//         updatedBy: req.user.name,
+//           await booking.save();
 
-      // ======================
-      // CREATE NEW
-      // ======================
+//         return res.status(200).json({
+//           success: true,
+//           message:
+//             "Booking updated successfully",
 
-      booking =
-        new orderBooking({
-          apartmentId,
-          eventId,
-          fromDate,
-          toDate,
-          daysOfEvent,
-          promoterRequired,
-          promoterCount,
-          promoters,
-          customerDetails,
-          updatedBy: req.user.name,
-          discountPercentage:
-            discountPercentage ??
-            0,
-        });
+//           data: booking,
+//           updatedBy: req.user.name,
+//         });
+//       }
 
-      await booking.save();
+//       // ======================
+//       // CREATE NEW
+//       // ======================
 
-      return res.status(201).json({
-        success: true,
-        message:
-          "Booking created successfully",
+//       booking =
+//         new orderBooking({
+//           apartmentId,
+//           eventId,
+//           fromDate,
+//           toDate,
+//           daysOfEvent,
+//           daysOfApartment,
+//           promoterRequired,
+//           promoterCount,
+//           promoters,
+//           customerDetails,
+//           updatedBy: req.user.name,
+//           discountPercentage:
+//             discountPercentage ??
+//             0,
+//           discountType:
+//             discountType ??
+//             0,
+//         });
 
-        data: booking,
-      });
-    }
-  );
+//       await booking.save();
 
+//       return res.status(201).json({
+//         success: true,
+//         message:
+//           "Booking created successfully",
+
+//         data: booking,
+//       });
+//     }
+//   );
+// ─── CREATE / UPDATE Booking ──────────────────────────────────────────────────
+const createBooking = asyncHandler(async (req, res) => {
+  const {
+    apartmentId,
+    eventId,
+    fromDate,
+    toDate,
+    daysOfEvent,
+    daysOfApartment,
+    promoterRequired,
+    promoterCount,
+    promoters,
+    customerDetails,
+    discountPercentage,
+    discountType,
+  } = req.body;
+
+  // ─── 1. Fetch Apartment & Event docs ────────────────────────────────────────
+  const [apartment, event] = await Promise.all([
+    Apartment.findById(apartmentId),
+    EventBook.findById(eventId),
+  ]);
+
+  if (!apartment) {
+    return res.status(404).json({ success: false, message: "Apartment not found" });
+  }
+  if (!event) {
+    return res.status(404).json({ success: false, message: "Event not found" });
+  }
+
+  // ─── 2. Apartment cost ───────────────────────────────────────────────────────
+  // apartment.perDayRent × daysOfApartment
+  const perDayRent       = apartment.perDayRent ?? 0;
+  const aptDays          = daysOfApartment ?? 0;
+  const apartmentAmount  = perDayRent * aptDays;
+
+  // ─── 3. Event cost ───────────────────────────────────────────────────────────
+  // event.amount × daysOfEvent
+  const eventRate        = event.amount ?? 0;
+  const evtDays          = daysOfEvent ?? 0;
+  const eventAmount      = eventRate * evtDays;
+
+  // ─── 4. Promoter cost ────────────────────────────────────────────────────────
+  // Sum of (promoterPerDayCharge × daysOfEvent) for every promoter in the array
+  // Result stored per-promoter as promoterAmount, and total as promoterTotal
+  let promoterTotal = 0;
+  const promotersWithAmount = (promoters ?? []).map((p) => {
+    const charge         = p.promoterPerDayCharge ?? 0;
+    const promoterAmount = charge * evtDays;      // charged for event days
+    promoterTotal       += promoterAmount;
+    return { ...p, promoterAmount };              // attach new key
+  });
+
+  // ─── 5. Subtotal ─────────────────────────────────────────────────────────────
+  const subTotal = apartmentAmount + eventAmount + promoterTotal;
+
+  // ─── 6. Discount ─────────────────────────────────────────────────────────────
+  // discountType 1 → percentage   discountType 2 → flat amount
+  const discountValue  = discountPercentage ?? 0;
+  let   discountAmount = 0;
+
+  if (discountType === 1) {
+    // e.g. 10% of 8000 = 800
+    discountAmount = (subTotal * discountValue) / 100;
+  } else if (discountType === 2) {
+    // flat rupee amount
+    discountAmount = discountValue;
+  }
+
+  // ─── 7. Taxable amount (after discount) ─────────────────────────────────────
+  const taxableAmount = subTotal - discountAmount;  // e.g. 8000 - 800 = 7200
+
+  // ─── 8. GST @ 18 % ───────────────────────────────────────────────────────────
+  const GST_RATE  = 18;
+  const gstAmount = (taxableAmount * GST_RATE) / 100;   // e.g. 7200 × 0.18 = 1296
+
+  // ─── 9. Grand total ──────────────────────────────────────────────────────────
+  const totalAmount = taxableAmount + gstAmount;          // e.g. 7200 + 1296 = 8496
+
+  // ─── Calculated payload (stored in DB, NOT sent in response) ─────────────────
+  const calculatedFields = {
+    apartmentAmount,
+    eventAmount,
+    promoterTotal,
+    subTotal,
+    discountAmount,
+    taxableAmount,
+    gstAmount,
+    totalAmount,
+  };
+
+  // ─── 10. Find existing booking ───────────────────────────────────────────────
+  let booking = await orderBooking.findOne({ apartmentId, eventId });
+
+  // ══════════════════════════════════════════════════════
+  // UPDATE existing booking
+  // ══════════════════════════════════════════════════════
+  if (booking) {
+    booking.updatedBy         = req.user.name;
+    booking.fromDate          = fromDate          ?? booking.fromDate;
+    booking.toDate            = toDate            ?? booking.toDate;
+    booking.daysOfEvent       = daysOfEvent       ?? booking.daysOfEvent;
+    booking.daysOfApartment   = daysOfApartment   ?? booking.daysOfApartment;
+    booking.promoterRequired  = promoterRequired  ?? booking.promoterRequired;
+    booking.promoterCount     = promoterCount     ?? booking.promoterCount;
+    booking.promoters         = promotersWithAmount.length
+                                  ? promotersWithAmount
+                                  : booking.promoters;
+    booking.customerDetails   = customerDetails   ?? booking.customerDetails;
+    booking.discountPercentage= discountValue;
+    booking.discountType      = discountType      ?? booking.discountType;
+
+    // calculated
+    Object.assign(booking, calculatedFields);
+
+    await booking.save();
+
+    // ── Response: success flag only, no data ────────────────────────────────
+    return res.status(200).json({
+      success: true,
+      message: "Booking updated successfully",
+    });
+  }
+
+  // ══════════════════════════════════════════════════════
+  // CREATE new booking
+  // ══════════════════════════════════════════════════════
+  booking = new orderBooking({
+    apartmentId,
+    eventId,
+    fromDate,
+    toDate,
+    daysOfEvent,
+    daysOfApartment,
+    promoterRequired,
+    promoterCount,
+    promoters: promotersWithAmount,
+    customerDetails,
+    updatedBy:          req.user.name,
+    discountPercentage: discountValue,
+    discountType:       discountType ?? 1,
+
+    // calculated
+    ...calculatedFields,
+  });
+
+  await booking.save();
+
+  return res.status(201).json({
+    success: true,
+    message: "Booking created successfully",
+  });
+});
 // list Api
 const getAllBookings =
   asyncHandler(
@@ -185,7 +344,7 @@ const getAllBookings =
     }
   );
 
-const getApartmentOrder = async (req, res) => {
+const apartmentEventGet = async (req, res) => {
   try {
 
     // GET ID FROM QUERY PARAMS
@@ -238,5 +397,5 @@ const getApartmentOrder = async (req, res) => {
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
 module.exports = {
-  createBooking, getAllBookings, getApartmentOrder
+  createBooking, getAllBookings, apartmentEventGet
 };

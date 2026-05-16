@@ -5,6 +5,8 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/Admin/authRoutes");
 const apartmentRoutes = require('./routes/Admin/apartmentRoutes');
+const apartmentEventRoutes = require("./routes/Admin/EventRoutes/eventRoutes")
+const apartmentOrderRoutes = require("./routes/Admin/EventRoutes/eventOrderRoutes")
 connectDB();
 
 const app = express();
@@ -14,6 +16,8 @@ app.use(express.json());
 // route
 app.use("/admin", authRoutes);
 app.use('/admin', apartmentRoutes);
+app.use('/admin', apartmentEventRoutes);
+app.use('/admin', apartmentOrderRoutes);
 app.get("/", (req, res) => {
   res.send("API Running");
 });

@@ -700,7 +700,7 @@ const listApartments = async (req, res) => {
 
     const filter = ApartmentFilters(req.body);
     const totalCount = await Apartment.countDocuments(filter);
-    
+
 
     const apartments = await Apartment.find(filter)
       .populate("createdBySession", "fileName createdAt")
@@ -717,7 +717,15 @@ const listApartments = async (req, res) => {
 
     // LATEST SESSION INFO
     const latestSession = await UploadSession.findOne().sort({ createdAt: -1 }).lean();
+    // ADD sessionId FIELD
+    const updatedApartments = apartments.map((apartment) => ({
+      ...apartment,
 
+      sessionId: apartment.createdBySession?._id || null,
+
+      sessionId:
+        apartment.lastUpdatedBySession?._id || null,
+    }));
     return successResponse(res, "Apartments fetched successfully", {
       pageNumber,
       count,
@@ -734,18 +742,73 @@ const listApartments = async (req, res) => {
       },
       locationFilter: uniqueLocations,
       cityFilter: uniqueCities,
-      apartments,
+      apartments: updatedApartments,
     });
 
   } catch (error) {
     return errorResponse(res, "Error Fetching Apartments", error.message);
   }
 };
+// particular Apartment Get Api
+const getApartmentById =
+  async (req, res) => {
+    try {
 
+      // GET ID FROM PARAMS
+      const { apartmentId } =
+        req.query;
 
+      // VALIDATION
+      if (!apartmentId) {
+        return errorResponse(
+          res,
+          "apartmentId is required"
+        );
+      }
+
+      // FIND APARTMENT
+      const apartment =
+        await Apartment.findById(
+          apartmentId
+        )
+          .populate(
+            "createdBySession",
+            "fileName createdAt"
+          )
+          .populate(
+            "lastUpdatedBySession",
+            "fileName createdAt"
+          )
+          .lean();
+
+      // NOT FOUND
+      if (!apartment) {
+        return errorResponse(
+          res,
+          "Apartment not found"
+        );
+      }
+
+      return successResponse(
+        res,
+        "Apartment fetched successfully",
+        apartment
+      );
+
+    } catch (error) {
+
+      return errorResponse(
+        res,
+        "Error fetching apartment",
+        error.message
+      );
+
+    }
+  };
 module.exports = {
   uploadExcel,
   getUploadSessions,
   getApartmentsBySession,
   listApartments,
+  getApartmentById,
 };

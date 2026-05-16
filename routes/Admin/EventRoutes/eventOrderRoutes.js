@@ -15,4 +15,5 @@ router.get("/profile", protect, (req, res) => {
     userId: req.user
   });
 });
+
 module.exports = router;

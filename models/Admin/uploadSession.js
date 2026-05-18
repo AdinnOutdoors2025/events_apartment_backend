@@ -25,6 +25,7 @@ const uploadSessionSchema = new mongoose.Schema(
     },
     insertedApartmentIds: [{ type: String }],
     updatedApartmentIds:  [{ type: String }],
+    skippedApartmentIds:  [{ type: String }], 
     skippedData: [
       {
         row:     { type: Object, default: {} },

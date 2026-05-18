@@ -22,6 +22,12 @@ const apartmentSchema = new mongoose.Schema(
       ref: "ExcelUploadSession",
       default: null,
     },
+     // ── WHICH SESSION SKIPPED THIS RECORD ──
+    skippedBySession: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ExcelUploadSession",
+      default: null,
+    },
     apartmentName: { type: String, required: true, trim: true },
     apartmentAddress: { type: String, required: true, trim: true },
     city: { type: String, required: true, trim: true },

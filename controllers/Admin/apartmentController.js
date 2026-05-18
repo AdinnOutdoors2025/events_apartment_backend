@@ -14,32 +14,59 @@ const parseBankDetails = (raw) => {
 
   if (!raw?.toString().trim()) return [];
 
-  const str = raw.toString().replace(/\n/g, " ").replace(/\r/g, " ").trim();
+  const str = raw
+    .toString()
+    .replace(/\n/g, " ")
+    .replace(/\r/g, " ")
+    .trim();
 
-  let accountName = "", bankName = "", accountNumber = "";
-  let ifscCode = "", phoneNumber = "", upiId = "";
+  const getValue = (field, nextField) => {
+    let regex;
 
-  const m1 = str.match(/accountName\s*:\s*(.+?)(?=\s+bankName\s*:)/i);
-  if (m1) accountName = m1[1].trim();
+    if (nextField) {
+      regex = new RegExp(
+        `${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`,
+        "i"
+      );
+    } else {
+      regex = new RegExp(
+        `${field}\\s*:\\s*(.*)$`,
+        "i"
+      );
+    }
 
-  const m2 = str.match(/bankName\s*:\s*(.+?)(?=\s+accountNumber\s*:)/i);
-  if (m2) bankName = m2[1].trim();
+    const match = str.match(regex);
 
-  const m3 = str.match(/accountNumber\s*:\s*(.+?)(?=\s+ifscCode\s*:)/i);
-  if (m3) accountNumber = m3[1].trim();
+    return match?.[1]?.trim() || "";
+  };
 
-  const m4 = str.match(/ifscCode\s*:\s*(.+?)(?=\s+phoneNumber\s*:)/i);
-  if (m4) ifscCode = m4[1].trim();
+  const accountName =
+    getValue("accountName", "bankName");
 
-  const m5 = str.match(/phoneNumber\s*:\s*(.+?)(?=\s+upiId\s*:)/i);
-  if (m5) phoneNumber = m5[1].trim();
+  const bankName =
+    getValue("bankName", "accountNumber");
 
-  const m6 = str.match(/upiId\s*:\s*(.*)$/i);
-  if (m6) upiId = m6[1].trim();
+  const accountNumber =
+    getValue("accountNumber", "ifscCode");
 
-  return [{ accountName, bankName, accountNumber, ifscCode, phoneNumber, upiId }];
+  const ifscCode =
+    getValue("ifscCode", "phoneNumber");
+
+  const phoneNumber =
+    getValue("phoneNumber", "upiId");
+
+  const upiId =
+    getValue("upiId");
+
+  return [{
+    accountName,
+    bankName,
+    accountNumber,
+    ifscCode,
+    phoneNumber,
+    upiId
+  }];
 };
-
 
 // ─────────────────────────────────────────────
 // HELPER — PARSE EVENTS HISTORY
@@ -49,22 +76,48 @@ const parseEventsHistory = (raw) => {
 
   if (!raw?.toString().trim()) return [];
 
-  const str = raw.toString().replace(/\n/g, " ").replace(/\r/g, " ").trim();
+  const str = raw
+    .toString()
+    .replace(/\n/g, " ")
+    .replace(/\r/g, " ")
+    .trim();
 
-  let eventName = "", eventDate = "", remarks = "";
+  const getValue = (field, nextField) => {
 
-  const m1 = str.match(/EventName\s*:\s*(.+?)(?=\s+EventDate\s*:)/i);
-  if (m1) eventName = m1[1].trim();
+    let regex;
 
-  const m2 = str.match(/EventDate\s*:\s*(.+?)(?=\s+Remark\s*:|$)/i);
-  if (m2) eventDate = m2[1].trim();
+    if (nextField) {
+      regex = new RegExp(
+        `${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`,
+        "i"
+      );
+    } else {
+      regex = new RegExp(
+        `${field}\\s*:\\s*(.*)$`,
+        "i"
+      );
+    }
 
-  const m3 = str.match(/Remark\s*:\s*(.*)$/i);
-  if (m3) remarks = m3[1].trim();
+    const match = str.match(regex);
 
-  return [{ eventName, eventDate, remarks }];
+    return match?.[1]?.trim() || "";
+  };
+
+  const eventName =
+    getValue("EventName", "EventDate");
+
+  const eventDate =
+    getValue("EventDate", "Remark");
+
+  const remarks =
+    getValue("Remark");
+
+  return [{
+    eventName,
+    eventDate,
+    remarks
+  }];
 };
-
 
 // ─────────────────────────────────────────────
 // HELPER — CHECK IF ANY FIELD CHANGED
@@ -424,315 +477,273 @@ const getUploadSessions = async (req, res) => {
     );
   }
 };
+
 // ─────────────────────────────────────────────
-// 3. GET APARTMENTS BY SESSION (file-wise)
-// ─────────────────────────────────────────────
-const getApartmentsBySession =
-  async (req, res) => {
-    try {
-
-      // POST BODY
-      const {
-        sessionId,
-        pageNumber = 1,
-        count = 10,
-      } = req.body;
-
-      if (!sessionId) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message:
-              "sessionId is required",
-          });
-      }
-
-      // VERIFY SESSION EXISTS
-      const session =
-        await UploadSession.findById(
-          sessionId
-        ).lean();
-
-      if (!session) {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message:
-              "Upload session not found",
-          });
-      }
-
-      // PAGINATION
-      const page =
-        parseInt(pageNumber) || 1;
-
-      const limit =
-        parseInt(count) || 10;
-
-      const skip =
-        (page - 1) * limit;
-
-      // ALL FILTERS
-      const filter =
-        ApartmentFilters(req.body);
-
-      // SESSION FILTER
-      const sessionFilter = {
-        $or: [
-          {
-            createdBySession:
-              sessionId,
-          },
-          {
-            lastUpdatedBySession:
-              sessionId,
-          },
-        ],
-      };
-
-      // MERGE FILTERS
-      const finalFilter = {
-        ...filter,
-        ...sessionFilter,
-      };
-
-      // TOTAL COUNT
-      const totalCount =
-        await Apartment.countDocuments(
-          finalFilter
-        );
-
-      // FETCH APARTMENTS
-      const apartments =
-        await Apartment.find(
-          finalFilter
-        )
-          .populate(
-            "createdBySession",
-            "fileName createdAt"
-          )
-          .populate(
-            "lastUpdatedBySession",
-            "fileName createdAt"
-          )
-          .sort({
-            updatedAt: 1,
-          })
-          .skip(skip)
-          .limit(limit)
-          .lean();
-
-      // FORMAT INSERTED / UPDATED STATUS
-      const formattedApartments =
-        apartments.map(
-          (item) => ({
-
-            ...item,
-
-            status:
-              item.createdBySession?._id?.toString() ===
-                sessionId
-                ? "Inserted"
-                : "Updated",
-
-          })
-        );
-
-      // FILTER SKIPPED DATA
-      let skippedData =
-        (
-          session.skippedData ||
-          []
-        ).map((item) => ({
-          ...item.row,
-
-          status: "Skipped",
-
-          reason:
-            item.reason,
-        }));
-
-      // APPLY FILTERS TO SKIPPED DATA
-      if (req.body.city) {
-        skippedData =
-          skippedData.filter(
-            (item) =>
-              item.city ===
-              req.body.city
-          );
-      }
-
-      if (req.body.location) {
-        skippedData =
-          skippedData.filter(
-            (item) =>
-              item.location ===
-              req.body.location
-          );
-      }
-
-      if (req.body.apartmentName) {
-        skippedData =
-          skippedData.filter(
-            (item) =>
-              item.apartmentName
-                ?.toLowerCase()
-                .includes(
-                  req.body.apartmentName.toLowerCase()
-                )
-          );
-      }
-
-      // MERGE DATA
-      const allData = [
-        ...formattedApartments,
-        ...skippedData,
-      ];
-      const sessionApartments =
-        await Apartment.find(
-          sessionFilter
-        ).lean();
-
-      const uniqueLocations =
-        [
-          ...new Set(
-            sessionApartments
-              .map(
-                (a) => a.location
-              )
-              .filter(Boolean)
-          ),
-        ];
-
-      const uniqueCities =
-        [
-          ...new Set(
-            sessionApartments
-              .map(
-                (a) => a.city
-              )
-              .filter(Boolean)
-          ),
-        ];
-      return successResponse(
-        res,
-        "Apartments fetched by session successfully",
-        {
-
-          pageNumber: page,
-
-          count: limit,
-
-          totalCount,
-
-          totalPages:
-            Math.ceil(
-              totalCount /
-              limit
-            ),
-          updatedBy: req.user.name,
-          sessionId,
-
-          fileName:
-            session.fileName,
-
-          uploadedAt:
-            new Date(
-              session.createdAt
-            ).toLocaleString(
-              "en-IN",
-              {
-                day: "2-digit",
-                month:
-                  "short",
-                year: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-              }
-            ),
-
-          insertedCount:
-            session.insertedCount,
-
-          updatedCount:
-            session.updatedCount,
-
-          skippedCount:
-            skippedData.length,
-
-          totalRows:
-            session.totalRows,
-
-          locationFilter:
-            uniqueLocations,
-
-          cityFilter:
-            uniqueCities,
-
-          apartments:
-            allData,
-        }
-      );
-
-    } catch (error) {
-
-      return errorResponse(
-        res,
-        "Error Fetching Apartments by Session",
-        error.message
-      );
-
-    }
-  };
-// ─────────────────────────────────────────────
-// 4. List ALL APARTMENTS (common — all files)
+// 3. List ALL APARTMENTS (common — all files)
 // ─────────────────────────────────────────────
 
+
+// const listApartments = async (req, res) => {
+//   try {
+
+//     // PAGINATION
+//     const pageNumber = parseInt(req.body.pageNumber) || 1;
+//     const count = parseInt(req.body.count) || 10;
+//     const skip = (pageNumber - 1) * count;
+
+//     // BODY
+//     const { sessionId } = req.body;
+
+//     // SESSION DETAILS (fetch first, so we can use its linked session)
+//     let latestSession = null;
+
+//     if (sessionId) {
+//       latestSession = await UploadSession.findById(sessionId).lean();
+//     } else {
+//       latestSession = await UploadSession.findOne()
+//         .sort({ createdAt: -1 })
+//         .lean();
+//     }
+
+//     // Use the actual session _id from the found session document
+//     const resolvedSessionId = latestSession?._id || null;
+
+//     // FILTER
+//     let filter = ApartmentFilters(req.body);
+
+//     // SESSION FILTER — match against the resolved session _id
+//     if (resolvedSessionId) {
+//       filter = {
+//         ...filter,
+//         $or: [
+//           { createdBySession: resolvedSessionId },
+//           { lastUpdatedBySession: resolvedSessionId },
+//         ],
+//       };
+//     }
+
+//     // TOTAL COUNT
+//     const totalCount = await Apartment.countDocuments(filter);
+
+//     // APARTMENTS
+//     const apartments = await Apartment.find(filter)
+//       .populate("createdBySession", "fileName createdAt")
+//       .populate("lastUpdatedBySession", "fileName createdAt")
+//       .sort({ updatedAt: -1 })
+//       .skip(skip)
+//       .limit(count)
+//       .lean();
+
+//     // LOCATION & CITY — also use resolvedSessionId
+//     let sessionFilter = {};
+
+//     if (resolvedSessionId) {
+//       sessionFilter = {
+//         $or: [
+//           { createdBySession: resolvedSessionId },
+//           { lastUpdatedBySession: resolvedSessionId },
+//           { skippedBySession: resolvedSessionId },
+//         ],
+//       };
+//     }
+
+//     const sessionApartments = await Apartment.find(sessionFilter).lean();
+
+//     const uniqueLocations = [
+//       ...new Set(sessionApartments.map((a) => a.location).filter(Boolean)),
+//     ];
+
+//     const uniqueCities = [
+//       ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+//     ];
+
+//     // RESPONSE
+//     return successResponse(res, "Apartments fetched successfully", {
+//       pageNumber,
+//       count,
+//       totalCount,
+//       totalPages: Math.ceil(totalCount / count),
+//       File: {
+//         sessionId: latestSession?._id || null,
+//         fileName: latestSession?.fileName || "",
+//         totalRows: latestSession?.totalRows || 0,
+//         insertedCount: latestSession?.insertedCount || 0,
+//         updatedCount: latestSession?.updatedCount || 0,
+//         skippedCount: latestSession?.skippedCount || 0,
+//         uploadedAt: latestSession?.createdAt || null,
+//       },
+//       locationFilter: uniqueLocations,
+//       cityFilter: uniqueCities,
+//       apartments,
+//     });
+
+//   } catch (error) {
+//     return errorResponse(res, "Error Fetching Apartments", error.message);
+//   }
+// };
+// const listApartments = async (req, res) => {
+//   try {
+
+//     // PAGINATION
+//     const pageNumber = parseInt(req.body.pageNumber) || 1;
+//     const count = parseInt(req.body.count) || 10;
+//     const skip = (pageNumber - 1) * count;
+
+//     // BODY
+//     const { sessionId } = req.body;
+
+//     // SESSION DETAILS (fetch first, so we can use its linked session)
+//     let latestSession = null;
+
+//     if (sessionId) {
+//       latestSession = await UploadSession.findById(sessionId).lean();
+//     } else {
+//       latestSession = await UploadSession.findOne()
+//         .sort({ createdAt: -1 })
+//         .lean();
+//     }
+
+//     // Use the actual session _id from the found session document
+//     const resolvedSessionId = latestSession?._id || null;
+
+//     // FILTER
+//     let filter = ApartmentFilters(req.body);
+
+//     // SESSION FILTER — match against the resolved session _id
+//     if (resolvedSessionId) {
+//       filter = {
+//         ...filter,
+//         $or: [
+//           { createdBySession: resolvedSessionId },
+//           { lastUpdatedBySession: resolvedSessionId },
+//         ],
+//       };
+//     }
+
+//     // TOTAL COUNT - For apartments that exist in database
+//     const totalExistingApartments = await Apartment.countDocuments(filter);
+
+//     // For response totalCount, use session's totalRows if session exists, otherwise use existing count
+//     const totalCount = latestSession ? latestSession.totalRows : totalExistingApartments;
+
+//     // APARTMENTS
+//     const apartments = await Apartment.find(filter)
+//       .populate("createdBySession", "fileName createdAt")
+//       .populate("lastUpdatedBySession", "fileName createdAt")
+//       .sort({ updatedAt: -1 })
+//       .skip(skip)
+//       .limit(count)
+//       .lean();
+
+//     // LOCATION & CITY — also use resolvedSessionId
+//     let sessionFilter = {};
+
+//     if (resolvedSessionId) {
+//       sessionFilter = {
+//         $or: [
+//           { createdBySession: resolvedSessionId },
+//           { lastUpdatedBySession: resolvedSessionId },
+//           { skippedBySession: resolvedSessionId },
+//         ],
+//       };
+//     }
+
+//     const sessionApartments = await Apartment.find(sessionFilter).lean();
+
+//     const uniqueLocations = [
+//       ...new Set(sessionApartments.map((a) => a.location).filter(Boolean)),
+//     ];
+
+//     const uniqueCities = [
+//       ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+//     ];
+
+//     // Calculate total pages based on totalCount (which is now session.totalRows)
+//     const totalPages = latestSession ? Math.ceil(latestSession.totalRows / count) : Math.ceil(totalExistingApartments / count);
+
+//     // RESPONSE
+//     return successResponse(res, "Apartments fetched successfully", {
+//       pageNumber,
+//       count,
+//       totalCount, // This will show 4 when session exists
+//       totalPages,
+//       File: {
+//         sessionId: latestSession?._id || null,
+//         fileName: latestSession?.fileName || "",
+//         totalRows: latestSession?.totalRows || 0,
+//         insertedCount: latestSession?.insertedCount || 0,
+//         updatedCount: latestSession?.updatedCount || 0,
+//         skippedCount: latestSession?.skippedCount || 0,
+//         uploadedAt: latestSession?.createdAt || null,
+//       },
+//       locationFilter: uniqueLocations,
+//       cityFilter: uniqueCities,
+//       apartments, // This will still only show 2 apartments (the updated ones)
+//     });
+
+//   } catch (error) {
+//     return errorResponse(res, "Error Fetching Apartments", error.message);
+//   }
+// };
 const listApartments = async (req, res) => {
   try {
-
     const pageNumber = parseInt(req.body.pageNumber) || 1;
     const count = parseInt(req.body.count) || 10;
     const skip = (pageNumber - 1) * count;
+    const { sessionId } = req.body;
 
-    const filter = ApartmentFilters(req.body);
+    let latestSession = null;
+    if (sessionId) {
+      latestSession = await UploadSession.findById(sessionId).lean();
+    } else {
+      latestSession = await UploadSession.findOne().sort({ createdAt: -1 }).lean();
+    }
+
+    const resolvedSessionId = latestSession?._id || null;
+    let filter = ApartmentFilters(req.body);
+
+    if (resolvedSessionId) {
+      filter = {
+        ...filter,
+        $or: [
+          { createdBySession: resolvedSessionId },
+          { lastUpdatedBySession: resolvedSessionId },
+          { skippedBySession: resolvedSessionId } // Include skipped records
+        ],
+      };
+    }
+
+    // This will now count ALL records (including skipped ones)
     const totalCount = await Apartment.countDocuments(filter);
-
-
+    
     const apartments = await Apartment.find(filter)
       .populate("createdBySession", "fileName createdAt")
       .populate("lastUpdatedBySession", "fileName createdAt")
-      .sort({ updatedAt: 1 })
+      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(count)
       .lean();
 
-    // UNIQUE LOCATIONS & CITIES FOR FILTERS
-    const allApartments = await Apartment.find().lean();
-    const uniqueLocations = [...new Set(allApartments.map((a) => a.location).filter(Boolean))];
-    const uniqueCities = [...new Set(allApartments.map((a) => a.city).filter(Boolean))];
+    // Location & city filters (excluding skipped records if needed)
+    const sessionFilter = resolvedSessionId ? {
+      $or: [
+        { createdBySession: resolvedSessionId },
+        { lastUpdatedBySession: resolvedSessionId },
+      ],
+    } : {};
 
-    // LATEST SESSION INFO
-    const latestSession = await UploadSession.findOne().sort({ createdAt: -1 }).lean();
-    // ADD sessionId FIELD
-    const updatedApartments = apartments.map((apartment) => ({
-      ...apartment,
+    const sessionApartments = await Apartment.find(sessionFilter).lean();
 
-      sessionId: apartment.createdBySession?._id || null,
+    const uniqueLocations = [...new Set(sessionApartments.map(a => a.location).filter(Boolean))];
+    const uniqueCities = [...new Set(sessionApartments.map(a => a.city).filter(Boolean))];
 
-      sessionId:
-        apartment.lastUpdatedBySession?._id || null,
-    }));
     return successResponse(res, "Apartments fetched successfully", {
       pageNumber,
       count,
-      totalCount,
-      totalPages: Math.ceil(totalCount / count),
-      // LATEST UPLOAD FILE INFO
-      latestFile: {
+      totalCount: latestSession?.totalRows || totalCount, // This will be 4
+      totalPages: Math.ceil((latestSession?.totalRows || totalCount) / count),
+      File: {
+        sessionId: latestSession?._id || null,
         fileName: latestSession?.fileName || "",
         totalRows: latestSession?.totalRows || 0,
         insertedCount: latestSession?.insertedCount || 0,
@@ -742,14 +753,14 @@ const listApartments = async (req, res) => {
       },
       locationFilter: uniqueLocations,
       cityFilter: uniqueCities,
-      apartments: updatedApartments,
+      apartments, // Now includes both updated and skipped records
     });
 
   } catch (error) {
     return errorResponse(res, "Error Fetching Apartments", error.message);
   }
 };
-// particular Apartment Get Api
+// 4. particular Apartment Get Api
 const getApartmentById =
   async (req, res) => {
     try {
@@ -808,7 +819,6 @@ const getApartmentById =
 module.exports = {
   uploadExcel,
   getUploadSessions,
-  getApartmentsBySession,
   listApartments,
   getApartmentById,
 };

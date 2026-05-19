@@ -1,4 +1,5 @@
 const User = require("../../models/Admin/adminUser");
+const AdminUser = require("../../models/Admin/UserManagement/userManagement")
 const bcrypt = require("bcryptjs");
 const generateToken = require("../../utils/generateToken");
 const { successResponse, errorResponse } = require('../../utils/response');
@@ -6,7 +7,7 @@ const { successResponse, errorResponse } = require('../../utils/response');
 // REGISTER
 exports.register = async (req, res) => {
   try {
-    const { name, phoneNumber, password } = req.body;
+    const { name, phoneNumber, password, userType } = req.body;
 
     // validation
     if (!name || !phoneNumber || !password) {
@@ -32,6 +33,7 @@ exports.register = async (req, res) => {
     const user = await User.create({
       phoneNumber,
       name,
+      userType,
       password: hashedPassword,
     });
 
@@ -48,6 +50,7 @@ exports.register = async (req, res) => {
           phoneNumber:
             user.phoneNumber,
           name: user.name,
+          userType: user.userType
         },
         token,
       }
@@ -63,12 +66,82 @@ exports.register = async (req, res) => {
 
 // LOGIN
 
+// exports.login = async (req, res) => {
+//   try {
+
+//     const { phoneNumber, password } = req.body;
+
+//     // validation
+//     if (!phoneNumber || !password) {
+//       return errorResponse(
+//         res,
+//         "Phone number and password are required",
+//         null,
+//         400
+//       );
+//     }
+
+//     // check user
+//     const user = await User.findOne({
+//       phoneNumber
+//     });
+
+//     if (!user) {
+//       return errorResponse(
+//         res,
+//         "Invalid phone number",
+//         null,
+//         400
+//       );
+//     }
+
+//     // compare password
+//     const isMatch = await bcrypt.compare(
+//       password,
+//       user.password
+//     );
+
+//     if (!isMatch) {
+//       return errorResponse(
+//         res,
+//         "Invalid password",
+//         null,
+//         400
+//       );
+//     }
+
+
+//     // generate token
+//     const token = generateToken(user);
+
+//     return successResponse(
+//       res,
+//       "Login successful",
+//       {
+//         user: {
+//           id: user._id,
+//           phoneNumber: user.phoneNumber,
+//           name: user.name,
+//         },
+//         token,
+//       }
+//     );
+
+//   } catch (error) {
+
+//     return errorResponse(
+//       res,
+//       error.message,
+//       null,
+//       500
+//     );
+//   }
+// };
 exports.login = async (req, res) => {
   try {
+    const { phoneNumber, password, } = req.body;
 
-    const { phoneNumber, password } = req.body;
-
-    // validation
+    // VALIDATION
     if (!phoneNumber || !password) {
       return errorResponse(
         res,
@@ -78,11 +151,24 @@ exports.login = async (req, res) => {
       );
     }
 
-    // check user
-    const user = await User.findOne({
-      phoneNumber
+    // CHECK ADMIN USER
+    let user = await User.findOne({
+      phoneNumber,
     });
 
+    let userRole = "admin";
+
+    // IF NOT ADMIN CHECK NORMAL USER
+    if (!user) {
+      user =
+        await AdminUser.findOne({
+          phoneNumber,
+        });
+
+      userRole = "user";
+    }
+
+    // USER NOT FOUND
     if (!user) {
       return errorResponse(
         res,
@@ -92,11 +178,12 @@ exports.login = async (req, res) => {
       );
     }
 
-    // compare password
-    const isMatch = await bcrypt.compare(
-      password,
-      user.password
-    );
+    // PASSWORD CHECK
+    const isMatch =
+      await bcrypt.compare(
+        password,
+        user.password
+      );
 
     if (!isMatch) {
       return errorResponse(
@@ -107,9 +194,13 @@ exports.login = async (req, res) => {
       );
     }
 
-
-    // generate token
-    const token = generateToken(user);
+    // GENERATE TOKEN
+    const token =
+      generateToken({
+        id: user._id,
+        userType:
+          user.userType,
+      });
 
     return successResponse(
       res,
@@ -117,15 +208,19 @@ exports.login = async (req, res) => {
       {
         user: {
           id: user._id,
-          phoneNumber: user.phoneNumber,
-          name: user.name,
+          phoneNumber:
+            user.phoneNumber,
+          name:
+            user.name ||
+            user.userName,
+          userType:
+            user.userType,
+          role: userRole,
         },
         token,
       }
     );
-
   } catch (error) {
-
     return errorResponse(
       res,
       error.message,

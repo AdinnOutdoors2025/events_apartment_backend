@@ -365,7 +365,39 @@ const getUploadSessions = async (req, res) => {
 // ─────────────────────────────────────────────
 // 3. LIST APARTMENTS
 // ─────────────────────────────────────────────
+const getMinMaxValues = (apartments = []) => {
+  // TG VALUES
+  const tgValues = apartments
+    .map((apt) => Number(apt.startingTGValues || 0))
+    .filter((val) => !isNaN(val));
 
+  // RENT VALUES
+  const rentValues = apartments
+    .map((apt) => Number(apt.perDayRent || 0))
+    .filter((val) => !isNaN(val));
+
+  return {
+    minTG:
+      tgValues.length > 0
+        ? Math.min(...tgValues)
+        : 0,
+
+    maxTG:
+      tgValues.length > 0
+        ? Math.max(...tgValues)
+        : 0,
+
+    minRent:
+      rentValues.length > 0
+        ? Math.min(...rentValues)
+        : 0,
+
+    maxRent:
+      rentValues.length > 0
+        ? Math.max(...rentValues)
+        : 0,
+  };
+};
 const listApartments = async (req, res) => {
   try {
     const pageNumber = parseInt(req.body.pageNumber) || 1;
@@ -419,7 +451,8 @@ const listApartments = async (req, res) => {
       .skip(skip)
       .limit(count)
       .lean();
-
+// GET MIN/MAX VALUES
+    const priceRange = getMinMaxValues(apartments);
     // Add status field to each apartment for clarity
     const apartmentsWithStatus = apartments.map((apt) => {
       let status = "unknown";
@@ -491,6 +524,7 @@ const listApartments = async (req, res) => {
       },
       locationFilter: uniqueLocations,
       cityFilter: uniqueCities,
+      priceRange,
       apartments: apartmentsWithStatus,
     });
 

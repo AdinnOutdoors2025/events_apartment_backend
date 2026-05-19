@@ -139,7 +139,10 @@ exports.register = async (req, res) => {
 // };
 exports.login = async (req, res) => {
   try {
-    const { phoneNumber, password, } = req.body;
+    const {
+      phoneNumber,
+      password,
+    } = req.body;
 
     // VALIDATION
     if (!phoneNumber || !password) {
@@ -151,50 +154,60 @@ exports.login = async (req, res) => {
       );
     }
 
-    // CHECK ADMIN USER
-    let user = await User.findOne({
-      phoneNumber,
-    });
+    // FIND ADMIN
+    const adminUser =
+      await User.findOne({
+        phoneNumber,
+      });
 
-    let userRole = "admin";
+    // FIND NORMAL USER
+    const normalUser =
+      await AdminUser.findOne({
+        phoneNumber,
+      });
 
-    // IF NOT ADMIN CHECK NORMAL USER
-    if (!user) {
-      user =
-        await AdminUser.findOne({
-          phoneNumber,
-        });
+    let user = null;
+    let userRole = null;
 
-      userRole = "user";
+    // CHECK ADMIN PASSWORD
+    if (adminUser) {
+      const isAdminPassword =
+        await bcrypt.compare(
+          password,
+          adminUser.password
+        );
+
+      if (isAdminPassword) {
+        user = adminUser;
+        userRole = "admin";
+      }
     }
 
-    // USER NOT FOUND
+    // CHECK NORMAL USER PASSWORD
+    if (!user && normalUser) {
+      const isUserPassword =
+        await bcrypt.compare(
+          password,
+          normalUser.password
+        );
+
+      if (isUserPassword) {
+        user = normalUser;
+        userRole = "user";
+      }
+    }
+
+    // LOGIN FAILED
     if (!user) {
       return errorResponse(
         res,
-        "Invalid phone number",
+        "Invalid phone number or password",
         null,
         400
       );
     }
 
-    // PASSWORD CHECK
-    const isMatch =
-      await bcrypt.compare(
-        password,
-        user.password
-      );
-
-    if (!isMatch) {
-      return errorResponse(
-        res,
-        "Invalid password",
-        null,
-        400
-      );
-    }
-
-    // GENERATE TOKEN
+    // TOKEN
     const token =
       generateToken({
         id: user._id,

@@ -1,6 +1,7 @@
 const User = require("../../../models/Admin/UserManagement/userManagement");
+const Admin = require("../../../models/Admin/adminUser");
 const bcrypt = require("bcryptjs");
-
+const { successResponse, errorResponse } = require('../../../utils/response');
 // CREATE USER
 const createUser = async (req, res) => {
   try {
@@ -25,7 +26,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    // CHECK EMAIL
+    // CHECK EMAIL IN USER
     const emailExists =
       await User.findOne({ email });
 
@@ -37,13 +38,23 @@ const createUser = async (req, res) => {
       });
     }
 
-    // CHECK PHONE
-    const phoneExists =
+    // CHECK PHONE IN USER
+    const userPhoneExists =
       await User.findOne({
         phoneNumber,
       });
 
-    if (phoneExists) {
+    // CHECK PHONE IN ADMIN
+    const adminPhoneExists =
+      await Admin.findOne({
+        phoneNumber,
+      });
+
+    // PHONE ALREADY EXISTS
+    if (
+      userPhoneExists ||
+      adminPhoneExists
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -68,21 +79,23 @@ const createUser = async (req, res) => {
         phoneNumber,
         email,
         password: hashedPassword,
-        userType: 2, // STATIC
+        userType: 2,
       });
 
-    return res.status(201).json({
-      success: true,
-      message:
-        "User created successfully",
-      data: newUser,
-    });
+    return successResponse(
+      res,
+      "User created successfully",
+      newUser,
+      201
+    );
+
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message,
-    });
+    return errorResponse(
+      res,
+      error.message,
+      null,
+      500
+    );
   }
 };
 

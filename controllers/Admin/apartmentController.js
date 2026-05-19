@@ -375,18 +375,7 @@ const listApartments = async (req, res) => {
 
     let filter = ApartmentFilters(req.body);
 
-    // SESSION FILTER — includes skippedBySession
-    // if (sessionId) {
-    //   const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
-    //   filter = {
-    //     ...filter,
-    //     $or: [
-    //       { createdBySession: sessionObjectId },
-    //       { lastUpdatedBySession: sessionObjectId },
-    //       { skippedBySession: sessionObjectId },
-    //     ],
-    //   };
-    // }
+
     if (sessionId) {
 
       const sessionObjectId =
@@ -447,7 +436,17 @@ const listApartments = async (req, res) => {
           status = "skipped";
         }
       }
-      return { ...apt, sessionStatus: status };
+      return {
+        ...apt,  // formatted rent
+        perDayRent:
+          apt.perDayRent
+            ? Number(
+              apt.perDayRent
+            ).toLocaleString(
+              "en-IN"
+            )
+            : "0", sessionStatus: status
+      };
     });
 
     // LOCATION & CITY for session

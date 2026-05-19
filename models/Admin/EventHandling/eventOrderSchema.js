@@ -48,8 +48,7 @@ const PromoterSchema =
 
 // ─── Sub-schema: Customer Details ─────────────────────
 
-const CustomerDetailsSchema =
-  new mongoose.Schema(
+const CustomerDetailsSchema = new mongoose.Schema(
     {
       brandOrCompanyName:
       {
@@ -93,22 +92,39 @@ const CustomerDetailsSchema =
 
 // ─── Main Schema ─────────────────────────────────────
 
-const OrderBookingSchema =
-  new mongoose.Schema(
+const OrderBookingSchema = new mongoose.Schema(
     {
       updatedBy: { type: String },
+      // apartmentId: {
+      //   type: String,
+      //   trim: true,
+      //   required: true,
+      // },
+
+      // eventId: {
+      //   type: String,
+      //   trim: true,
+      //   required: true,
+      // },
+// FIXED
       apartmentId: {
-        type: String,
-        trim: true,
+        type:
+          mongoose.Schema.Types.ObjectId,
+
+        ref: "Apartment",
+
         required: true,
       },
 
+      // FIXED
       eventId: {
-        type: String,
-        trim: true,
+        type:
+          mongoose.Schema.Types.ObjectId,
+
+        ref: "EventBook",
+
         required: true,
       },
-
       fromDate: {
         type: Date,
       },

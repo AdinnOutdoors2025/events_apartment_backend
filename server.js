@@ -4,7 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/Admin/authRoutes");
-const apartmentRoutes = require('./routes/Admin/apartmentRoutes');
+const apartmentRoutes = require('./routes/Admin/ApartmentRoutes/apartmentRoutes');
 const apartmentEventRoutes = require("./routes/Admin/EventRoutes/eventRoutes")
 const apartmentOrderRoutes = require("./routes/Admin/EventRoutes/eventOrderRoutes")
 const userRoutes = require("./routes/Admin/UserRoutes/userRoutes")
@@ -20,6 +20,10 @@ app.use('/admin', apartmentRoutes);
 app.use('/admin', apartmentEventRoutes);
 app.use('/admin', apartmentOrderRoutes);
 app.use('/user', userRoutes);
+app.use(
+  "/uploads",
+  express.static("uploads")
+);
 app.get("/", (req, res) => {
   res.send("API Running");
 });

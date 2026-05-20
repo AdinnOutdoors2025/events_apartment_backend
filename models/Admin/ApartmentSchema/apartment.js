@@ -2,13 +2,19 @@ const mongoose = require("mongoose");
 
 const apartmentSchema = new mongoose.Schema(
   {
+    // apartmentId: {
+    //   type: String,
+    //   required: true,
+    //   trim: true,
+    //   unique: true,
+    // },
     apartmentId: {
       type: String,
-      required: true,
       trim: true,
       unique: true,
+      sparse: true,
+      default: null,
     },
-
     // ── WHICH SESSION FIRST INSERTED THIS RECORD ──
     createdBySession: {
       type: mongoose.Schema.Types.ObjectId,
@@ -22,7 +28,7 @@ const apartmentSchema = new mongoose.Schema(
       ref: "ExcelUploadSession",
       default: null,
     },
-     // ── WHICH SESSION SKIPPED THIS RECORD ──
+    // ── WHICH SESSION SKIPPED THIS RECORD ──
     skippedBySession: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ExcelUploadSession",
@@ -38,7 +44,7 @@ const apartmentSchema = new mongoose.Schema(
     contactPersonName: { type: String, required: true, trim: true },
     contactPersonPhone: { type: String, required: true },
     email: { type: String, required: true },
-    
+
     bankDetails: [
       {
         accountName: String,
@@ -64,7 +70,7 @@ const apartmentSchema = new mongoose.Schema(
     perDayRent: { type: Number, required: true, min: 0 },
     updatedBy: { type: String },
   },
-  
+
   { timestamps: true }
 );
 

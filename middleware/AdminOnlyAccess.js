@@ -1,8 +1,4 @@
-const adminOnly = (
-  req,
-  res,
-  next
-) => {
+const adminOnly = (req,res,next) => {
   if (req.user.userType === 1) {
     next();
   } else {

@@ -11,10 +11,7 @@ exports.saveEventRate = async (req, res) => {
         } = req.body;
 
         // STATUS VALIDATION
-        if (
-            status === undefined ||
-            status === null
-        ) {
+        if (status === undefined ||status === null ) {
             return res.status(400).json({
                 success: false,
                 message:
@@ -41,8 +38,7 @@ exports.saveEventRate = async (req, res) => {
         }
 
         // CREATE EVENT
-        const saveData =
-            await EventRate.create({
+        const saveData =await EventRate.create({
                 eventName: eventName.trim(),
                 // apartmentId,
                 amount,

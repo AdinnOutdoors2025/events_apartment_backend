@@ -1,10 +1,10 @@
 const fs = require("fs");
 const mongoose = require("mongoose");
-const Apartment = require("../../models/Admin/apartment");
-const UploadSession = require("../../models/Admin/uploadSession");
-const readExcelFile = require("../../utils/excelHelper");
-const ApartmentFilters = require("../../middleware/ApartmentFilters");
-const { successResponse, errorResponse } = require("../../utils/response");
+const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
+const UploadSession = require("../../../models/Admin/ApartmentSchema/uploadSession");
+const readExcelFile = require("../../../utils/excelHelper");
+const ApartmentFilters = require("../../../middleware/ApartmentFilters");
+const { successResponse, errorResponse } = require("../../../utils/response");
 
 // ─────────────────────────────────────────────
 // HELPER — PARSE BANK DETAILS
@@ -451,7 +451,7 @@ const listApartments = async (req, res) => {
       .skip(skip)
       .limit(count)
       .lean();
-// GET MIN/MAX VALUES
+    // GET MIN/MAX VALUES
     const priceRange = getMinMaxValues(apartments);
     // Add status field to each apartment for clarity
     const apartmentsWithStatus = apartments.map((apt) => {
@@ -562,9 +562,249 @@ const getApartmentById = async (req, res) => {
   }
 };
 
+
+// const createOrUpdateParticularApartment = async (req, res) => {
+//   try {
+//     const {
+//       _id,
+//       apartmentName,
+//       apartmentAddress,
+//       city,
+//       location,
+//       jioLocation,
+//       photo,
+//       apartmentSummary,
+//       contactPersonName,
+//       contactPersonPhone,
+//       email,
+//       bankDetails,
+//       permissionStatus,
+//       rating,
+//       residencyCount,
+//       approxPeopleCount,
+//       startingTGValues,
+//       existingEventsHistory,
+//       perDayRent,
+//       updatedBy,
+//     } = req.body;
+
+//     // VALIDATION
+//     if (
+//       !apartmentName ||
+//       !apartmentAddress ||
+//       !city ||
+//       !location ||
+//       !apartmentSummary ||
+//       !contactPersonName ||
+//       !contactPersonPhone ||
+//       !email
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields are missing",
+//       });
+//     }
+
+//     let apartment;
+
+//     // UPDATE
+//     if (_id) {
+//       const existingApartment = await Apartment.findById(_id);
+
+//       if (!existingApartment) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Apartment not found",
+//         });
+//       }
+
+//       apartment = await Apartment.findByIdAndUpdate(
+//         _id,
+//         {
+//           apartmentName,
+//           apartmentAddress,
+//           city,
+//           location,
+//           jioLocation,
+//           photo,
+//           apartmentSummary,
+//           contactPersonName,
+//           contactPersonPhone,
+//           email,
+//           bankDetails,
+//           permissionStatus,
+//           rating,
+//           residencyCount,
+//           approxPeopleCount,
+//           startingTGValues,
+//           existingEventsHistory,
+//           perDayRent,
+//           updatedBy,
+//         },
+//         {
+//           new: true,
+//           runValidators: true,
+//         }
+//       );
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Apartment updated successfully",
+//         data: apartment,
+//       });
+//     }
+
+//     // CREATE
+//     apartment = await Apartment.create({
+//       apartmentName,
+//       apartmentAddress,
+//       city,
+//       location,
+//       jioLocation,
+//       photo,
+//       apartmentSummary,
+//       contactPersonName,
+//       contactPersonPhone,
+//       email,
+//       bankDetails,
+//       permissionStatus,
+//       rating,
+//       residencyCount,
+//       approxPeopleCount,
+//       startingTGValues,
+//       existingEventsHistory,
+//       perDayRent,
+//       updatedBy,
+//       // apartmentId will be null by default
+//     });
+
+//     return res.status(201).json({
+//       success: true,
+//       message: "Apartment created successfully",
+//       data: apartment,
+//     });
+
+//   } catch (error) {
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+const createOrUpdateParticularApartment = async (req, res) => {
+  try {
+    const {
+      apartmentId,
+      apartmentName,
+      apartmentAddress,
+      city,
+      location,
+      jioLocation,
+      photo,
+      apartmentSummary,
+      contactPersonName,
+      contactPersonPhone,
+      email,
+      bankDetails,
+      permissionStatus,
+      rating,
+      residencyCount,
+      approxPeopleCount,
+      startingTGValues,
+      existingEventsHistory,
+      perDayRent,
+      updatedBy,
+    } = req.body;
+
+    // VALIDATION
+    if (
+      !apartmentName ||
+      !apartmentAddress ||
+      !city ||
+      !location ||
+      !apartmentSummary ||
+      !contactPersonName ||
+      !contactPersonPhone ||
+      !email
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Required fields are missing",
+      });
+    }
+
+    const apartmentData = {
+      apartmentName,
+      apartmentAddress,
+      city,
+      location,
+      jioLocation,
+      photo,
+      apartmentSummary,
+      contactPersonName,
+      contactPersonPhone,
+      email,
+      bankDetails,
+      permissionStatus,
+      rating,
+      residencyCount,
+      approxPeopleCount,
+      startingTGValues,
+      existingEventsHistory,
+      perDayRent,
+      updatedBy,
+    };
+
+if (apartmentId && apartmentId.toString().trim() !== "") {
+  
+  // Check by MongoDB _id OR apartmentId field
+  const existingApartment = await Apartment.findOne({
+    $or: [
+      { _id: mongoose.Types.ObjectId.isValid(apartmentId) ? apartmentId : null },
+      { apartmentId: apartmentId }
+    ]
+  });
+
+  if (!existingApartment) {
+    return res.status(404).json({
+      success: false,
+      message: "Apartment not found",
+    });
+  }
+
+  const apartment = await Apartment.findByIdAndUpdate(
+    existingApartment._id,  // always update by _id
+    apartmentData,
+    { new: true, runValidators: true }
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "Apartment updated successfully",
+    data: apartment,
+  });
+}
+
+    // CREATE — no apartmentId → create new record
+    const apartment = await Apartment.create(apartmentData);
+
+    return res.status(201).json({
+      success: true,
+      message: "Apartment created successfully",
+      data: apartment,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 module.exports = {
   uploadExcel,
   getUploadSessions,
   listApartments,
   getApartmentById,
+  createOrUpdateParticularApartment
 };

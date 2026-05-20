@@ -5,20 +5,10 @@ const { successResponse, errorResponse } = require('../../../utils/response');
 // CREATE USER
 const createUser = async (req, res) => {
   try {
-    const {
-      userName,
-      phoneNumber,
-      email,
-      password,
-    } = req.body;
+    const { userName,phoneNumber,email,password} = req.body;
 
     // VALIDATION
-    if (
-      !userName ||
-      !phoneNumber ||
-      !email ||
-      !password
-    ) {
+    if (!userName ||!phoneNumber ||!email ||!password) {
       return res.status(400).json({
         success: false,
         message:
@@ -51,10 +41,7 @@ const createUser = async (req, res) => {
       });
 
     // PHONE ALREADY EXISTS
-    if (
-      userPhoneExists ||
-      adminPhoneExists
-    ) {
+    if (userPhoneExists ||adminPhoneExists) {
       return res.status(400).json({
         success: false,
         message:
@@ -63,11 +50,9 @@ const createUser = async (req, res) => {
     }
 
     // HASH PASSWORD
-    const salt =
-      await bcrypt.genSalt(10);
+    const salt =await bcrypt.genSalt(10);
 
-    const hashedPassword =
-      await bcrypt.hash(
+    const hashedPassword =await bcrypt.hash(
         password,
         salt
       );
@@ -99,6 +84,4 @@ const createUser = async (req, res) => {
   }
 };
 
-module.exports = {
-  createUser,
-};
+module.exports = {createUser};

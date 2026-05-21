@@ -40,28 +40,4 @@ const eventRateSchema =
     }
   );
 
-// AUTO EVENT ID GENERATION
-// eventRateSchema.pre(
-//   "save",
-//   async function (next) {
-//     try {
-//       if (!this.eventId) {
-//         const count =
-//           await mongoose
-//             .model("EventBook")
-//             .countDocuments();
-
-//         this.eventId =
-//           `EVT${String(
-//             count + 1
-//           ).padStart(4, "0")}`;
-//       }
-
-//     //   next();
-//     } catch (error) {
-//       next(error);
-//     }
-//   }
-// );
-
 module.exports =mongoose.model("EventBook",eventRateSchema);

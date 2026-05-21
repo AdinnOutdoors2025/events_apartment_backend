@@ -10,10 +10,10 @@ const apartmentSchema = new mongoose.Schema(
     // },
     apartmentId: {
       type: String,
-      trim: true,
+      // trim: true,
       unique: true,
       sparse: true,
-      default: null,
+      // default: null,
     },
     // ── WHICH SESSION FIRST INSERTED THIS RECORD ──
     createdBySession: {

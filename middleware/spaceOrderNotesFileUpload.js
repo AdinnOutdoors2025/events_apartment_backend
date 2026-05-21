@@ -1,97 +1,3 @@
-// require('dotenv').config();
-// const multer = require("multer");
-// const path = require("path");
-// const fs = require("fs");
-
-// const storage = multer.diskStorage({
-//   destination: (req, file, cb) => {
-//     const uploadPath = path.join(__dirname, "../uploads/orderNotes/");
-    
-//     if (!fs.existsSync(uploadPath)) {
-//       fs.mkdirSync(uploadPath, { recursive: true });
-//     }
-    
-//     cb(null, uploadPath);
-//   },
-
-//   filename: (req, file, cb) => {
-//     const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-//     cb(null, unique + path.extname(file.originalname));
-//   },
-// });
-
-
-// const allowedMimeTypes = [
-//   // Images
-//   "image/jpeg", 
-//   "image/png", 
-//   "image/gif", 
-//   "image/webp", 
-//   "image/svg+xml",
-  
-//   // Audio - MP3 and other formats
-//   "audio/mpeg",      // for .mp3 files
-//   "audio/mp3",       // alternative MIME type for .mp3
-//   "audio/wav",       // for .wav files
-//   "audio/ogg",       // for .ogg files
-//   "audio/aac",       // for .aac files
-//   "audio/m4a",       // for .m4a files
-  
-//   // PDF
-//   "application/pdf",
-  
-//   // Excel
-//   "application/vnd.ms-excel",
-//   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  
-//   // Word
-//   "application/msword",
-//   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-// ];
-// const fileFilter = (req, file, cb) => {
-//   if (allowedMimeTypes.includes(file.mimetype)) {
-//     cb(null, true);
-//   } else {
-//     cb(new Error(`File type not allowed: ${file.mimetype}`), false);
-//   }
-// };
-
-// const upload = multer({
-//   storage,
-//   fileFilter,
-//   limits: { fileSize: 20 * 1024 * 1024 },
-// });
-
-// // Store the original fields method
-// const originalFields = upload.fields.bind(upload);
-
-// // Override fields method to transform paths to URLs
-// upload.fields = function(fieldsConfig) {
-//   return (req, res, next) => {
-//     originalFields(fieldsConfig)(req, res, (err) => {
-//       if (err) return next(err);
-      
-//       const baseUrl = process.env.LOCAL_BASE_URL || 'http://localhost:5000';
-      
-//       if (req.files) {
-//         Object.keys(req.files).forEach(fieldName => {
-//           req.files[fieldName] = req.files[fieldName].map(file => {
-//             // THIS IS THE KEY - Override the path with URL
-//             file.path = `${baseUrl}/uploads/orderNotes/${file.filename}`;
-//             return file;
-//           });
-//         });
-//       }
-      
-//       next();
-//     });
-//   };
-// };
-
-// module.exports = upload;
-
-
-
 const multer = require("multer");
 const multerS3 = require("multer-s3");
 const path = require("path");
@@ -99,6 +5,9 @@ const fs = require("fs");
 const { GetObjectCommand } = require("@aws-sdk/client-s3");
 const spacesClient = require("../config/spaces");
 
+// ─────────────────────────────────────────────────────────────
+// ENV CONFIG
+// ─────────────────────────────────────────────────────────────
 const BUCKET_NAME =
   process.env.DO_SPACES_BUCKET || "adinn-space";
 
@@ -110,15 +19,12 @@ const STORAGE_TYPE =
   process.env.STORAGE_TYPE || "local";
 
 const LOCAL_BASE_URL =
-  process.env.LOCAL_BASE_URL ||
-  "http://localhost:5000";
+  process.env.LOCAL_BASE_URL || "http://localhost:5000";
 
-// Folder structure
-const APARTMENT_FOLDER = "events";
-const UPLOAD_FOLDER = "order-notes";
+const LOCAL_UPLOAD_PATH =
+  process.env.LOCAL_UPLOAD_PATH || "uploads";
 
-const SPACES_KEY_PREFIX =
-  `${APARTMENT_FOLDER}/${UPLOAD_FOLDER}`;
+const UPLOAD_FOLDER = "orderNotes-uploads";
 
 // ─────────────────────────────────────────────────────────────
 // ENSURE LOCAL DIRECTORY EXISTS
@@ -126,7 +32,7 @@ const SPACES_KEY_PREFIX =
 if (STORAGE_TYPE === "local") {
   const uploadPath = path.join(
     process.cwd(),
-    process.env.LOCAL_UPLOAD_PATH || "uploads",
+    LOCAL_UPLOAD_PATH,
     UPLOAD_FOLDER
   );
 
@@ -149,43 +55,41 @@ const fileFilter = (req, file, cb) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// LOCAL STORAGE
+// LOCAL STORAGE ENGINE
 // ─────────────────────────────────────────────────────────────
-const localStorageEngine =
-  multer.diskStorage({
-    destination: (req, file, cb) => {
-      const uploadPath = path.join(
-        process.cwd(),
-        process.env.LOCAL_UPLOAD_PATH ||
-          "uploads",
-        UPLOAD_FOLDER
+const localStorageEngine = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(
+      process.cwd(),
+      LOCAL_UPLOAD_PATH,
+      UPLOAD_FOLDER
+    );
+
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, {
+        recursive: true,
+      });
+    }
+
+    cb(null, uploadPath);
+  },
+
+  filename: (req, file, cb) => {
+    const sanitizedName =
+      file.originalname.replace(
+        /[^a-zA-Z0-9.-]/g,
+        "_"
       );
 
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, {
-          recursive: true,
-        });
-      }
-
-      cb(null, uploadPath);
-    },
-
-    filename: (req, file, cb) => {
-      const sanitizedName =
-        file.originalname.replace(
-          /[^a-zA-Z0-9.-]/g,
-          "_"
-        );
-
-      cb(
-        null,
-        `${Date.now()}-${sanitizedName}`
-      );
-    },
-  });
+    cb(
+      null,
+      `${Date.now()}-${sanitizedName}`
+    );
+  },
+});
 
 // ─────────────────────────────────────────────────────────────
-// MIME TYPE FUNCTION
+// GET MIME TYPE
 // ─────────────────────────────────────────────────────────────
 const getMimeType = (fileName) => {
   const ext = path
@@ -208,7 +112,7 @@ const getMimeType = (fileName) => {
     ".aac": "audio/aac",
     ".m4a": "audio/mp4",
 
-    // Video
+    // // Video
     // ".mp4": "video/mp4",
     // ".mov": "video/quicktime",
     // ".avi": "video/x-msvideo",
@@ -218,23 +122,23 @@ const getMimeType = (fileName) => {
     ".pdf": "application/pdf",
 
     // Excel
-    ".xls":
-      "application/vnd.ms-excel",
-
+    ".xls": "application/vnd.ms-excel",
     ".xlsx":
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 
     // Word
     ".doc": "application/msword",
-
     ".docx":
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
-    
-
     // Text
     ".txt": "text/plain",
-    
+    ".csv": "text/csv",
+    ".json": "application/json",
+
+    // Zip
+    ".zip": "application/zip",
+    ".rar": "application/vnd.rar",
   };
 
   return (
@@ -244,14 +148,13 @@ const getMimeType = (fileName) => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// DIGITALOCEAN SPACES STORAGE
+// DIGITALOCEAN SPACES STORAGE ENGINE
 // ─────────────────────────────────────────────────────────────
 const spacesStorageEngine = multerS3({
   s3: spacesClient,
 
   bucket: BUCKET_NAME,
 
-  // REMOVE THIS IF ACL DISABLED
   acl: "public-read",
 
   contentDisposition: "inline",
@@ -279,7 +182,7 @@ const spacesStorageEngine = multerS3({
 
     cb(
       null,
-      `${SPACES_KEY_PREFIX}/${Date.now()}-${sanitizedName}`
+      `${UPLOAD_FOLDER}/${Date.now()}-${sanitizedName}`
     );
   },
 });
@@ -296,19 +199,19 @@ const upload = multer({
   fileFilter,
 
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 10 * 1024 * 1024,
   },
 });
 
 // ─────────────────────────────────────────────────────────────
 // GET FILE URL
 // ─────────────────────────────────────────────────────────────
-const getFileUrl = (req, file) => {
+const getFileUrl = (file) => {
   if (STORAGE_TYPE === "space") {
     return file.location;
   }
 
-  return `${LOCAL_BASE_URL}/uploads/${UPLOAD_FOLDER}/${file.filename}`;
+  return `${LOCAL_BASE_URL}/${LOCAL_UPLOAD_PATH}/${UPLOAD_FOLDER}/${file.filename}`;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -316,13 +219,10 @@ const getFileUrl = (req, file) => {
 // ─────────────────────────────────────────────────────────────
 const getFileBuffer = async (file) => {
   if (STORAGE_TYPE === "space") {
-    const key = file.key;
-
-    const command =
-      new GetObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-      });
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: file.key,
+    });
 
     const response =
       await spacesClient.send(command);
@@ -342,16 +242,11 @@ const getFileBuffer = async (file) => {
 // ─────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────
-module.exports = upload;
-
-module.exports.getFileUrl =
-  getFileUrl;
-
-module.exports.getFileBuffer =
-  getFileBuffer;
-
-module.exports.STORAGE_TYPE =
-  STORAGE_TYPE;
-
-module.exports.SPACES_KEY_PREFIX =
-  SPACES_KEY_PREFIX;
+module.exports = {
+  upload,
+  getFileUrl,
+  getFileBuffer,
+  STORAGE_TYPE,
+  BUCKET_NAME,
+  CDN_BASE_URL,
+};

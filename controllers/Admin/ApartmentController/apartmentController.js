@@ -1,11 +1,12 @@
 const fs = require("fs");
+const path = require("path");
 const mongoose = require("mongoose");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
 const UploadSession = require("../../../models/Admin/ApartmentSchema/uploadSession");
 const readExcelFile = require("../../../utils/excelHelper");
 const ApartmentFilters = require("../../../middleware/ApartmentFilters");
 const { successResponse, errorResponse } = require("../../../utils/response");
-
+const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware/excelUploadMiddleware");
 // ─────────────────────────────────────────────
 // HELPER — PARSE BANK DETAILS
 // ─────────────────────────────────────────────
@@ -111,36 +112,287 @@ const hasDataChanged = (existing, incoming, bankDetails, existingEventsHistory) 
 // 1. UPLOAD EXCEL
 // ─────────────────────────────────────────────
 
+// const uploadExcel = async (req, res) => {
+//   try {
+//     if (!req.file) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Please upload excel file",
+//       });
+//     }
+//  // Verify file exists at the path
+//     // if (!fs.existsSync(req.file.path)) {
+//     //   console.error(`File not found at path: ${req.file.path}`);
+//     //   return res.status(500).json({
+//     //     success: false,
+//     //     message: "File upload failed - file not saved properly",
+//     //   });
+//     // }
+//  // ── LOCAL: verify file exists on disk ──────────────────────────────────────
+//     if (req.file.path && !fs.existsSync(req.file.path)) {
+//       return res.status(500).json({
+//         success: false,
+//         message: "File upload failed - file not saved properly",
+//       });
+//     }
+
+//     // ── GET FILE URL (works for both local & Spaces) ───────────────────────────
+//     const fileUrl = getFileUrl(req.file);
+
+//     // ── READ EXCEL ─────────────────────────────────────────────────────────────
+//     const filePath = req.file.path || req.file.buffer;
+
+//     const data = readExcelFile(req.file.path);
+
+//     const insertedData = [];
+//     const updatedData = [];
+//     const skippedData = [];
+//     const insertedApartmentIds = [];
+//     const updatedApartmentIds = [];
+//     const skippedApartmentIds = [];
+
+//     const processedApartmentId = new Set();
+
+//     // CREATE SESSION FIRST
+//     const session = await UploadSession.create({
+//       fileName: req.file.originalname,
+//       fileUrl,
+//       totalRows: data.length,
+//     });
+
+//     // ── LOOP ROWS ──
+//     for (const item of data) {
+//       try {
+//         // CLEAN SCALAR FIELDS
+//         const apartmentId = item.apartmentId?.toString().trim().toLowerCase();
+//         const apartmentName = item.apartmentName?.toString().trim();
+//         const apartmentAddress = item.apartmentAddress?.toString().trim();
+//         const city = item.city?.toString().trim();
+//         const location = item.location?.toString().trim();
+//         const jioLocation = item.jioLocation?.toString().trim() || "";
+//         const permissionStatus = item.permissionStatus?.toString().trim() || "";
+//         const rating = item.rating?.toString().trim() || "";
+//         const photo = item.photo?.toString().trim() || "";
+//         const apartmentSummary = item.apartmentSummary?.toString().trim();
+//         const contactPersonName = item.contactPersonName?.toString().trim();
+//         const contactPersonPhone = item.contactPersonPhone?.toString().trim();
+//         const email = item.email?.toString().trim().toLowerCase();
+//         const startingTGValues = Number(item.startingTGValues || 0);
+//         const residencyCount = Number(item.residencyCount);
+//         const approxPeopleCount = Number(item.approxPeopleCount || 0);
+//         const perDayRent = Number(item.perDayRent);
+
+//         const bankDetails = parseBankDetails(item.bankDetails);
+//         const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
+
+//         // REQUIRED FIELD VALIDATION
+//         if (
+//           !apartmentId || !apartmentName || !apartmentAddress ||
+//           !city || !location || !apartmentSummary ||
+//           !contactPersonName || !contactPersonPhone || !email ||
+//           isNaN(residencyCount) || isNaN(perDayRent)
+//         ) {
+//           skippedData.push({ row: item, message: "Missing required fields" });
+//           continue;
+//         }
+
+//         // DUPLICATE INSIDE SAME EXCEL
+//         if (processedApartmentId.has(apartmentId)) {
+//           skippedData.push({
+//             row: item,
+//             message: `Duplicate ApartmentId "${apartmentId}" found in same Excel`,
+//           });
+//           skippedApartmentIds.push(apartmentId);
+//           continue;
+//         }
+
+//         processedApartmentId.add(apartmentId);
+
+//         // CHECK DB
+//         const existingApartment = await Apartment.findOne({ apartmentId });
+
+//         const incomingData = {
+//           apartmentName, apartmentAddress, city, location,
+//           jioLocation, permissionStatus, rating, photo,
+//           apartmentSummary, contactPersonName, contactPersonPhone,
+//           email, startingTGValues, residencyCount, approxPeopleCount, perDayRent,
+//         };
+
+//         if (existingApartment) {
+//           // ── EXISTS → CHECK IF CHANGED ──
+//           if (hasDataChanged(existingApartment, incomingData, bankDetails, existingEventsHistory)) {
+//             await Apartment.findOneAndUpdate(
+//               { apartmentId },
+//               {
+//                 $set: {
+//                   ...incomingData,
+//                   bankDetails,
+//                   existingEventsHistory,
+//                   lastUpdatedBySession: session._id,
+//                   skippedBySession: null, // Clear skipped flag on update
+//                 },
+//               },
+//               { new: true }
+//             );
+
+//             updatedApartmentIds.push(apartmentId);
+//             updatedData.push({ apartmentId, message: "Record updated successfully" });
+//           } else {
+//             // ── NO CHANGE → MARK AS SKIPPED ──
+//             await Apartment.findOneAndUpdate(
+//               { apartmentId },
+//               {
+//                 $set: {
+//                   skippedBySession: session._id,
+//                 },
+//               }
+//             );
+
+//             skippedApartmentIds.push(apartmentId);
+//             skippedData.push({
+//               row: item,
+//               message: `ApartmentId "${apartmentId}" already exists with same data — no update needed`,
+//             });
+//           }
+//           continue;
+//         }
+
+//         // ── NEW RECORD → INSERT ──
+//         const newApartment = await Apartment.create({
+//           ...incomingData,
+//           apartmentId,
+//           updatedBy: req.user.name,
+//           bankDetails,
+//           existingEventsHistory,
+//           createdBySession: session._id,
+//           lastUpdatedBySession: session._id,
+//         });
+
+//         insertedApartmentIds.push(apartmentId);
+//         insertedData.push({
+//           id: newApartment._id,
+//           apartmentId: newApartment.apartmentId,
+//           message: "Record inserted successfully",
+//         });
+
+//       } catch (err) {
+//         skippedData.push({ row: item, message: err.message });
+//       }
+//     }
+
+//     // ── UPDATE SESSION WITH FINAL COUNTS ──
+//     await UploadSession.findByIdAndUpdate(session._id, {
+//       $set: {
+//         insertedCount: insertedData.length,
+//         updatedCount: updatedData.length,
+//         skippedCount: skippedData.length,
+//         insertedApartmentIds,
+//         updatedApartmentIds,
+//         skippedApartmentIds,
+//         skippedData,
+//       },
+//     });
+
+//     // DELETE UPLOADED FILE
+//     // try {
+//     //   if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+//     // } catch (fileError) {
+//     //   console.error("Error deleting file:", fileError);
+//     // }
+//     // ── FILE CLEANUP / ARCHIVE (local only) ────────────────────────────────────
+    
+//     if (req.file.path) {
+//       try {
+//         const uploadsDir  = path.dirname(req.file.path);
+//         const archivePath = path.join(uploadsDir);
+
+//         if (!fs.existsSync(archivePath)) {
+//           fs.mkdirSync(archivePath, { recursive: true });
+//         }
+
+//         fs.renameSync(req.file.path, path.join(archivePath, path.basename(req.file.path)));
+//       } catch (fileError) {
+//         console.error("Error archiving file:", fileError);
+//       }
+//     }
+//     // Spaces: file already stored at fileUrl — no action needed
+
+
+//     return successResponse(res, "Excel Upload Completed", {
+//       sessionId: session._id,
+//       fileName: req.file.originalname,
+//       totalRows: data.length,
+//       updatedBy: req.user.name,
+//       insertedCount: insertedData.length,
+//       updatedCount: updatedData.length,
+//       skippedCount: skippedData.length,
+//       insertedData,
+//       updatedData,
+//       skippedData,
+//       summary: {
+//         totalInserted: insertedData.length,
+//         totalUpdated: updatedData.length,
+//         totalSkipped: skippedData.length,
+//       },
+//     });
+
+//   } catch (error) {
+//     console.error("Main error:", error);
+
+//     try {
+//       if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+//     } catch (fileError) {
+//       console.error("Error deleting file:", fileError);
+//     }
+
+//     return errorResponse(res, "Error Uploading File", error.message);
+//   }
+// };
 const uploadExcel = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: "Please upload excel file",
+        message: "Please upload an Excel file",
       });
     }
-
-    const data = readExcelFile(req.file.path);
-
+ 
+    // ── LOCAL ONLY: verify file was saved to disk ──────────────────────────────
+    if (STORAGE_TYPE === "local" && req.file.path && !fs.existsSync(req.file.path)) {
+      return res.status(500).json({
+        success: false,
+        message: "File upload failed - file not saved properly",
+      });
+    }
+ 
+    // ── GET FILE URL (works for both local & Spaces) ───────────────────────────
+    const fileUrl = getFileUrl(req, req.file);
+ 
+    // ── READ EXCEL BUFFER (works for both local & Spaces) ─────────────────────
+    const fileBuffer = await getFileBuffer(req.file);
+ 
+    // Pass buffer to your Excel reader instead of a file path
+    const data = readExcelFile(fileBuffer); // ← make sure readExcelFile accepts Buffer
+ 
     const insertedData = [];
     const updatedData = [];
     const skippedData = [];
     const insertedApartmentIds = [];
     const updatedApartmentIds = [];
     const skippedApartmentIds = [];
-
+ 
     const processedApartmentId = new Set();
-
-    // CREATE SESSION FIRST
+ 
+    // ── CREATE SESSION ─────────────────────────────────────────────────────────
     const session = await UploadSession.create({
       fileName: req.file.originalname,
+      fileUrl,
       totalRows: data.length,
     });
-
-    // ── LOOP ROWS ──
+ 
+    // ── LOOP ROWS ──────────────────────────────────────────────────────────────
     for (const item of data) {
       try {
-        // CLEAN SCALAR FIELDS
         const apartmentId = item.apartmentId?.toString().trim().toLowerCase();
         const apartmentName = item.apartmentName?.toString().trim();
         const apartmentAddress = item.apartmentAddress?.toString().trim();
@@ -158,11 +410,11 @@ const uploadExcel = async (req, res) => {
         const residencyCount = Number(item.residencyCount);
         const approxPeopleCount = Number(item.approxPeopleCount || 0);
         const perDayRent = Number(item.perDayRent);
-
+ 
         const bankDetails = parseBankDetails(item.bankDetails);
         const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
-
-        // REQUIRED FIELD VALIDATION
+ 
+        // ── REQUIRED FIELD VALIDATION ──
         if (
           !apartmentId || !apartmentName || !apartmentAddress ||
           !city || !location || !apartmentSummary ||
@@ -172,8 +424,8 @@ const uploadExcel = async (req, res) => {
           skippedData.push({ row: item, message: "Missing required fields" });
           continue;
         }
-
-        // DUPLICATE INSIDE SAME EXCEL
+ 
+        // ── DUPLICATE IN SAME EXCEL ──
         if (processedApartmentId.has(apartmentId)) {
           skippedData.push({
             row: item,
@@ -182,21 +434,20 @@ const uploadExcel = async (req, res) => {
           skippedApartmentIds.push(apartmentId);
           continue;
         }
-
+ 
         processedApartmentId.add(apartmentId);
-
-        // CHECK DB
+ 
+        // ── CHECK DB ──
         const existingApartment = await Apartment.findOne({ apartmentId });
-
+ 
         const incomingData = {
           apartmentName, apartmentAddress, city, location,
           jioLocation, permissionStatus, rating, photo,
           apartmentSummary, contactPersonName, contactPersonPhone,
           email, startingTGValues, residencyCount, approxPeopleCount, perDayRent,
         };
-
+ 
         if (existingApartment) {
-          // ── EXISTS → CHECK IF CHANGED ──
           if (hasDataChanged(existingApartment, incomingData, bankDetails, existingEventsHistory)) {
             await Apartment.findOneAndUpdate(
               { apartmentId },
@@ -206,25 +457,18 @@ const uploadExcel = async (req, res) => {
                   bankDetails,
                   existingEventsHistory,
                   lastUpdatedBySession: session._id,
-                  skippedBySession: null, // Clear skipped flag on update
+                  skippedBySession: null,
                 },
               },
               { new: true }
             );
-
             updatedApartmentIds.push(apartmentId);
             updatedData.push({ apartmentId, message: "Record updated successfully" });
           } else {
-            // ── NO CHANGE → MARK AS SKIPPED ──
             await Apartment.findOneAndUpdate(
               { apartmentId },
-              {
-                $set: {
-                  skippedBySession: session._id,
-                },
-              }
+              { $set: { skippedBySession: session._id } }
             );
-
             skippedApartmentIds.push(apartmentId);
             skippedData.push({
               row: item,
@@ -233,7 +477,7 @@ const uploadExcel = async (req, res) => {
           }
           continue;
         }
-
+ 
         // ── NEW RECORD → INSERT ──
         const newApartment = await Apartment.create({
           ...incomingData,
@@ -244,20 +488,20 @@ const uploadExcel = async (req, res) => {
           createdBySession: session._id,
           lastUpdatedBySession: session._id,
         });
-
+ 
         insertedApartmentIds.push(apartmentId);
         insertedData.push({
           id: newApartment._id,
           apartmentId: newApartment.apartmentId,
           message: "Record inserted successfully",
         });
-
+ 
       } catch (err) {
         skippedData.push({ row: item, message: err.message });
       }
     }
-
-    // ── UPDATE SESSION WITH FINAL COUNTS ──
+ 
+    // ── UPDATE SESSION WITH FINAL COUNTS ──────────────────────────────────────
     await UploadSession.findByIdAndUpdate(session._id, {
       $set: {
         insertedCount: insertedData.length,
@@ -269,14 +513,9 @@ const uploadExcel = async (req, res) => {
         skippedData,
       },
     });
+ 
 
-    // DELETE UPLOADED FILE
-    try {
-      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    } catch (fileError) {
-      console.error("Error deleting file:", fileError);
-    }
-
+ 
     return successResponse(res, "Excel Upload Completed", {
       sessionId: session._id,
       fileName: req.file.originalname,
@@ -294,20 +533,22 @@ const uploadExcel = async (req, res) => {
         totalSkipped: skippedData.length,
       },
     });
-
+ 
   } catch (error) {
-    console.error("Main error:", error);
-
-    try {
-      if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
-    } catch (fileError) {
-      console.error("Error deleting file:", fileError);
+    console.error("uploadExcel error:", error);
+ 
+    // Cleanup local file on hard failure
+    if (STORAGE_TYPE === "local" && req.file?.path) {
+      try {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      } catch (fileError) {
+        console.error("Error deleting file on failure:", fileError);
+      }
     }
-
+ 
     return errorResponse(res, "Error Uploading File", error.message);
   }
 };
-
 // ─────────────────────────────────────────────
 // 2. GET ALL UPLOAD SESSIONS
 // ─────────────────────────────────────────────
@@ -563,134 +804,6 @@ const getApartmentById = async (req, res) => {
 };
 
 
-// const createOrUpdateParticularApartment = async (req, res) => {
-//   try {
-//     const {
-//       _id,
-//       apartmentName,
-//       apartmentAddress,
-//       city,
-//       location,
-//       jioLocation,
-//       photo,
-//       apartmentSummary,
-//       contactPersonName,
-//       contactPersonPhone,
-//       email,
-//       bankDetails,
-//       permissionStatus,
-//       rating,
-//       residencyCount,
-//       approxPeopleCount,
-//       startingTGValues,
-//       existingEventsHistory,
-//       perDayRent,
-//       updatedBy,
-//     } = req.body;
-
-//     // VALIDATION
-//     if (
-//       !apartmentName ||
-//       !apartmentAddress ||
-//       !city ||
-//       !location ||
-//       !apartmentSummary ||
-//       !contactPersonName ||
-//       !contactPersonPhone ||
-//       !email
-//     ) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Required fields are missing",
-//       });
-//     }
-
-//     let apartment;
-
-//     // UPDATE
-//     if (_id) {
-//       const existingApartment = await Apartment.findById(_id);
-
-//       if (!existingApartment) {
-//         return res.status(404).json({
-//           success: false,
-//           message: "Apartment not found",
-//         });
-//       }
-
-//       apartment = await Apartment.findByIdAndUpdate(
-//         _id,
-//         {
-//           apartmentName,
-//           apartmentAddress,
-//           city,
-//           location,
-//           jioLocation,
-//           photo,
-//           apartmentSummary,
-//           contactPersonName,
-//           contactPersonPhone,
-//           email,
-//           bankDetails,
-//           permissionStatus,
-//           rating,
-//           residencyCount,
-//           approxPeopleCount,
-//           startingTGValues,
-//           existingEventsHistory,
-//           perDayRent,
-//           updatedBy,
-//         },
-//         {
-//           new: true,
-//           runValidators: true,
-//         }
-//       );
-
-//       return res.status(200).json({
-//         success: true,
-//         message: "Apartment updated successfully",
-//         data: apartment,
-//       });
-//     }
-
-//     // CREATE
-//     apartment = await Apartment.create({
-//       apartmentName,
-//       apartmentAddress,
-//       city,
-//       location,
-//       jioLocation,
-//       photo,
-//       apartmentSummary,
-//       contactPersonName,
-//       contactPersonPhone,
-//       email,
-//       bankDetails,
-//       permissionStatus,
-//       rating,
-//       residencyCount,
-//       approxPeopleCount,
-//       startingTGValues,
-//       existingEventsHistory,
-//       perDayRent,
-//       updatedBy,
-//       // apartmentId will be null by default
-//     });
-
-//     return res.status(201).json({
-//       success: true,
-//       message: "Apartment created successfully",
-//       data: apartment,
-//     });
-
-//   } catch (error) {
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
 const createOrUpdateParticularApartment = async (req, res) => {
   try {
     const {
@@ -716,7 +829,9 @@ const createOrUpdateParticularApartment = async (req, res) => {
       updatedBy,
     } = req.body;
 
+    // =====================================================
     // VALIDATION
+    // =====================================================
     if (
       !apartmentName ||
       !apartmentAddress ||
@@ -733,6 +848,9 @@ const createOrUpdateParticularApartment = async (req, res) => {
       });
     }
 
+    // =====================================================
+    // COMMON DATA
+    // =====================================================
     const apartmentData = {
       apartmentName,
       apartmentAddress,
@@ -755,52 +873,115 @@ const createOrUpdateParticularApartment = async (req, res) => {
       updatedBy,
     };
 
-if (apartmentId && apartmentId.toString().trim() !== "") {
-  
-  // Check by MongoDB _id OR apartmentId field
-  const existingApartment = await Apartment.findOne({
-    $or: [
-      { _id: mongoose.Types.ObjectId.isValid(apartmentId) ? apartmentId : null },
-      { apartmentId: apartmentId }
-    ]
-  });
+    // =====================================================
+    // ADD apartmentId ONLY IF VALID
+    // =====================================================
+    const isValidApartmentId =
+      apartmentId &&
+      apartmentId !== null &&
+      apartmentId !== "" &&
+      apartmentId !== "null" &&
+      apartmentId !== "undefined";
 
-  if (!existingApartment) {
-    return res.status(404).json({
-      success: false,
-      message: "Apartment not found",
-    });
-  }
+    if (isValidApartmentId) {
+      apartmentData.apartmentId =
+        apartmentId;
+    }
 
-  const apartment = await Apartment.findByIdAndUpdate(
-    existingApartment._id,  // always update by _id
-    apartmentData,
-    { new: true, runValidators: true }
-  );
+    // EXTRA SAFETY
+    if (
+      apartmentData.apartmentId === undefined ||
+      apartmentData.apartmentId === null ||
+      apartmentData.apartmentId === ""
+    ) {
+      delete apartmentData.apartmentId;
+    }
 
-  return res.status(200).json({
-    success: true,
-    message: "Apartment updated successfully",
-    data: apartment,
-  });
-}
+    // =====================================================
+    // UPDATE
+    // =====================================================
+    if (isValidApartmentId) {
+      let query;
 
-    // CREATE — no apartmentId → create new record
-    const apartment = await Apartment.create(apartmentData);
+      // CHECK MONGODB OBJECT ID
+      if (
+        mongoose.Types.ObjectId.isValid(
+          apartmentId
+        )
+      ) {
+        query = {
+          $or: [
+            { _id: apartmentId },
+            { apartmentId: apartmentId },
+          ],
+        };
+      } else {
+        query = {
+          apartmentId: apartmentId,
+        };
+      }
+
+      const existingApartment =
+        await Apartment.findOne(query);
+
+      // INVALID apartmentId
+      if (!existingApartment) {
+        return res.status(404).json({
+          success: false,
+          message: "Invalid apartmentId",
+        });
+      }
+
+      // UPDATE RECORD
+      const updatedApartment =
+        await Apartment.findByIdAndUpdate(
+          existingApartment._id,
+          apartmentData,
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Apartment updated successfully",
+        data: updatedApartment,
+      });
+    }
+
+    // =====================================================
+    // CREATE NEW
+    // =====================================================
+    const newApartment =
+      await Apartment.create(apartmentData);
 
     return res.status(201).json({
       success: true,
-      message: "Apartment created successfully",
-      data: apartment,
+      message:
+        "Apartment created successfully",
+      data: newApartment,
     });
 
   } catch (error) {
+
+    // DUPLICATE KEY ERROR
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Apartment ID already exists",
+      });
+    }
+
     return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
 module.exports = {
   uploadExcel,
   getUploadSessions,
@@ -808,3 +989,5 @@ module.exports = {
   getApartmentById,
   createOrUpdateParticularApartment
 };
+
+

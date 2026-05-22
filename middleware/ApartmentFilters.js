@@ -87,7 +87,11 @@ const buildApartmentFilters = (body) => {
             numberValue,
         },
         {
-          startingTGValues:
+          fromTGValues:
+            numberValue,
+        },
+        {
+          toTGValues:
             numberValue,
         },
         {
@@ -181,15 +185,16 @@ const buildApartmentFilters = (body) => {
   // TG FILTER
   if (minTG || maxTG) {
 
-    filter.startingTGValues = {};
+    filter.fromTGValues = {};
+    filter.toTGValues = {};
 
     if (minTG) {
-      filter.startingTGValues.$gte =
+      filter.fromTGValues.$gte =
         Number(minTG);
     }
 
     if (maxTG) {
-      filter.startingTGValues.$lte =
+      filter.toTGValues.$lte =
         Number(maxTG);
     }
   }
@@ -197,5 +202,4 @@ const buildApartmentFilters = (body) => {
   return filter;
 };
 
-module.exports =
-  buildApartmentFilters;
+module.exports = buildApartmentFilters;

@@ -78,10 +78,9 @@ const parseEventsHistory = (raw) => {
 
 const hasDataChanged = (existing, incoming, bankDetails, existingEventsHistory) => {
   const scalarFields = [
-    "apartmentName", "apartmentAddress", "city", "location",
-    "jioLocation", "permissionStatus", "rating", "photo",
-    "apartmentSummary", "contactPersonName", "contactPersonPhone",
-    "email", "startingTGValues", "residencyCount", "approxPeopleCount", "perDayRent",
+    "apartmentName", "city", "location",
+    "jioLocation", "permissionStatus", "rating",  "contactPersonPhone",
+    "fromTGValues","toTGValues", "residencyCount", "approxPeopleCount", "perDayRent",
   ];
 
   const scalarChanged = scalarFields.some(
@@ -356,187 +355,238 @@ const uploadExcel = async (req, res) => {
         message: "Please upload an Excel file",
       });
     }
- 
-    // ── LOCAL ONLY: verify file was saved to disk ──────────────────────────────
-    if (STORAGE_TYPE === "local" && req.file.path && !fs.existsSync(req.file.path)) {
+
+    // ── LOCAL ONLY: verify file was saved to disk ─────────────────────────────
+    if (
+      STORAGE_TYPE === "local" &&
+      req.file.path &&
+      !fs.existsSync(req.file.path)
+    ) {
       return res.status(500).json({
         success: false,
         message: "File upload failed - file not saved properly",
       });
     }
- 
-    // ── GET FILE URL (works for both local & Spaces) ───────────────────────────
-    const fileUrl = getFileUrl(req, req.file);
- 
-    // ── READ EXCEL BUFFER (works for both local & Spaces) ─────────────────────
+
+    // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
+    const fileUrl    = getFileUrl(req, req.file);
     const fileBuffer = await getFileBuffer(req.file);
- 
-    // Pass buffer to your Excel reader instead of a file path
-    const data = readExcelFile(fileBuffer); // ← make sure readExcelFile accepts Buffer
- 
-    const insertedData = [];
-    const updatedData = [];
-    const skippedData = [];
+    const data       = readExcelFile(fileBuffer);
+
+    const insertedData         = [];
+    const updatedData          = [];
+    const skippedData          = [];
     const insertedApartmentIds = [];
-    const updatedApartmentIds = [];
-    const skippedApartmentIds = [];
- 
-    const processedApartmentId = new Set();
- 
-    // ── CREATE SESSION ─────────────────────────────────────────────────────────
+    const updatedApartmentIds  = [];
+    const skippedApartmentIds  = [];
+
+    // ── CREATE SESSION ────────────────────────────────────────────────────────
     const session = await UploadSession.create({
-      fileName: req.file.originalname,
+      fileName:  req.file.originalname,
       fileUrl,
       totalRows: data.length,
     });
- 
-    // ── LOOP ROWS ──────────────────────────────────────────────────────────────
+
+    // ── HELPER: escape special regex characters ───────────────────────────────
+    const escapeRegex = (str) =>
+      str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    // ── LOOP ROWS ─────────────────────────────────────────────────────────────
     for (const item of data) {
       try {
-        const apartmentId = item.apartmentId?.toString().trim().toLowerCase();
-        const apartmentName = item.apartmentName?.toString().trim();
-        const apartmentAddress = item.apartmentAddress?.toString().trim();
-        const city = item.city?.toString().trim();
-        const location = item.location?.toString().trim();
-        const jioLocation = item.jioLocation?.toString().trim() || "";
-        const permissionStatus = item.permissionStatus?.toString().trim() || "";
-        const rating = item.rating?.toString().trim() || "";
-        const photo = item.photo?.toString().trim() || "";
-        const apartmentSummary = item.apartmentSummary?.toString().trim();
-        const contactPersonName = item.contactPersonName?.toString().trim();
+
+        // ── PARSE FIELDS ──────────────────────────────────────────────────────
+        const apartmentName      = item.apartmentName?.toString().trim();
+        const city               = item.city?.toString().trim();
+        const location           = item.location?.toString().trim();
+        const jioLocation        = item.jioLocation?.toString().trim()      || "";
+        const permissionStatus   = item.permissionStatus?.toString().trim() || "";
+        const rating             = item.rating?.toString().trim()            || "";
+  
+       
         const contactPersonPhone = item.contactPersonPhone?.toString().trim();
-        const email = item.email?.toString().trim().toLowerCase();
-        const startingTGValues = Number(item.startingTGValues || 0);
-        const residencyCount = Number(item.residencyCount);
-        const approxPeopleCount = Number(item.approxPeopleCount || 0);
-        const perDayRent = Number(item.perDayRent);
- 
-        const bankDetails = parseBankDetails(item.bankDetails);
+       
+        const residencyCount     = Number(item.residencyCount);
+        const approxPeopleCount  = Number(item.approxPeopleCount || 0);
+        const perDayRent         = Number(item.perDayRent);
+
+        // ✅ Safely parse startingTGValues — handles "50000 - 3999", "50000", "", null
+        const fromTGValues = (() => {
+          const raw    = item.fromTGValues?.toString().trim() || "0";
+          const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
+          return isNaN(parsed) ? 0 : parsed;
+        })();
+        const toTGValues = (() => {
+          const raw    = item.toTGValues?.toString().trim() || "0";
+          const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
+          return isNaN(parsed) ? 0 : parsed;
+        })();
+
+        const bankDetails           = parseBankDetails(item.bankDetails);
         const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
- 
-        // ── REQUIRED FIELD VALIDATION ──
+
+        // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
         if (
-          !apartmentId || !apartmentName || !apartmentAddress ||
-          !city || !location || !apartmentSummary ||
-          !contactPersonName || !contactPersonPhone || !email ||
+          !apartmentName  ||
+          !city || !location || 
+          !contactPersonPhone || 
           isNaN(residencyCount) || isNaN(perDayRent)
         ) {
           skippedData.push({ row: item, message: "Missing required fields" });
           continue;
         }
- 
-        // ── DUPLICATE IN SAME EXCEL ──
-        if (processedApartmentId.has(apartmentId)) {
-          skippedData.push({
-            row: item,
-            message: `Duplicate ApartmentId "${apartmentId}" found in same Excel`,
-          });
-          skippedApartmentIds.push(apartmentId);
-          continue;
-        }
- 
-        processedApartmentId.add(apartmentId);
- 
-        // ── CHECK DB ──
-        const existingApartment = await Apartment.findOne({ apartmentId });
- 
+
         const incomingData = {
-          apartmentName, apartmentAddress, city, location,
-          jioLocation, permissionStatus, rating, photo,
-          apartmentSummary, contactPersonName, contactPersonPhone,
-          email, startingTGValues, residencyCount, approxPeopleCount, perDayRent,
+          apartmentName,
+          city,
+          location,
+          jioLocation,
+          permissionStatus,
+          rating,
+          contactPersonPhone,
+          fromTGValues,
+          toTGValues,
+          residencyCount,
+          approxPeopleCount,
+          perDayRent,
         };
- 
+
+
+        let existingApartment = null;
+        let matchedBy         = null;
+
+        
+        if (!existingApartment) {
+          existingApartment = await Apartment.findOne({
+            apartmentName: { $regex: new RegExp(`^${escapeRegex(apartmentName)}$`, "i") },
+            city:          { $regex: new RegExp(`^${escapeRegex(city)}$`,          "i") },
+            location:      { $regex: new RegExp(`^${escapeRegex(location)}$`,      "i") },
+            contactPersonPhone
+          });
+          if (existingApartment) {
+            matchedBy = "name+city+location";
+          }
+        }
+
         if (existingApartment) {
-          if (hasDataChanged(existingApartment, incomingData, bankDetails, existingEventsHistory)) {
+          if (
+            hasDataChanged(
+              existingApartment,
+              incomingData,
+              bankDetails,
+              existingEventsHistory
+            )
+          ) {
+            // ── MATCH FOUND + DATA CHANGED → UPDATE ───────────────────────────
+            // apartmentId is intentionally excluded — it never changes
             await Apartment.findOneAndUpdate(
-              { apartmentId },
+              { _id: existingApartment._id },
               {
                 $set: {
-                  ...incomingData,
+                  apartmentName,
+                  city,
+                  location,
+                  jioLocation,
+                  permissionStatus,
+                  rating,
+                  contactPersonPhone,
+                  fromTGValues,
+                  toTGValues,
+                  residencyCount,
+                  approxPeopleCount,
+                  perDayRent,
                   bankDetails,
                   existingEventsHistory,
+                  updatedBy:            req.user.name,
                   lastUpdatedBySession: session._id,
-                  skippedBySession: null,
+                  skippedBySession:     null,
+                  // ✅ apartmentId intentionally NOT here — never overwrite
                 },
               },
               { new: true }
             );
-            updatedApartmentIds.push(apartmentId);
-            updatedData.push({ apartmentId, message: "Record updated successfully" });
+
+            updatedApartmentIds.push(existingApartment.apartmentId);
+            updatedData.push({
+              apartmentId: existingApartment.apartmentId,
+              matchedBy,
+              message:     "Record updated successfully",
+            });
+
           } else {
+            // ── MATCH FOUND + NOTHING CHANGED → SKIP ─────────────────────────
             await Apartment.findOneAndUpdate(
-              { apartmentId },
+              { _id: existingApartment._id },
               { $set: { skippedBySession: session._id } }
             );
-            skippedApartmentIds.push(apartmentId);
+
+            skippedApartmentIds.push(existingApartment.apartmentId);
             skippedData.push({
-              row: item,
-              message: `ApartmentId "${apartmentId}" already exists with same data — no update needed`,
+              row:     item,
+              message: `ApartmentId "${existingApartment.apartmentId}" already exists with same data — no update needed`,
             });
           }
-          continue;
+
+          continue; // ← never fall through to insert
         }
- 
-        // ── NEW RECORD → INSERT ──
+
+        // ── STEP 3: NO MATCH AT ALL → INSERT NEW RECORD ───────────────────────
+        // apartmentId auto-generated by pre-save hook as DDMMYYYY#N
         const newApartment = await Apartment.create({
           ...incomingData,
-          apartmentId,
-          updatedBy: req.user.name,
+          updatedBy:            req.user.name,
           bankDetails,
           existingEventsHistory,
-          createdBySession: session._id,
+          createdBySession:     session._id,
           lastUpdatedBySession: session._id,
         });
- 
-        insertedApartmentIds.push(apartmentId);
+
+        insertedApartmentIds.push(newApartment.apartmentId);
         insertedData.push({
-          id: newApartment._id,
+          id:          newApartment._id,
           apartmentId: newApartment.apartmentId,
-          message: "Record inserted successfully",
+          message:     "Record inserted successfully",
         });
- 
+
       } catch (err) {
         skippedData.push({ row: item, message: err.message });
       }
     }
- 
+
     // ── UPDATE SESSION WITH FINAL COUNTS ──────────────────────────────────────
     await UploadSession.findByIdAndUpdate(session._id, {
       $set: {
         insertedCount: insertedData.length,
-        updatedCount: updatedData.length,
-        skippedCount: skippedData.length,
+        updatedCount:  updatedData.length,
+        skippedCount:  skippedData.length,
         insertedApartmentIds,
         updatedApartmentIds,
         skippedApartmentIds,
         skippedData,
       },
     });
- 
 
- 
     return successResponse(res, "Excel Upload Completed", {
-      sessionId: session._id,
-      fileName: req.file.originalname,
-      totalRows: data.length,
-      updatedBy: req.user.name,
+      sessionId:     session._id,
+      fileName:      req.file.originalname,
+      totalRows:     data.length,
+      updatedBy:     req.user.name,
       insertedCount: insertedData.length,
-      updatedCount: updatedData.length,
-      skippedCount: skippedData.length,
+      updatedCount:  updatedData.length,
+      skippedCount:  skippedData.length,
       insertedData,
       updatedData,
       skippedData,
       summary: {
         totalInserted: insertedData.length,
-        totalUpdated: updatedData.length,
-        totalSkipped: skippedData.length,
+        totalUpdated:  updatedData.length,
+        totalSkipped:  skippedData.length,
       },
     });
- 
+
   } catch (error) {
     console.error("uploadExcel error:", error);
- 
+
     // Cleanup local file on hard failure
     if (STORAGE_TYPE === "local" && req.file?.path) {
       try {
@@ -545,7 +595,7 @@ const uploadExcel = async (req, res) => {
         console.error("Error deleting file on failure:", fileError);
       }
     }
- 
+
     return errorResponse(res, "Error Uploading File", error.message);
   }
 };
@@ -609,7 +659,11 @@ const getUploadSessions = async (req, res) => {
 const getMinMaxValues = (apartments = []) => {
   // TG VALUES
   const tgValues = apartments
-    .map((apt) => Number(apt.startingTGValues || 0))
+    .map((apt) => Number(apt.fromTGValues || 0))
+    .filter((val) => !isNaN(val));
+
+  const tgValuesmax = apartments
+    .map((apt) => Number(apt.toTGValues || 0))
     .filter((val) => !isNaN(val));
 
   // RENT VALUES
@@ -624,8 +678,8 @@ const getMinMaxValues = (apartments = []) => {
         : 0,
 
     maxTG:
-      tgValues.length > 0
-        ? Math.max(...tgValues)
+      tgValuesmax.length > 0
+        ? Math.max(...tgValuesmax)
         : 0,
 
     minRent:
@@ -639,6 +693,49 @@ const getMinMaxValues = (apartments = []) => {
         : 0,
   };
 };
+// const getMinMaxValues = (apartments = []) => {
+
+//   // TG VALUES
+//   const fromTGValues = apartments
+//     .map((apt) => Number(apt.fromTGValues))
+//     .filter((val) => !isNaN(val));
+
+//   const toTGValues = apartments
+//     .map((apt) => Number(apt.toTGValues))
+//     .filter((val) => !isNaN(val));
+
+//   // RENT VALUES
+//   const rentValues = apartments
+//     .map((apt) => Number(apt.perDayRent))
+//     .filter((val) => !isNaN(val));
+
+//   return {
+//     tgRange: {
+//       minTG:
+//         fromTGValues.length > 0
+//           ? Math.min(...fromTGValues)
+//           : 0,
+
+//       maxTG:
+//         toTGValues.length > 0
+//           ? Math.max(...toTGValues)
+//           : 0,
+//     },
+
+//     priceRange: {
+//       minRent:
+//         rentValues.length > 0
+//           ? Math.min(...rentValues)
+//           : 0,
+
+//       maxRent:
+//         rentValues.length > 0
+//           ? Math.max(...rentValues)
+//           : 0,
+//     },
+//   };
+// };
+
 const listApartments = async (req, res) => {
   try {
     const pageNumber = parseInt(req.body.pageNumber) || 1;
@@ -823,7 +920,8 @@ const createOrUpdateParticularApartment = async (req, res) => {
       rating,
       residencyCount,
       approxPeopleCount,
-      startingTGValues,
+      fromTGValues,
+      toTGValues,
       existingEventsHistory,
       perDayRent,
       updatedBy,
@@ -867,7 +965,8 @@ const createOrUpdateParticularApartment = async (req, res) => {
       rating,
       residencyCount,
       approxPeopleCount,
-      startingTGValues,
+      fromTGValues,
+      toTGValues,
       existingEventsHistory,
       perDayRent,
       updatedBy,

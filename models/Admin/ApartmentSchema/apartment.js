@@ -74,13 +74,13 @@ const apartmentSchema = new mongoose.Schema(
     approxPeopleCount: { type: Number, default: 0, min: 0 },
     fromTGValues: { type: Number, default: 0, min: 0 },
     toTGValues: { type: Number, default: 0, min: 0 },
-    existingEventsHistory: [
-      {
-        eventName: String,
-        eventDate: String,
-        remarks: String,
-      },
-    ],
+    // existingEventsHistory: [
+    //   {
+    //     eventName: String,
+    //     eventDate: String,
+    //     remarks: String,
+    //   },
+    // ],
     perDayRent: { type: Number, required: true, min: 0 },
     updatedBy: { type: String },
   },

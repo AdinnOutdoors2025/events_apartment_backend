@@ -39,7 +39,6 @@ function getFileCategory(mimeType) {
 // ─── CREATE / UPDATE Booking ──────────────────────────────────────────────────
 
 const createBooking = asyncHandler(async (req, res) => {
-
   const {
     apartmentId,
     eventId,
@@ -55,41 +54,87 @@ const createBooking = asyncHandler(async (req, res) => {
     discountType,
     orderNoteText,
     orderNoteFiles,
+    sqfet
   } = req.body;
 
-  // ✅ NEW: Build orderNote object from text + uploaded files
-  const uploadedFiles = req.files?.orderNoteFiles || [];
+  // ─────────────────────────────────────────────
+  // ORDER NOTE
+  // ─────────────────────────────────────────────
+
+  const uploadedFiles =
+    req.files?.orderNoteFiles || [];
 
   const orderNote = {
-    text: req.body.orderNoteText || "",
-    files: uploadedFiles.map((file) => ({
-      originalName: file.originalname,
-      fileName: file.filename,
-      filePath: file.path,
-      mimeType: file.mimetype,
-      size: file.size,
-      fileType: getFileCategory(file.mimetype), // "image" | "audio" | "pdf" | "excel" | "word"
-    })),
+
+    text:
+      req.body.orderNoteText || "",
+
+    files:
+      uploadedFiles.map((file) => ({
+
+        originalName:
+          file.originalname,
+
+        fileName:
+          file.filename,
+
+        filePath:
+          file.path,
+
+        mimeType:
+          file.mimetype,
+
+        size:
+          file.size,
+
+        fileType:
+          getFileCategory(
+            file.mimetype
+          ),
+      })),
   };
+
   // ─────────────────────────────────────────────
-  // VALIDATE OBJECT IDS
+  // VALIDATE APARTMENT ID
   // ─────────────────────────────────────────────
 
-  if (!apartmentId || !mongoose.Types.ObjectId.isValid(apartmentId)) {
+  if (
+    !apartmentId ||
+    !mongoose.Types.ObjectId.isValid(
+      apartmentId
+    )
+  ) {
+
     return res.status(400).json({
+
       success: false,
-      message: !apartmentId
-        ? "apartmentId is required"
-        : "Invalid apartmentId",
+
+      message:
+        !apartmentId
+          ? "apartmentId is required"
+          : "Invalid apartmentId",
     });
   }
 
-  if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+  // ─────────────────────────────────────────────
+  // VALIDATE EVENT ID
+  // ─────────────────────────────────────────────
+
+  if (
+    !eventId ||
+    !mongoose.Types.ObjectId.isValid(
+      eventId
+    )
+  ) {
+
     return res.status(400).json({
+
       success: false,
-      message: !eventId
-        ? "eventId is required"
-        : "Invalid eventId",
+
+      message:
+        !eventId
+          ? "eventId is required"
+          : "Invalid eventId",
     });
   }
 
@@ -101,9 +146,14 @@ const createBooking = asyncHandler(async (req, res) => {
     customerDetails
       ?.contactPersonPhoneNumber;
 
-  if (!contactPersonPhoneNumber) {
+  if (
+    !contactPersonPhoneNumber
+  ) {
+
     return res.status(400).json({
+
       success: false,
+
       message:
         "customerDetails.contactPersonPhoneNumber is required",
     });
@@ -113,38 +163,67 @@ const createBooking = asyncHandler(async (req, res) => {
   // VALIDATE DATES
   // ─────────────────────────────────────────────
 
-  if (!fromDate || !toDate) {
+  if (
+    !fromDate ||
+    !toDate
+  ) {
+
     return res.status(400).json({
+
       success: false,
-      message: !fromDate
-        ? "fromDate is required"
-        : "toDate is required",
+
+      message:
+        !fromDate
+          ? "fromDate is required"
+          : "toDate is required",
     });
   }
 
-  const parsedFromDate = new Date(fromDate);
+  const parsedFromDate =
+    new Date(fromDate);
 
-  const parsedToDate = new Date(toDate);
+  const parsedToDate =
+    new Date(toDate);
 
-  if (isNaN(parsedFromDate.getTime())) {
+  if (
+    isNaN(
+      parsedFromDate.getTime()
+    )
+  ) {
+
     return res.status(400).json({
+
       success: false,
+
       message:
         "Invalid fromDate",
     });
   }
 
-  if (isNaN(parsedToDate.getTime())) {
+  if (
+    isNaN(
+      parsedToDate.getTime()
+    )
+  ) {
+
     return res.status(400).json({
+
       success: false,
+
       message:
         "Invalid toDate",
     });
   }
 
-  if (parsedToDate < parsedFromDate) {
+  if (
+    parsedToDate <
+    parsedFromDate
+  ) {
+
     return res.status(400).json({
+
       success: false,
+
       message:
         "toDate must be on or after fromDate",
     });
@@ -154,72 +233,136 @@ const createBooking = asyncHandler(async (req, res) => {
   // FETCH APARTMENT & EVENT
   // ─────────────────────────────────────────────
 
-  const [apartment, event] = await Promise.all([
+  const [
+    apartment,
+    event,
+  ] = await Promise.all([
+
     Apartment.findById(
       apartmentId
-    ),
+    ).lean(),
+
     EventBook.findById(
       eventId
-    ),
+    ).lean(),
   ]);
 
   if (!apartment) {
+
     return res.status(404).json({
+
       success: false,
+
       message:
         "Apartment not found",
     });
   }
 
   if (!event) {
+
     return res.status(404).json({
+
       success: false,
+
       message:
         "Event not found",
     });
   }
 
   // ─────────────────────────────────────────────
-  // FIND CUSTOMER EXISTING BOOKING
-  // SAME apartment + event + phone
+  // STORE SNAPSHOT DETAILS
   // ─────────────────────────────────────────────
 
-  const existingCustomerBooking = await orderBooking.findOne({
-    apartmentId,
-    eventId,
-    "customerDetails.contactPersonPhoneNumber":
-      contactPersonPhoneNumber,
-  });
+  const apartmentDetails = {
+
+    _id:
+      apartment._id,
+
+    apartmentName:
+      apartment.apartmentName,
+
+    apartmentAddress:
+      apartment.apartmentAddress,
+
+    city:
+      apartment.city,
+
+    location:
+      apartment.location,
+
+    perDayRent:
+      apartment.perDayRent,
+
+    contactPersonName:
+      apartment.contactPersonName,
+
+    contactPersonPhone:
+      apartment.contactPersonPhone,
+  };
+
+  const eventDetails = {
+
+    _id:
+      event._id,
+
+    eventName:
+      event.eventName,
+
+    amount:
+      event.amount,
+
+    description:
+      event.description,
+  };
 
   // ─────────────────────────────────────────────
-  // CHECK OVERLAPPING
-  // EXCLUDE CURRENT CUSTOMER BOOKING
+  // FIND EXISTING CUSTOMER BOOKING
   // ─────────────────────────────────────────────
 
-  const overlappingBooking = await orderBooking.findOne({
-    _id: {
-      $ne:
-        existingCustomerBooking?._id,
-    },
+  const existingCustomerBooking =
+    await orderBooking.findOne({
 
-    apartmentId,
+      apartmentId,
 
-    eventId,
+      eventId,
 
-    fromDate: {
-      $lte:
-        parsedToDate,
-    },
+      "customerDetails.contactPersonPhoneNumber":
+        contactPersonPhoneNumber,
+    });
 
-    toDate: {
-      $gte:
-        parsedFromDate,
-    },
-  });
+  // ─────────────────────────────────────────────
+  // CHECK OVERLAPPING BOOKINGS
+  // ─────────────────────────────────────────────
+
+  const overlappingBooking =
+    await orderBooking.findOne({
+
+      _id: {
+        $ne:
+          existingCustomerBooking?._id,
+      },
+
+      apartmentId,
+
+      eventId,
+
+      fromDate: {
+        $lte:
+          parsedToDate,
+      },
+
+      toDate: {
+        $gte:
+          parsedFromDate,
+      },
+    });
 
   if (overlappingBooking) {
+
     return res.status(409).json({
+
       success: false,
+
       message:
         `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
     });
@@ -229,76 +372,140 @@ const createBooking = asyncHandler(async (req, res) => {
   // CALCULATIONS
   // ─────────────────────────────────────────────
 
-  const apartmentAmount =
-    (apartment.perDayRent || 0) * (daysOfApartment || 0);
+  // const apartmentAmount =
 
-  const eventAmount =
-    (event.amount || 0) *
-    (daysOfEvent || 0);
+  //   (apartment.perDayRent || 0) * (daysOfApartment || 0);
 
-  let promoterTotal =
-    0;
+  // const eventAmount =
 
-  const promotersWithAmount =
-    (
-      promoters || []
-    ).map((p) => {
+  //   (event.amount || 0) *
 
-      const promoterAmount =
-        (p.promoterPerDayCharge || 0 ) * (daysOfEvent || 0);
+  //   (daysOfEvent || 0);
 
-      promoterTotal +=
-        promoterAmount;
+  // let promoterTotal = 0;
 
-      return {
-        ...p,
-        promoterAmount,
-      };
-    });
+  // const promotersWithAmount =
 
-  const subTotal =
-    apartmentAmount +
-    eventAmount +
-    promoterTotal;
+  //   (promoters || []).map((p) => {
 
-  let discountAmount =
-    0;
+  //     const promoterAmount =
 
-  // 1 = Percentage
+  //       (p.promoterPerDayCharge || 0) *
+
+  //       (daysOfEvent || 0);
+
+  //     promoterTotal +=
+  //       promoterAmount;
+
+  //     return {
+
+  //       ...p,
+
+  //       promoterAmount,
+  //     };
+  //   });
+
+  // const subTotal =
+
+  //   apartmentAmount +
+
+  //   eventAmount +
+
+  //   promoterTotal;
+
+  // let discountAmount = 0;
+
+  // // 1 = Percentage
+
+  // if (
+  //   discountType === 1
+  // ) {
+
+  //   discountAmount =
+
+  //     (subTotal *
+
+  //       (
+  //         discountPercentage || 0
+  //       )) / 100;
+  // }
+
+  // // 2 = Flat
+
+  // else if (
+  //   discountType === 2
+  // ) {
+
+  //   discountAmount =
+  //     discountPercentage || 0;
+  // }
+
+  // const taxableAmount =
+
+  //   subTotal -
+
+  //   discountAmount;
+
+  // const gstAmount =
+
+  //   (taxableAmount * 18) / 100;
+
+  // const totalAmount =
+
+  //   taxableAmount +
+
+  //   gstAmount;
+const apartmentAmount = Math.floor(
+  (apartment.perDayRent || 0) * (daysOfApartment || 0)
+);
+const sqfetAmount = Math.floor(
+  (apartment.perDayRent || 0) * (sqfet || 0)
+);
+
+const eventAmount = Math.floor(
+  (event.amount || 0) * (daysOfEvent || 0)
+);
+
+let promoterTotal = 0;
+
+const promotersWithAmount = (promoters || []).map((p) => {
+  const promoterAmount = Math.floor(
+    (p.promoterPerDayCharge || 0) * (daysOfEvent || 0)
+  );
+
+  promoterTotal += promoterAmount;
+
+  return {
+    ...p,
+    promoterAmount,
+  };
+});
+
+const subTotal = Math.floor(apartmentAmount + eventAmount + promoterTotal + sqfetAmount);
+
+let discountAmount = 0;
+
+// 1 = Percentage
+if (discountType === 1) {
+  discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
+}
+// 2 = Flat
+else if (discountType === 2) {
+  discountAmount = Math.floor(discountPercentage || 0);
+}
+
+const taxableAmount = Math.floor(subTotal - discountAmount);
+
+const gstAmount = Math.floor((taxableAmount * 18) / 100);
+
+const totalAmount = Math.floor(taxableAmount + gstAmount);
+  // ─────────────────────────────────────────────
+  // UPDATE EXISTING BOOKING
+  // ─────────────────────────────────────────────
+
   if (
-    discountType === 1
+    existingCustomerBooking
   ) {
-    discountAmount =
-      (subTotal *
-        (
-          discountPercentage ||
-          0
-        )) /
-      100;
-  }
-
-  // 2 = Flat
-  else if (
-    discountType === 2
-  ) {
-    discountAmount =
-      discountPercentage ||
-      0;
-  }
-
-  const taxableAmount =
-    subTotal -
-    discountAmount;
-
-  const gstAmount = (taxableAmount * 18) / 100;
-
-  const totalAmount = taxableAmount + gstAmount;
-
-  // ─────────────────────────────────────────────
-  // UPDATE EXISTING CUSTOMER BOOKING
-  // ─────────────────────────────────────────────
-
-  if (existingCustomerBooking) {
 
     existingCustomerBooking.fromDate =
       parsedFromDate;
@@ -311,6 +518,9 @@ const createBooking = asyncHandler(async (req, res) => {
 
     existingCustomerBooking.daysOfApartment =
       daysOfApartment;
+
+    existingCustomerBooking.sqfet =
+      sqfet;
 
     existingCustomerBooking.promoterRequired =
       promoterRequired;
@@ -333,6 +543,9 @@ const createBooking = asyncHandler(async (req, res) => {
     existingCustomerBooking.apartmentAmount =
       apartmentAmount;
 
+    existingCustomerBooking.sqfetAmount =
+      sqfetAmount;
+
     existingCustomerBooking.eventAmount =
       eventAmount;
 
@@ -353,68 +566,115 @@ const createBooking = asyncHandler(async (req, res) => {
 
     existingCustomerBooking.totalAmount =
       totalAmount;
-    // existingCustomerBooking.status = req.body.status;
+
+    existingCustomerBooking.apartmentDetails =
+      apartmentDetails;
+
+    existingCustomerBooking.eventDetails =
+      eventDetails;
+
+    existingCustomerBooking.orderNote =
+      orderNote;
+
     existingCustomerBooking.updatedBy =
       req.user?.name;
-    existingCustomerBooking.orderNote = orderNote;
+
     await existingCustomerBooking.save();
 
     return res.status(200).json({
+
       success: true,
+
       message:
         "Booking updated successfully",
-      // data:
-      //   existingCustomerBooking,
     });
   }
-  const orderId = await generateAdminOrderId();
+
   // ─────────────────────────────────────────────
-  // CREATE NEW BOOKING
+  // GENERATE ORDER ID
   // ─────────────────────────────────────────────
 
-  const booking = await orderBooking.create({
-    orderId,
-    apartmentId,
-    eventId,
-    fromDate:
-      parsedFromDate,
-    toDate:
-      parsedToDate,
-    daysOfEvent,
-    daysOfApartment,
-    promoterRequired,
-    promoterCount,
-    promoters:
-      promotersWithAmount,
-    customerDetails,
-    discountPercentage,
-    discountType,
-    apartmentAmount,
-    eventAmount,
-    promoterTotal,
-    subTotal,
-    discountAmount,
-    taxableAmount,
-    gstAmount,
-    totalAmount,
-    orderNote,
-    status: "TO DO",
-    createdBy:
-      req.user?.name,
-    updatedBy:
-      req.user?.name,
-  });
+  const orderId =
+    await generateAdminOrderId();
+
+  // ─────────────────────────────────────────────
+  // CREATE BOOKING
+  // ─────────────────────────────────────────────
+
+  const booking =
+    await orderBooking.create({
+
+      orderId,
+
+      apartmentId,
+
+      eventId,
+
+      apartmentDetails,
+
+      eventDetails,
+
+      fromDate:
+        parsedFromDate,
+
+      toDate:
+        parsedToDate,
+
+      daysOfEvent,
+
+      daysOfApartment,
+      sqfet,
+      promoterRequired,
+
+      promoterCount,
+
+      promoters:
+        promotersWithAmount,
+
+      customerDetails,
+
+      discountPercentage,
+
+      discountType,
+
+      apartmentAmount,
+      sqfetAmount,
+      eventAmount,
+
+      promoterTotal,
+
+      subTotal,
+
+      discountAmount,
+
+      taxableAmount,
+
+      gstAmount,
+
+      totalAmount,
+
+      orderNote,
+
+      status: 2,
+
+      createdBy:
+        req.user?.name,
+
+      updatedBy:
+        req.user?.name,
+    });
 
   return res.status(201).json({
+
     success: true,
+
     message:
       "Booking created successfully",
-    // data: booking,
   });
+
 });
 
-
-// ───────────────── DATE FORMAT FUNCTION ─────────────────
+// ───────────────── LIST BOOKINGS ─────────────────
 // FORMAT : DD-MM-YYYY
 
 const parseDate = (dateString) => {
@@ -441,49 +701,21 @@ const parseDate = (dateString) => {
     : parsedDate;
 };
 
-// ───────────────── LIST BOOKINGS ─────────────────
-
-const listAllBookings = asyncHandler(async (req, res) => {
+const buildBookingFilters = async (
+  body
+) => {
 
   const {
     apartmentId,
     status,
     fromDate,
     toDate,
-    pageNumber,
-    count,
     search,
-  } = req.body || {};
-
-  // ───────────────── VALIDATION ─────────────────
-
-  if (
-    !pageNumber ||
-    !count
-  ) {
-    return res.status(400).json({
-      success: false,
-      message:
-        "pageNumber and count are required",
-    });
-  }
-
-  // ───────────────── PAGINATION ─────────────────
-
-  const page =
-    parseInt(pageNumber);
-
-  const limit =
-    parseInt(count);
-
-  const skip =
-    (page - 1) * limit;
-
-  // ───────────────── FILTER ─────────────────
+  } = body;
 
   let filter = {};
 
-  // apartmentId filter
+  // ───────────────── APARTMENT FILTER ─────────────────
 
   if (apartmentId) {
 
@@ -493,16 +725,29 @@ const listAllBookings = asyncHandler(async (req, res) => {
       );
   }
 
-  // status filter
+  // ───────────────── STATUS FILTER ─────────────────
 
-  if (
-    status !== undefined &&
-    status !== null &&
-    status !== ""
-  ) {
+// STATUS = 1 → ALL DATA
+// STATUS = 2,3,4,5 → PARTICULAR STATUS DATA
 
-    filter.status = status;
+if (
+  status !== undefined &&
+  status !== null &&
+  status !== ""
+) {
+
+  const statusValue =
+    Number(status);
+
+  // IF STATUS IS NOT 1
+  // APPLY FILTER
+
+  if (statusValue !== 1) {
+
+    filter.status =
+      statusValue;
   }
+}
 
   // ───────────────── DATE FILTER ─────────────────
   // FORMAT : DD-MM-YYYY
@@ -514,7 +759,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
 
     filter.fromDate = {};
 
-    // fromDate
+    // FROM DATE
 
     if (fromDate) {
 
@@ -524,18 +769,18 @@ const listAllBookings = asyncHandler(async (req, res) => {
         );
 
       if (!startDate) {
-        return res.status(400).json({
-          success: false,
-          message:
+
+        return {
+          error:
             "Invalid fromDate format. Use DD-MM-YYYY",
-        });
+        };
       }
 
       filter.fromDate.$gte =
         startDate;
     }
 
-    // toDate
+    // TO DATE
 
     if (toDate) {
 
@@ -545,11 +790,11 @@ const listAllBookings = asyncHandler(async (req, res) => {
         );
 
       if (!endDate) {
-        return res.status(400).json({
-          success: false,
-          message:
+
+        return {
+          error:
             "Invalid toDate format. Use DD-MM-YYYY",
-        });
+        };
       }
 
       endDate.setHours(
@@ -578,7 +823,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
         "i"
       );
 
-    // apartment search
+    // APARTMENT SEARCH
 
     const matchedApartments =
       await Apartment.find(
@@ -589,7 +834,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
         "_id"
       ).lean();
 
-    // event search
+    // EVENT SEARCH
 
     const matchedEvents =
       await Event.find(
@@ -615,7 +860,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
     let orConditions =
       [];
 
-    // apartment match
+    // APARTMENT MATCH
 
     if (
       apartmentIds.length >
@@ -630,7 +875,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
       });
     }
 
-    // event match
+    // EVENT MATCH
 
     if (
       eventIds.length >
@@ -639,20 +884,202 @@ const listAllBookings = asyncHandler(async (req, res) => {
 
       orConditions.push({
         eventId: {
-          $in: eventIds,
+          $in:
+            eventIds,
         },
       });
     }
 
-    // no match
+    // NO MATCH
 
     if (
       orConditions.length ===
       0
     ) {
 
+      return {
+        noMatch: true,
+        filter,
+      };
+    }
+
+    filter.$or =
+      orConditions;
+  }
+
+  return {
+    filter,
+  };
+};
+
+const listAllBookings = asyncHandler(
+    async (req, res) => {
+
+      const {
+        pageNumber,
+        count,
+      } = req.body || {};
+
+      // ───────────────── VALIDATION ─────────────────
+
+      if (
+        !pageNumber ||
+        !count
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "pageNumber and count are required",
+        });
+      }
+
+      // ───────────────── PAGINATION ─────────────────
+
+      const page =
+        parseInt(
+          pageNumber
+        );
+
+      const limit =
+        parseInt(
+          count
+        );
+
+      const skip =
+        (page - 1) *
+        limit;
+
+      // ───────────────── FILTER ─────────────────
+
+      const filterResult =
+        await buildBookingFilters(
+          req.body
+        );
+
+      // DATE ERROR
+
+      if (
+        filterResult.error
+      ) {
+
+        return res.status(400).json({
+          success: false,
+          message:
+            filterResult.error,
+        });
+      }
+
+      // NO SEARCH MATCH
+
+      if (
+        filterResult.noMatch
+      ) {
+
+        return res.status(200).json({
+          success: true,
+          message:
+            "Bookings fetched successfully",
+
+          data: {
+
+            pageNumber:
+              page,
+
+            count:
+              limit,
+
+            totalCount: 0,
+
+            totalPages: 0,
+
+            bookings: [],
+          },
+        });
+      }
+
+      const filter =
+        filterResult.filter;
+
+      // ───────────────── GET DATA ─────────────────
+
+      const [
+        totalCount,
+        bookings,
+      ] = await Promise.all([
+
+        orderBooking.countDocuments(
+          filter
+        ),
+
+        orderBooking
+          .find(filter)
+
+          .populate({
+            path:
+              "apartmentId",
+
+            select:
+              "apartmentName",
+          })
+
+          .populate({
+            path:
+              "eventId",
+
+            select:
+              "eventName",
+          })
+
+          .sort({
+            createdAt: -1,
+          })
+
+          .skip(skip)
+
+          .limit(limit)
+
+          .lean(),
+      ]);
+
+      // ───────────────── FORMAT DATA ─────────────────
+
+      const formattedBookings =
+        bookings.map(
+          (item) => ({
+
+            ...item,
+
+            apartmentId:
+              item
+                .apartmentId
+                ?._id || null,
+
+            apartmentName:
+              item
+                .apartmentId
+                ?.apartmentName ||
+              "",
+
+            eventId:
+              item
+                .eventId
+                ?._id || null,
+
+            eventName:
+              item
+                .eventId
+                ?.eventName ||
+              "",
+          })
+        );
+
+      // ───────────────── RESPONSE ─────────────────
+
       return res.status(200).json({
+
         success: true,
+
         message:
           "Bookings fetched successfully",
 
@@ -664,122 +1091,20 @@ const listAllBookings = asyncHandler(async (req, res) => {
           count:
             limit,
 
-          totalCount: 0,
+          totalCount,
 
-          totalPages: 0,
+          totalPages:
+            Math.ceil(
+              totalCount /
+              limit
+            ),
 
-          bookings: [],
+          bookings:
+            formattedBookings,
         },
       });
     }
-
-    filter.$or =
-      orConditions;
-  }
-
-  // ───────────────── GET DATA ─────────────────
-
-  const [
-    totalCount,
-    bookings,
-  ] = await Promise.all([
-
-    orderBooking.countDocuments(
-      filter
-    ),
-
-    orderBooking
-      .find(filter)
-
-      .populate({
-        path:
-          "apartmentId",
-
-        select:
-          "apartmentName",
-      })
-
-      .populate({
-        path:
-          "eventId",
-
-        select:
-          "eventName",
-      })
-
-      .sort({
-        createdAt: -1,
-      })
-
-      .skip(skip)
-
-      .limit(limit)
-
-      .lean(),
-  ]);
-
-  // ───────────────── FORMAT DATA ─────────────────
-
-  const formattedBookings =
-    bookings.map(
-      (item) => ({
-
-        ...item,
-
-        apartmentId:
-          item
-            .apartmentId
-            ?._id || null,
-
-        apartmentName:
-          item
-            .apartmentId
-            ?.apartmentName ||
-          "",
-
-        eventId:
-          item
-            .eventId
-            ?._id || null,
-
-        eventName:
-          item
-            .eventId
-            ?.eventName ||
-          "",
-      })
-    );
-
-  // ───────────────── RESPONSE ─────────────────
-
-  return res.status(200).json({
-
-    success: true,
-
-    message:
-      "Bookings fetched successfully",
-
-    data: {
-
-      pageNumber:
-        page,
-
-      count:
-        limit,
-
-      totalCount,
-
-      totalPages:
-        Math.ceil(
-          totalCount /
-          limit
-        ),
-
-      bookings:
-        formattedBookings,
-    },
-  });
-});
+  );
 
 
 const apartmentEventGet = async (req, res) => {

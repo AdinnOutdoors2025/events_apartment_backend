@@ -109,11 +109,7 @@ const buildApartmentFilters = (body) => {
   }
 
   // LOCATION ARRAY FILTER
-  if (
-    locationFilter &&
-    Array.isArray(locationFilter) &&
-    locationFilter.length > 0
-  ) {
+  if ( locationFilter && Array.isArray(locationFilter) && locationFilter.length > 0) {
 
     filter.location = {
       $in: locationFilter.map(
@@ -126,11 +122,7 @@ const buildApartmentFilters = (body) => {
     };
   }
   // CITY ARRAY FILTER
-  if (
-    cityFilter &&
-    Array.isArray(cityFilter) &&
-    cityFilter.length > 0
-  ) {
+  if (cityFilter && Array.isArray(cityFilter) && cityFilter.length > 0) {
 
     filter.city = {
       $in: cityFilter.map(
@@ -144,10 +136,7 @@ const buildApartmentFilters = (body) => {
   }
 
   // SINGLE LOCATION FILTER
-  if (
-    location &&
-    !locationFilter
-  ) {
+  if (location && !locationFilter) {
 
     filter.location = {
       $regex: location,
@@ -155,10 +144,7 @@ const buildApartmentFilters = (body) => {
     };
   }
   // SINGLE CITY FILTER
-  if (
-    city &&
-    !cityFilter
-  ) {
+  if ( city &&!cityFilter) {
 
     filter.city = {
       $regex: city,

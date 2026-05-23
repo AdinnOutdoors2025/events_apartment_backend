@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
+const orderSchema = require("../../../models/Admin/EventHandling/eventOrderSchema")
 const UploadSession = require("../../../models/Admin/ApartmentSchema/uploadSession");
 const readExcelFile = require("../../../utils/excelHelper");
 const ApartmentFilters = require("../../../middleware/ApartmentFilters");
@@ -45,38 +46,38 @@ const parseBankDetails = (raw) => {
 // HELPER — PARSE EVENTS HISTORY
 // ─────────────────────────────────────────────
 
-const parseEventsHistory = (raw) => {
-  if (!raw?.toString().trim()) return [];
+// const parseEventsHistory = (raw) => {
+//   if (!raw?.toString().trim()) return [];
 
-  const str = raw
-    .toString()
-    .replace(/\n/g, " ")
-    .replace(/\r/g, " ")
-    .trim();
+//   const str = raw
+//     .toString()
+//     .replace(/\n/g, " ")
+//     .replace(/\r/g, " ")
+//     .trim();
 
-  const getValue = (field, nextField) => {
-    let regex;
-    if (nextField) {
-      regex = new RegExp(`${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`, "i");
-    } else {
-      regex = new RegExp(`${field}\\s*:\\s*(.*)$`, "i");
-    }
-    const match = str.match(regex);
-    return match?.[1]?.trim() || "";
-  };
+//   const getValue = (field, nextField) => {
+//     let regex;
+//     if (nextField) {
+//       regex = new RegExp(`${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`, "i");
+//     } else {
+//       regex = new RegExp(`${field}\\s*:\\s*(.*)$`, "i");
+//     }
+//     const match = str.match(regex);
+//     return match?.[1]?.trim() || "";
+//   };
 
-  return [{
-    eventName: getValue("EventName", "EventDate"),
-    eventDate: getValue("EventDate", "Remark"),
-    remarks: getValue("Remark"),
-  }];
-};
+//   return [{
+//     eventName: getValue("EventName", "EventDate"),
+//     eventDate: getValue("EventDate", "Remark"),
+//     remarks: getValue("Remark"),
+//   }];
+// };
 
 // ─────────────────────────────────────────────
 // HELPER — CHECK IF ANY FIELD CHANGED
 // ─────────────────────────────────────────────
 
-const hasDataChanged = (existing, incoming, bankDetails, existingEventsHistory) => {
+const hasDataChanged = (existing, incoming, bankDetails,) => {
   const scalarFields = [
     "apartmentName", "city", "location",
     "jioLocation", "permissionStatus", "rating",  "contactPersonPhone",
@@ -97,12 +98,12 @@ const hasDataChanged = (existing, incoming, bankDetails, existingEventsHistory) 
     String(eb.phoneNumber ?? "") !== String(ib.phoneNumber ?? "") ||
     String(eb.upiId ?? "") !== String(ib.upiId ?? "");
 
-  const ee = existing.existingEventsHistory?.[0] || {};
-  const ie = existingEventsHistory?.[0] || {};
-  const eventChanged =
-    String(ee.eventName ?? "") !== String(ie.eventName ?? "") ||
-    String(ee.eventDate ?? "") !== String(ie.eventDate ?? "") ||
-    String(ee.remarks ?? "") !== String(ie.remarks ?? "");
+  // const ee = existing.existingEventsHistory?.[0] || {};
+  // const ie = existingEventsHistory?.[0] || {};
+  // const eventChanged =
+  //   String(ee.eventName ?? "") !== String(ie.eventName ?? "") ||
+  //   String(ee.eventDate ?? "") !== String(ie.eventDate ?? "") ||
+  //   String(ee.remarks ?? "") !== String(ie.remarks ?? "");
 
   return scalarChanged || bankChanged || eventChanged;
 };
@@ -423,7 +424,7 @@ const uploadExcel = async (req, res) => {
         })();
 
         const bankDetails           = parseBankDetails(item.bankDetails);
-        const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
+        // const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
 
         // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
         if (
@@ -474,7 +475,7 @@ const uploadExcel = async (req, res) => {
               existingApartment,
               incomingData,
               bankDetails,
-              existingEventsHistory
+              // existingEventsHistory
             )
           ) {
             // ── MATCH FOUND + DATA CHANGED → UPDATE ───────────────────────────
@@ -496,7 +497,7 @@ const uploadExcel = async (req, res) => {
                   approxPeopleCount,
                   perDayRent,
                   bankDetails,
-                  existingEventsHistory,
+                  // existingEventsHistory,
                   updatedBy:            req.user.name,
                   lastUpdatedBySession: session._id,
                   skippedBySession:     null,
@@ -536,7 +537,7 @@ const uploadExcel = async (req, res) => {
           ...incomingData,
           updatedBy:            req.user.name,
           bankDetails,
-          existingEventsHistory,
+          // existingEventsHistory,
           createdBySession:     session._id,
           lastUpdatedBySession: session._id,
         });
@@ -693,48 +694,6 @@ const getMinMaxValues = (apartments = []) => {
         : 0,
   };
 };
-// const getMinMaxValues = (apartments = []) => {
-
-//   // TG VALUES
-//   const fromTGValues = apartments
-//     .map((apt) => Number(apt.fromTGValues))
-//     .filter((val) => !isNaN(val));
-
-//   const toTGValues = apartments
-//     .map((apt) => Number(apt.toTGValues))
-//     .filter((val) => !isNaN(val));
-
-//   // RENT VALUES
-//   const rentValues = apartments
-//     .map((apt) => Number(apt.perDayRent))
-//     .filter((val) => !isNaN(val));
-
-//   return {
-//     tgRange: {
-//       minTG:
-//         fromTGValues.length > 0
-//           ? Math.min(...fromTGValues)
-//           : 0,
-
-//       maxTG:
-//         toTGValues.length > 0
-//           ? Math.max(...toTGValues)
-//           : 0,
-//     },
-
-//     priceRange: {
-//       minRent:
-//         rentValues.length > 0
-//           ? Math.min(...rentValues)
-//           : 0,
-
-//       maxRent:
-//         rentValues.length > 0
-//           ? Math.max(...rentValues)
-//           : 0,
-//     },
-//   };
-// };
 
 const listApartments = async (req, res) => {
   try {
@@ -745,11 +704,19 @@ const listApartments = async (req, res) => {
 
     let filter = ApartmentFilters(req.body);
 
+    // ── BUILD PRICE-RANGE FILTER (excludes minTG/maxTG/minRent/maxRent) ──
+    const bodyWithoutPriceFilters = {
+      ...req.body,
+      minTG: undefined,
+      maxTG: undefined,
+      minRent: undefined,
+      maxRent: undefined,
+    };
+    let priceRangeFilter = ApartmentFilters(bodyWithoutPriceFilters);
+    // ─────────────────────────────────────────────────────────────────────
 
     if (sessionId) {
-
-      const sessionObjectId =
-        new mongoose.Types.ObjectId(sessionId);
+      const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
 
       const sessionCondition = {
         $or: [
@@ -759,28 +726,29 @@ const listApartments = async (req, res) => {
         ],
       };
 
-      // IF SEARCH FILTER ALREADY HAS $or
+      // Main filter
       if (filter.$or) {
-
         filter = {
-          $and: [
-            { $or: filter.$or },
-            sessionCondition,
-          ],
+          $and: [{ $or: filter.$or }, sessionCondition],
         };
-
       } else {
+        filter = { ...filter, ...sessionCondition };
+      }
 
-        filter = {
-          ...filter,
-          ...sessionCondition,
+      // Price-range filter (same session condition, no price filters)
+      if (priceRangeFilter.$or) {
+        priceRangeFilter = {
+          $and: [{ $or: priceRangeFilter.$or }, sessionCondition],
         };
+      } else {
+        priceRangeFilter = { ...priceRangeFilter, ...sessionCondition };
       }
     }
+
     // TOTAL COUNT
     const totalCount = await Apartment.countDocuments(filter);
 
-    // APARTMENTS
+    // APARTMENTS (filtered)
     const apartments = await Apartment.find(filter)
       .populate("createdBySession", "fileName createdAt")
       .populate("lastUpdatedBySession", "fileName createdAt")
@@ -789,34 +757,40 @@ const listApartments = async (req, res) => {
       .skip(skip)
       .limit(count)
       .lean();
-    // GET MIN/MAX VALUES
-    const priceRange = getMinMaxValues(apartments);
-    // Add status field to each apartment for clarity
+
+    // ── PRICE RANGE: fetched WITHOUT price filters so values never change ──
+    const allApartmentsForRange = await Apartment.find(priceRangeFilter)
+      .select("fromTGValues toTGValues perDayRent")
+      .lean();
+    const priceRange = getMinMaxValues(allApartmentsForRange);
+    // ──────────────────────────────────────────────────────────────────────
+
+    // Add status field to each apartment
     const apartmentsWithStatus = apartments.map((apt) => {
       let status = "unknown";
       if (sessionId) {
         const sid = sessionId.toString();
-        if (apt.createdBySession?._id?.toString() === sid &&
+        if (
+          apt.createdBySession?._id?.toString() === sid &&
           apt.lastUpdatedBySession?._id?.toString() === sid &&
-          !apt.skippedBySession) {
+          !apt.skippedBySession
+        ) {
           status = "inserted";
-        } else if (apt.lastUpdatedBySession?._id?.toString() === sid &&
-          apt.createdBySession?._id?.toString() !== sid) {
+        } else if (
+          apt.lastUpdatedBySession?._id?.toString() === sid &&
+          apt.createdBySession?._id?.toString() !== sid
+        ) {
           status = "updated";
         } else if (apt.skippedBySession?._id?.toString() === sid) {
           status = "skipped";
         }
       }
       return {
-        ...apt,  // formatted rent
-        perDayRent:
-          apt.perDayRent
-            ? Number(
-              apt.perDayRent
-            ).toLocaleString(
-              "en-IN"
-            )
-            : "0", sessionStatus: status
+        ...apt,
+        perDayRent: apt.perDayRent
+          ? Number(apt.perDayRent).toLocaleString("en-IN")
+          : "0",
+        sessionStatus: status,
       };
     });
 
@@ -835,8 +809,12 @@ const listApartments = async (req, res) => {
 
     const sessionApartments = await Apartment.find(sessionFilter).lean();
 
-    const uniqueLocations = [...new Set(sessionApartments.map((a) => a.location).filter(Boolean))];
-    const uniqueCities = [...new Set(sessionApartments.map((a) => a.city).filter(Boolean))];
+    const uniqueLocations = [
+      ...new Set(sessionApartments.map((a) => a.location).filter(Boolean)),
+    ];
+    const uniqueCities = [
+      ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+    ];
 
     // SESSION DETAILS
     let latestSession = null;
@@ -865,16 +843,40 @@ const listApartments = async (req, res) => {
       priceRange,
       apartments: apartmentsWithStatus,
     });
-
   } catch (error) {
     return errorResponse(res, "Error Fetching Apartments", error.message);
   }
 };
 
+
 // ─────────────────────────────────────────────
 // 4. GET APARTMENT BY ID
 // ─────────────────────────────────────────────
 
+// const getApartmentById = async (req, res) => {
+//   try {
+//     const { apartmentId } = req.query;
+
+//     if (!apartmentId) {
+//       return errorResponse(res, "apartmentId is required");
+//     }
+
+//     const apartment = await Apartment.findById(apartmentId)
+//       .populate("createdBySession", "fileName createdAt")
+//       .populate("lastUpdatedBySession", "fileName createdAt")
+//       .populate("skippedBySession", "fileName createdAt")
+//       .lean();
+
+//     if (!apartment) {
+//       return errorResponse(res, "Apartment not found");
+//     }
+
+//     return successResponse(res, "Apartment fetched successfully", apartment);
+
+//   } catch (error) {
+//     return errorResponse(res, "Error fetching apartment", error.message);
+//   }
+// };
 const getApartmentById = async (req, res) => {
   try {
     const { apartmentId } = req.query;
@@ -893,28 +895,51 @@ const getApartmentById = async (req, res) => {
       return errorResponse(res, "Apartment not found");
     }
 
-    return successResponse(res, "Apartment fetched successfully", apartment);
+    // Find all orders for this apartment
+    const orders = await orderSchema.find({ 
+      apartmentId: apartmentId,
+      // Add any additional conditions if needed, e.g.:
+      // status: "active" 
+    })
+    .select("eventDetails daysOfEvent fromDate toDate")
+    .lean();
+
+    // Extract order details
+    const orderDetails = orders.map(order => ({
+      eventDetails: order.eventDetails,
+      daysOfEvent: order.daysOfEvent,
+      fromDate: order.fromDate,
+      toDate: order.toDate
+    }));
+
+    const responseData = {
+      apartment: apartment,
+      apartmentHistory: orderDetails,
+      // If you want to include summary information
+      totalOrders: orders.length
+    };
+
+    return successResponse(res, "Apartment fetched successfully", responseData);
 
   } catch (error) {
     return errorResponse(res, "Error fetching apartment", error.message);
   }
 };
 
-
 const createOrUpdateParticularApartment = async (req, res) => {
   try {
     const {
       apartmentId,
-      apartmentName,
+      // apartmentName,
       apartmentAddress,
       city,
       location,
       jioLocation,
       photo,
-      apartmentSummary,
-      contactPersonName,
+      // apartmentSummary,
+      // contactPersonName,
       contactPersonPhone,
-      email,
+      // email,
       bankDetails,
       permissionStatus,
       rating,
@@ -922,7 +947,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       approxPeopleCount,
       fromTGValues,
       toTGValues,
-      existingEventsHistory,
+      // existingEventsHistory,
       perDayRent,
       updatedBy,
     } = req.body;
@@ -932,13 +957,12 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // =====================================================
     if (
       !apartmentName ||
-      !apartmentAddress ||
+      // !apartmentAddress ||
       !city ||
       !location ||
-      !apartmentSummary ||
-      !contactPersonName ||
-      !contactPersonPhone ||
-      !email
+      // !apartmentSummary ||
+      // !contactPersonName ||
+      !contactPersonPhone 
     ) {
       return res.status(400).json({
         success: false,
@@ -951,15 +975,15 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // =====================================================
     const apartmentData = {
       apartmentName,
-      apartmentAddress,
+      // apartmentAddress,
       city,
       location,
       jioLocation,
       photo,
-      apartmentSummary,
-      contactPersonName,
+      // apartmentSummary,
+      // contactPersonName,
       contactPersonPhone,
-      email,
+      // email,
       bankDetails,
       permissionStatus,
       rating,
@@ -967,7 +991,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       approxPeopleCount,
       fromTGValues,
       toTGValues,
-      existingEventsHistory,
+      // existingEventsHistory,
       perDayRent,
       updatedBy,
     };

@@ -3,8 +3,7 @@ const mongoose = require("mongoose");
 
 // ─── Sub-schema: Individual Promoter ─────────────────────
 
-const PromoterSchema =
-  new mongoose.Schema(
+const PromoterSchema =new mongoose.Schema(
     {
       _promoterId: {
         type:
@@ -94,6 +93,15 @@ const CustomerDetailsSchema = new mongoose.Schema(
 
 const OrderBookingSchema = new mongoose.Schema(
   {
+    apartmentDetails: {
+      type: Object,
+      default: {},
+    },
+
+    eventDetails: {
+      type: Object,
+      default: {},
+    },
     updatedBy: { type: String },
     // apartmentId: {
     //   type: String,
@@ -179,13 +187,12 @@ const OrderBookingSchema = new mongoose.Schema(
       default: 0,
     },
     status: {
-      type: String,
-      enum: [
-        "TO DO",
-        "In Progress",
-        "Approve",
-        "Reject",
-      ],
+      type: Number,
+      enum: [1, 2, 3, 4, 5] // 1:All, 2:To DO, 3:In Progress, 4:Confirmed, 5:cancelled
+    },
+    sqfet: {
+      type: Number,
+      default: 0,
     },
     orderNote: {
       text: {
@@ -212,6 +219,7 @@ const OrderBookingSchema = new mongoose.Schema(
 
 
     apartmentAmount: { type: Number, default: 0 },  // perDayRent × daysOfApartment
+    sqfetAmount: { type: Number, default: 0 },  // perDayRent × sqfet
     eventAmount: { type: Number, default: 0 },  // event.amount × daysOfEvent
     promoterTotal: { type: Number, default: 0 },  // sum of all promoter charges
     promoterAmount: { type: Number, default: 0 },  // promoterPerDayCharge × daysOfEvent

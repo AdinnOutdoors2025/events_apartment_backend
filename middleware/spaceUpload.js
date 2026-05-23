@@ -103,21 +103,16 @@ const spacesClient = require("../config/spaces");
 // ─────────────────────────────────────────────────────────────
 // ENV CONFIG
 // ─────────────────────────────────────────────────────────────
-const BUCKET_NAME =
-  process.env.DO_SPACES_BUCKET || "adinn-space";
+const BUCKET_NAME =  process.env.DO_SPACES_BUCKET || "adinn-space";
 
-const CDN_BASE_URL =
-  process.env.DO_SPACES_CDN_BASE ||
+const CDN_BASE_URL = process.env.DO_SPACES_CDN_BASE ||
   "https://adinn-space.sgp1.digitaloceanspaces.com";
 
-const STORAGE_TYPE =
-  process.env.STORAGE_TYPE || "local";
+const STORAGE_TYPE = process.env.STORAGE_TYPE || "local";
 
-const LOCAL_BASE_URL =
-  process.env.LOCAL_BASE_URL || "http://localhost:5000";
+const LOCAL_BASE_URL = process.env.LOCAL_BASE_URL || "http://localhost:5000";
 
-const LOCAL_UPLOAD_PATH =
-  process.env.LOCAL_UPLOAD_PATH || "uploads";
+const LOCAL_UPLOAD_PATH = process.env.LOCAL_UPLOAD_PATH || "uploads";
 
 const EXCEL_FOLDER = "excel-uploads";
 

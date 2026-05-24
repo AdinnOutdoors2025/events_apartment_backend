@@ -12,35 +12,7 @@ const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware
 // HELPER — PARSE BANK DETAILS
 // ─────────────────────────────────────────────
 
-const parseBankDetails = (raw) => {
-  if (!raw?.toString().trim()) return [];
 
-  const str = raw
-    .toString()
-    .replace(/\n/g, " ")
-    .replace(/\r/g, " ")
-    .trim();
-
-  const getValue = (field, nextField) => {
-    let regex;
-    if (nextField) {
-      regex = new RegExp(`${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`, "i");
-    } else {
-      regex = new RegExp(`${field}\\s*:\\s*(.*)$`, "i");
-    }
-    const match = str.match(regex);
-    return match?.[1]?.trim() || "";
-  };
-
-  return [{
-    accountName: getValue("accountName", "bankName"),
-    bankName: getValue("bankName", "accountNumber"),
-    accountNumber: getValue("accountNumber", "ifscCode"),
-    ifscCode: getValue("ifscCode", "phoneNumber"),
-    phoneNumber: getValue("phoneNumber", "upiId"),
-    upiId: getValue("upiId"),
-  }];
-};
 
 // ─────────────────────────────────────────────
 // HELPER — PARSE EVENTS HISTORY
@@ -77,36 +49,102 @@ const parseBankDetails = (raw) => {
 // HELPER — CHECK IF ANY FIELD CHANGED
 // ─────────────────────────────────────────────
 
-const hasDataChanged = (existing, incoming, bankDetails,) => {
+// const hasDataChanged = (existing, incoming, bankDetails,) => {
+//   const scalarFields = [
+//     "apartmentName", "city", "location",
+//     "jioLocation", "permissionStatus", "rating",  "contactPersonPhone",
+//     "fromTGValues","toTGValues", "residencyCount", "approxPeopleCount", "perDayRent",
+//   ];
+
+//   const scalarChanged = scalarFields.some(
+//     (f) => String(existing[f] ?? "") !== String(incoming[f] ?? "")
+//   );
+
+//   const eb = existing.bankDetails?.[0] || {};
+//   const ib = bankDetails?.[0] || {};
+//   const bankChanged =
+//     String(eb.accountName ?? "") !== String(ib.accountName ?? "") ||
+//     String(eb.bankName ?? "") !== String(ib.bankName ?? "") ||
+//     String(eb.accountNumber ?? "") !== String(ib.accountNumber ?? "") ||
+//     String(eb.ifscCode ?? "") !== String(ib.ifscCode ?? "") ||
+//     String(eb.phoneNumber ?? "") !== String(ib.phoneNumber ?? "") ||
+//     String(eb.upiId ?? "") !== String(ib.upiId ?? "");
+
+//   // const ee = existing.existingEventsHistory?.[0] || {};
+//   // const ie = existingEventsHistory?.[0] || {};
+//   // const eventChanged =
+//   //   String(ee.eventName ?? "") !== String(ie.eventName ?? "") ||
+//   //   String(ee.eventDate ?? "") !== String(ie.eventDate ?? "") ||
+//   //   String(ee.remarks ?? "") !== String(ie.remarks ?? "");
+
+//   return scalarChanged || bankChanged || eventChanged;
+// };
+// const parseBankDetails = (raw) => {
+//   if (!raw?.toString().trim()) return [];
+
+//   const str = raw
+//     .toString()
+//     .replace(/\n/g, " ")
+//     .replace(/\r/g, " ")
+//     .trim();
+
+//   const getValue = (field, nextField) => {
+//     let regex;
+//     if (nextField) {
+//       regex = new RegExp(`${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`, "i");
+//     } else {
+//       regex = new RegExp(`${field}\\s*:\\s*(.*)$`, "i");
+//     }
+//     const match = str.match(regex);
+//     return match?.[1]?.trim() || "";
+//   };
+
+//   return [{
+//     accountName: getValue("accountName", "bankName"),
+//     bankName: getValue("bankName", "accountNumber"),
+//     accountNumber: getValue("accountNumber", "ifscCode"),
+//     ifscCode: getValue("ifscCode", "phoneNumber"),
+//     phoneNumber: getValue("phoneNumber", "upiId"),
+//     upiId: getValue("upiId"),
+//   }];
+// };
+
+const parseBankDetails = (item) => ({
+  accountHolderName: item.accountHolderName?.toString().trim() || "",
+  bankName:          item.bankName?.toString().trim()          || "",
+  accountNumber:     item.accountNumber?.toString().trim()     || "",
+  ifscCode:          item.ifscCode?.toString().trim()          || "",
+  phoneNumber:       item.phoneNumber?.toString().trim()       || "",
+  upiId:             item.upiId?.toString().trim()             || "",
+});
+ 
+// ── HELPER: detect if anything changed between existing doc and incoming row ──
+const hasDataChanged = (existing, incoming, bankDetails) => {
+  // Scalar fields
   const scalarFields = [
-    "apartmentName", "city", "location",
-    "jioLocation", "permissionStatus", "rating",  "contactPersonPhone",
-    "fromTGValues","toTGValues", "residencyCount", "approxPeopleCount", "perDayRent",
+    "apartmentName", "city", "location", "jioLocation",
+    "permissionStatus", "rating", "contactPersonPhone",
+    "fromTGValues", "toTGValues", "residencyCount",
+    "approxPeopleCount", "perDayRent",
   ];
-
-  const scalarChanged = scalarFields.some(
-    (f) => String(existing[f] ?? "") !== String(incoming[f] ?? "")
-  );
-
-  const eb = existing.bankDetails?.[0] || {};
-  const ib = bankDetails?.[0] || {};
-  const bankChanged =
-    String(eb.accountName ?? "") !== String(ib.accountName ?? "") ||
-    String(eb.bankName ?? "") !== String(ib.bankName ?? "") ||
-    String(eb.accountNumber ?? "") !== String(ib.accountNumber ?? "") ||
-    String(eb.ifscCode ?? "") !== String(ib.ifscCode ?? "") ||
-    String(eb.phoneNumber ?? "") !== String(ib.phoneNumber ?? "") ||
-    String(eb.upiId ?? "") !== String(ib.upiId ?? "");
-
-  // const ee = existing.existingEventsHistory?.[0] || {};
-  // const ie = existingEventsHistory?.[0] || {};
-  // const eventChanged =
-  //   String(ee.eventName ?? "") !== String(ie.eventName ?? "") ||
-  //   String(ee.eventDate ?? "") !== String(ie.eventDate ?? "") ||
-  //   String(ee.remarks ?? "") !== String(ie.remarks ?? "");
-
-  return scalarChanged || bankChanged || eventChanged;
+  for (const field of scalarFields) {
+    if (String(existing[field] ?? "") !== String(incoming[field] ?? "")) return true;
+  }
+ 
+  // bankDetails sub-fields
+  const bankFields = [
+    "accountHolderName", "bankName", "accountNumber",
+    "ifscCode", "phoneNumber", "upiId",
+  ];
+  for (const field of bankFields) {
+    if (String(existing.bankDetails?.[field] ?? "") !== String(bankDetails[field] ?? "")) return true;
+  }
+ 
+  return false;
 };
+
+
+
 
 // ─────────────────────────────────────────────
 // 1. UPLOAD EXCEL
@@ -348,6 +386,10 @@ const hasDataChanged = (existing, incoming, bankDetails,) => {
 //     return errorResponse(res, "Error Uploading File", error.message);
 //   }
 // };
+
+
+
+
 const uploadExcel = async (req, res) => {
   try {
     if (!req.file) {
@@ -423,7 +465,7 @@ const uploadExcel = async (req, res) => {
           return isNaN(parsed) ? 0 : parsed;
         })();
 
-        const bankDetails           = parseBankDetails(item.bankDetails);
+        const bankDetails           = parseBankDetails(item);
         // const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
 
         // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
@@ -496,7 +538,13 @@ const uploadExcel = async (req, res) => {
                   residencyCount,
                   approxPeopleCount,
                   perDayRent,
-                  bankDetails,
+                  // bankDetails,
+                  "bankDetails.accountHolderName": bankDetails.accountHolderName,
+                  "bankDetails.bankName":          bankDetails.bankName,
+                  "bankDetails.accountNumber":     bankDetails.accountNumber,
+                  "bankDetails.ifscCode":          bankDetails.ifscCode,
+                  "bankDetails.phoneNumber":       bankDetails.phoneNumber,
+                  "bankDetails.upiId":             bankDetails.upiId,
                   // existingEventsHistory,
                   updatedBy:            req.user.name,
                   lastUpdatedBySession: session._id,
@@ -603,7 +651,6 @@ const uploadExcel = async (req, res) => {
 // ─────────────────────────────────────────────
 // 2. GET ALL UPLOAD SESSIONS
 // ─────────────────────────────────────────────
-
 const getUploadSessions = async (req, res) => {
   try {
     const pageNumber = parseInt(req.body.pageNumber) || 1;
@@ -753,7 +800,7 @@ const listApartments = async (req, res) => {
       .populate("createdBySession", "fileName createdAt")
       .populate("lastUpdatedBySession", "fileName createdAt")
       .populate("skippedBySession", "fileName createdAt")
-      .sort({ updatedAt: 1 })
+      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(count)
       .lean();
@@ -853,30 +900,6 @@ const listApartments = async (req, res) => {
 // 4. GET APARTMENT BY ID
 // ─────────────────────────────────────────────
 
-// const getApartmentById = async (req, res) => {
-//   try {
-//     const { apartmentId } = req.query;
-
-//     if (!apartmentId) {
-//       return errorResponse(res, "apartmentId is required");
-//     }
-
-//     const apartment = await Apartment.findById(apartmentId)
-//       .populate("createdBySession", "fileName createdAt")
-//       .populate("lastUpdatedBySession", "fileName createdAt")
-//       .populate("skippedBySession", "fileName createdAt")
-//       .lean();
-
-//     if (!apartment) {
-//       return errorResponse(res, "Apartment not found");
-//     }
-
-//     return successResponse(res, "Apartment fetched successfully", apartment);
-
-//   } catch (error) {
-//     return errorResponse(res, "Error fetching apartment", error.message);
-//   }
-// };
 const getApartmentById = async (req, res) => {
   try {
     const { apartmentId } = req.query;
@@ -930,68 +953,66 @@ const createOrUpdateParticularApartment = async (req, res) => {
   try {
     const {
       apartmentId,
-      // apartmentName,
-      apartmentAddress,
+      apartmentName,
       city,
       location,
       jioLocation,
       photo,
-      // apartmentSummary,
-      // contactPersonName,
       contactPersonPhone,
-      // email,
-      bankDetails,
       permissionStatus,
       rating,
       residencyCount,
       approxPeopleCount,
       fromTGValues,
       toTGValues,
-      // existingEventsHistory,
       perDayRent,
       updatedBy,
+
+      // ✅ flat individual bank fields from req.body
+      accountHolderName,
+      bankName,
+      accountNumber,
+      ifscCode,
+      phoneNumber,
+      upiId,
     } = req.body;
 
     // =====================================================
     // VALIDATION
     // =====================================================
-    if (
-      !apartmentName ||
-      // !apartmentAddress ||
-      !city ||
-      !location ||
-      // !apartmentSummary ||
-      // !contactPersonName ||
-      !contactPersonPhone 
-    ) {
+    if (!apartmentName || !city || !location || !contactPersonPhone) {
       return res.status(400).json({
         success: false,
         message: "Required fields are missing",
       });
     }
 
+    // ✅ Build bankDetails object from flat fields
+    const bankDetails = {
+      accountHolderName: accountHolderName ?? "",
+      bankName:          bankName          ?? "",
+      accountNumber:     accountNumber     ?? "",
+      ifscCode:          ifscCode          ?? "",
+      phoneNumber:       phoneNumber       ?? "",
+      upiId:             upiId             ?? "",
+    };
+
     // =====================================================
     // COMMON DATA
     // =====================================================
     const apartmentData = {
       apartmentName,
-      // apartmentAddress,
       city,
       location,
       jioLocation,
       photo,
-      // apartmentSummary,
-      // contactPersonName,
       contactPersonPhone,
-      // email,
-      bankDetails,
       permissionStatus,
       rating,
       residencyCount,
       approxPeopleCount,
       fromTGValues,
       toTGValues,
-      // existingEventsHistory,
       perDayRent,
       updatedBy,
     };
@@ -1007,11 +1028,9 @@ const createOrUpdateParticularApartment = async (req, res) => {
       apartmentId !== "undefined";
 
     if (isValidApartmentId) {
-      apartmentData.apartmentId =
-        apartmentId;
+      apartmentData.apartmentId = apartmentId;
     }
 
-    // EXTRA SAFETY
     if (
       apartmentData.apartmentId === undefined ||
       apartmentData.apartmentId === null ||
@@ -1026,12 +1045,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
     if (isValidApartmentId) {
       let query;
 
-      // CHECK MONGODB OBJECT ID
-      if (
-        mongoose.Types.ObjectId.isValid(
-          apartmentId
-        )
-      ) {
+      if (mongoose.Types.ObjectId.isValid(apartmentId)) {
         query = {
           $or: [
             { _id: apartmentId },
@@ -1039,15 +1053,11 @@ const createOrUpdateParticularApartment = async (req, res) => {
           ],
         };
       } else {
-        query = {
-          apartmentId: apartmentId,
-        };
+        query = { apartmentId: apartmentId };
       }
 
-      const existingApartment =
-        await Apartment.findOne(query);
+      const existingApartment = await Apartment.findOne(query);
 
-      // INVALID apartmentId
       if (!existingApartment) {
         return res.status(404).json({
           success: false,
@@ -1055,21 +1065,26 @@ const createOrUpdateParticularApartment = async (req, res) => {
         });
       }
 
-      // UPDATE RECORD
-      const updatedApartment =
-        await Apartment.findByIdAndUpdate(
-          existingApartment._id,
-          apartmentData,
-          {
-            new: true,
-            runValidators: true,
-          }
-        );
+      // ✅ dot-notation stores flat fields into bankDetails object
+      const updatedApartment = await Apartment.findByIdAndUpdate(
+        existingApartment._id,
+        {
+          $set: {
+            ...apartmentData,
+            "bankDetails.accountHolderName": bankDetails.accountHolderName,
+            "bankDetails.bankName":          bankDetails.bankName,
+            "bankDetails.accountNumber":     bankDetails.accountNumber,
+            "bankDetails.ifscCode":          bankDetails.ifscCode,
+            "bankDetails.phoneNumber":       bankDetails.phoneNumber,
+            "bankDetails.upiId":             bankDetails.upiId,
+          },
+        },
+        { new: true, runValidators: true }
+      );
 
       return res.status(200).json({
         success: true,
-        message:
-          "Apartment updated successfully",
+        message: "Apartment updated successfully",
         data: updatedApartment,
       });
     }
@@ -1077,24 +1092,23 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // =====================================================
     // CREATE NEW
     // =====================================================
-    const newApartment =
-      await Apartment.create(apartmentData);
+
+    // ✅ attach the built bankDetails object on create
+    apartmentData.bankDetails = bankDetails;
+
+    const newApartment = await Apartment.create(apartmentData);
 
     return res.status(201).json({
       success: true,
-      message:
-        "Apartment created successfully",
+      message: "Apartment created successfully",
       data: newApartment,
     });
 
   } catch (error) {
-
-    // DUPLICATE KEY ERROR
     if (error.code === 11000) {
       return res.status(400).json({
         success: false,
-        message:
-          "Apartment ID already exists",
+        message: "Apartment ID already exists",
       });
     }
 
@@ -1104,7 +1118,6 @@ const createOrUpdateParticularApartment = async (req, res) => {
     });
   }
 };
-
 module.exports = {
   uploadExcel,
   getUploadSessions,

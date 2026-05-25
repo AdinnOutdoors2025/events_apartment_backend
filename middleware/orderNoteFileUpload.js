@@ -308,7 +308,7 @@ const getFileUrl = (req, file) => {
     return file.location;
   }
 
-  return `${LOCAL_BASE_URL}/uploads/${UPLOAD_FOLDER}/${file.filename}`;
+  return `${LOCAL_BASE_URL}/public/uploads/${UPLOAD_FOLDER}/${file.filename}`;
 };
 
 // ─────────────────────────────────────────────────────────────

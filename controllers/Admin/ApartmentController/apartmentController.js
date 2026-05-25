@@ -751,15 +751,32 @@ const listApartments = async (req, res) => {
 
     let filter = ApartmentFilters(req.body);
 
-    // ── BUILD PRICE-RANGE FILTER (excludes minTG/maxTG/minRent/maxRent) ──
-    const bodyWithoutPriceFilters = {
-      ...req.body,
-      minTG: undefined,
-      maxTG: undefined,
-      minRent: undefined,
-      maxRent: undefined,
-    };
-    let priceRangeFilter = ApartmentFilters(bodyWithoutPriceFilters);
+      let priceRangeFilter = {};
+
+    if (sessionId) {
+
+      const sessionObjectId =
+        new mongoose.Types.ObjectId(
+          sessionId
+        );
+
+      priceRangeFilter = {
+        $or: [
+          {
+            createdBySession:
+              sessionObjectId,
+          },
+          {
+            lastUpdatedBySession:
+              sessionObjectId,
+          },
+          {
+            skippedBySession:
+              sessionObjectId,
+          },
+        ],
+      };
+    }
     // ─────────────────────────────────────────────────────────────────────
 
     if (sessionId) {
@@ -780,15 +797,6 @@ const listApartments = async (req, res) => {
         };
       } else {
         filter = { ...filter, ...sessionCondition };
-      }
-
-      // Price-range filter (same session condition, no price filters)
-      if (priceRangeFilter.$or) {
-        priceRangeFilter = {
-          $and: [{ $or: priceRangeFilter.$or }, sessionCondition],
-        };
-      } else {
-        priceRangeFilter = { ...priceRangeFilter, ...sessionCondition };
       }
     }
 

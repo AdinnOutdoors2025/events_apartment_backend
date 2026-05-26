@@ -10,6 +10,7 @@ router.get("/profile", protect, (req, res) => {
     success: true,
     message: "Protected profile data",
     userId: req.user
+    
   });
 });
 module.exports = router;

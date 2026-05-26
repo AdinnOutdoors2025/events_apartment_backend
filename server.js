@@ -7,6 +7,7 @@ const authRoutes = require("./routes/Admin/authRoutes");
 const apartmentRoutes = require('./routes/Admin/ApartmentRoutes/apartmentRoutes');
 const apartmentEventRoutes = require("./routes/Admin/EventRoutes/eventRoutes")
 const apartmentOrderRoutes = require("./routes/Admin/EventRoutes/eventOrderRoutes")
+const elementQuotationRoutes = require("./routes/Admin/EventRoutes/eventElementQuotationRoutes")
 const userRoutes = require("./routes/Admin/UserRoutes/userRoutes")
 connectDB();
 
@@ -19,6 +20,7 @@ app.use("/admin", authRoutes);
 app.use('/admin', apartmentRoutes);
 app.use('/admin', apartmentEventRoutes);
 app.use('/admin', apartmentOrderRoutes);
+app.use('/admin', elementQuotationRoutes);
 app.use('/user', userRoutes);
 app.use(
   "/uploads",

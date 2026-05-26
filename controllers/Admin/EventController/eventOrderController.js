@@ -1244,7 +1244,6 @@ const createBooking = asyncHandler(async (req, res) => {
   if (parsedToDate < parsedFromDate) {
     return res.status(400).json({
       success: false,
-
       message: "toDate must be on or after fromDate",
     });
   }
@@ -1281,29 +1280,19 @@ const createBooking = asyncHandler(async (req, res) => {
 
   const apartmentDetails = {
     _id: apartment._id,
-
     apartmentName: apartment.apartmentName,
-
     apartmentAddress: apartment.apartmentAddress,
-
     city: apartment.city,
-
     location: apartment.location,
-
     perDayRent: apartment.perDayRent,
-
     contactPersonName: apartment.contactPersonName,
-
     contactPersonPhone: apartment.contactPersonPhone,
   };
 
   const eventDetails = {
     _id: event._id,
-
     eventName: event.eventName,
-
     amount: event.amount,
-
     description: event.description,
   };
 
@@ -1313,9 +1302,7 @@ const createBooking = asyncHandler(async (req, res) => {
 
   const existingCustomerBooking = await orderBooking.findOne({
     apartmentId,
-
     eventId,
-
     "customerDetails.contactPersonPhoneNumber": contactPersonPhoneNumber,
   });
 
@@ -1327,15 +1314,11 @@ const createBooking = asyncHandler(async (req, res) => {
     _id: {
       $ne: existingCustomerBooking?._id,
     },
-
     apartmentId,
-
     eventId,
-
     fromDate: {
       $lte: parsedToDate,
     },
-
     toDate: {
       $gte: parsedFromDate,
     },
@@ -1344,20 +1327,15 @@ const createBooking = asyncHandler(async (req, res) => {
   if (overlappingBooking) {
     return res.status(409).json({
       success: false,
-
       message: `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
     });
   }
-
   const apartmentAmount = Math.floor(
     (apartment.perDayRent || 0) * (daysOfApartment || 0),
   );
   const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
-
   const eventAmount = Math.floor((event.amount || 0) * (daysOfEvent || 0));
-
   let promoterTotal = 0;
-
   const promotersWithAmount = (promoters || []).map((p) => {
     const promoterAmount = Math.floor(
       (p.promoterPerDayCharge || 0) * (daysOfEvent || 0),
@@ -1387,9 +1365,7 @@ const createBooking = asyncHandler(async (req, res) => {
   }
 
   const taxableAmount = Math.floor(subTotal - discountAmount);
-
   const gstAmount = Math.floor((taxableAmount * 18) / 100);
-
   const totalAmount = Math.floor(taxableAmount + gstAmount);
   // ─────────────────────────────────────────────
   // UPDATE EXISTING BOOKING
@@ -1397,58 +1373,33 @@ const createBooking = asyncHandler(async (req, res) => {
 
   if (existingCustomerBooking) {
     existingCustomerBooking.fromDate = parsedFromDate;
-
     existingCustomerBooking.toDate = parsedToDate;
-
     existingCustomerBooking.daysOfEvent = daysOfEvent;
-
     existingCustomerBooking.daysOfApartment = daysOfApartment;
-
     existingCustomerBooking.sqfet = sqfet;
-
     existingCustomerBooking.promoterRequired = promoterRequired;
-
     existingCustomerBooking.promoterCount = promoterCount;
-
     existingCustomerBooking.promoters = promotersWithAmount;
-
     existingCustomerBooking.customerDetails = customerDetails;
-
     existingCustomerBooking.discountPercentage = discountPercentage;
-
     existingCustomerBooking.discountType = discountType;
-
     existingCustomerBooking.apartmentAmount = apartmentAmount;
-
     existingCustomerBooking.sqfetAmount = sqfetAmount;
-
     existingCustomerBooking.eventAmount = eventAmount;
-
     existingCustomerBooking.promoterTotal = promoterTotal;
-
     existingCustomerBooking.subTotal = subTotal;
-
     existingCustomerBooking.discountAmount = discountAmount;
-
     existingCustomerBooking.taxableAmount = taxableAmount;
-
     existingCustomerBooking.gstAmount = gstAmount;
-
     existingCustomerBooking.totalAmount = totalAmount;
-
     existingCustomerBooking.apartmentDetails = apartmentDetails;
-
     existingCustomerBooking.eventDetails = eventDetails;
-
     existingCustomerBooking.orderNote = orderNote;
-
     existingCustomerBooking.updatedBy = req.user?.name;
-
     await existingCustomerBooking.save();
 
     return res.status(200).json({
       success: true,
-
       message: "Booking updated successfully",
     });
   }
@@ -1465,63 +1416,37 @@ const createBooking = asyncHandler(async (req, res) => {
 
   const booking = await orderBooking.create({
     orderId,
-
     apartmentId,
-
     eventId,
-
     apartmentDetails,
-
     eventDetails,
-
     fromDate: parsedFromDate,
-
     toDate: parsedToDate,
-
     daysOfEvent,
-
     daysOfApartment,
     sqfet,
     promoterRequired,
-
     promoterCount,
-
     promoters: promotersWithAmount,
-
     customerDetails,
-
     discountPercentage,
-
     discountType,
-
     apartmentAmount,
     sqfetAmount,
     eventAmount,
-
     promoterTotal,
-
     subTotal,
-
     discountAmount,
-
     taxableAmount,
-
     gstAmount,
-
     totalAmount,
-
     orderNote,
-
     orderStatus: 1,
-
     createdBy: req.user?.name,
-
     updatedBy: req.user?.name,
   });
-
   return res.status(201).json({
     success: true,
-
     message: "Booking created successfully",
   });
 });
@@ -1539,18 +1464,15 @@ const parseDate = (dateString) => {
 const buildBookingFilters = async (body) => {
   const { apartmentId, orderStatus, fromDate, toDate, search } = body;
   let filter = {};
-
   if (apartmentId && mongoose.Types.ObjectId.isValid(apartmentId)) {
     filter.apartmentId = new mongoose.Types.ObjectId(apartmentId);
   }
-
   if (orderStatus !== undefined && orderStatus !== null && orderStatus !== "") {
     const statusValue = Number(orderStatus);
     if (statusValue !== 0) {
       filter.orderStatus = statusValue;
     }
   }
-
   if (fromDate || toDate) {
     filter.fromDate = {};
     if (fromDate) {
@@ -1566,7 +1488,6 @@ const buildBookingFilters = async (body) => {
       filter.fromDate.$lte = endDate;
     }
   }
-
   if (search && search.trim() !== "") {
     const searchRegex = new RegExp(search.trim(), "i");
     const matchedApartments = await Apartment.find(
@@ -1586,23 +1507,19 @@ const buildBookingFilters = async (body) => {
     if (orConditions.length === 0) return { noMatch: true, filter };
     filter.$or = orConditions;
   }
-
   return { filter };
 };
 
 const listAllBookings = asyncHandler(async (req, res) => {
   const { pageNumber, count } = req.body || {};
-
   if (!pageNumber || !count) {
     return res
       .status(400)
       .json({ success: false, message: "pageNumber and count are required" });
   }
-
   const page = parseInt(pageNumber);
   const limit = parseInt(count);
   const skip = (page - 1) * limit;
-
   const filterResult = await buildBookingFilters(req.body);
   if (filterResult.error) {
     return res
@@ -1610,19 +1527,17 @@ const listAllBookings = asyncHandler(async (req, res) => {
       .json({ success: false, message: filterResult.error });
   }
   if (filterResult.noMatch) {
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Bookings fetched successfully",
-        data: {
-          pageNumber: page,
-          count: limit,
-          totalCount: 0,
-          totalPages: 0,
-          bookings: [],
-        },
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Bookings fetched successfully",
+      data: {
+        pageNumber: page,
+        count: limit,
+        totalCount: 0,
+        totalPages: 0,
+        bookings: [],
+      },
+    });
   }
 
   const filter = filterResult.filter;
@@ -1677,26 +1592,343 @@ const apartmentEventGet = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Apartment not found" });
     }
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Apartment fetched successfully",
-        data: { apartment, events },
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Apartment fetched successfully",
+      data: { apartment, events },
+    });
   } catch (error) {
     console.log("GET APARTMENT ERROR:", error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error",
-        error: error.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
 
 // ─── STATUS CHANGE ONLY API (SINGLE PURPOSE) ──────────────────────────
+// const updateOrderStatusOnly = asyncHandler(async (req, res) => {
+//   const { orderId } = req.query;
+//   const {
+//     status,
+//     additionalNotes,
+//     negotiationAmount,
+//     closeLossReason,
+//     poDocument,
+//     statusDocument,
+//   } = req.body;
+
+//   // ─────────────────────────────────────────────
+//   // VALIDATIONS
+//   // ─────────────────────────────────────────────
+
+//   if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+//     return res.status(400).json({
+//       success: false,
+//       message: !orderId ? "orderId is required" : "Invalid orderId",
+//     });
+//   }
+
+//   if (status === undefined || status === null) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "status is required",
+//     });
+//   }
+
+//   const newStatus = Number(status);
+//   if (![1, 2, 3, 4, 5, 6].includes(newStatus)) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Invalid status value. Allowed values: 1,2,3,4,5,6",
+//     });
+//   }
+
+//   // FIND ORDER
+//   const order = await orderBooking.findById(orderId);
+//   if (!order) {
+//     return res.status(404).json({
+//       success: false,
+//       message: "Order not found",
+//     });
+//   }
+
+//   const currentStatus = order.orderStatus;
+
+//   // CHECK IF STATUS IS ALREADY SAME
+//   if (currentStatus === newStatus) {
+//     return res.status(400).json({
+//       success: false,
+//       message: `Order is already in ${getStatusText(currentStatus)} status`,
+//     });
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // VALIDATE STATUS TRANSITION
+//   // ─────────────────────────────────────────────
+//   const validTransitions = {
+//     1: [2], // Enquiry → Need Analysis
+//     2: [3], // Need Analysis → Proposal & Price Quote
+//     3: [4], // Proposal & Price Quote → Negotiation & Review
+//     4: [5, 6], // Negotiation & Review → Close Won OR Closed Loss
+//     5: [], // Close Won - Terminal State (No further changes)
+//     6: [], // Closed Loss - Terminal State (No further changes)
+//   };
+
+//   if (!validTransitions[currentStatus]?.includes(newStatus)) {
+//     return res.status(400).json({
+//       success: false,
+//       message: `Invalid status transition from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}. Allowed transitions: ${validTransitions[currentStatus]?.map((s) => getStatusText(s)).join(", ") || "None"}`,
+//     });
+//   }
+//   // ─────────────────────────────────────────────
+//   // HELPER FUNCTION: Process uploaded document
+//   // ─────────────────────────────────────────────
+//   const processUploadedDocument = (uploadedFile, documentData) => {
+//     let resolvedDocument = null;
+
+//     if (uploadedFile) {
+//       // File was uploaded (local or Spaces)
+//       const {
+//         getFileUrl,
+//         STORAGE_TYPE,
+//       } = require("../../../middleware/orderNoteFileUpload");
+
+//       resolvedDocument = {
+//         originalName: uploadedFile.originalname,
+//         fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+//         filePath: getFileUrl(req, uploadedFile),
+//         mimeType: uploadedFile.mimetype,
+//         size: uploadedFile.size,
+//         fileType: getFileCategory(uploadedFile.mimetype),
+//         uploadedAt: new Date(),
+//       };
+//     } else if (documentData) {
+//       // Fallback: document passed as JSON in req.body (no file upload)
+//       resolvedDocument = documentData;
+//     }
+
+//     return resolvedDocument;
+//   };
+
+//   // ─────────────────────────────────────────────
+//   // PROCESS STATUS DOCUMENT (Optional - for any status change)
+//   // ─────────────────────────────────────────────
+//   let resolvedStatusDocument = null;
+//   const uploadedStatusFile = req.files?.statusDocument?.[0];
+
+//   if (uploadedStatusFile || statusDocument) {
+//     resolvedStatusDocument = processUploadedDocument(uploadedStatusFile, statusDocument);
+    
+//     // Validate document structure if provided
+//     if (resolvedStatusDocument) {
+//       if (!resolvedStatusDocument.originalName || 
+//           !resolvedStatusDocument.fileName || 
+//           !resolvedStatusDocument.filePath) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "statusDocument must contain originalName, fileName, and filePath",
+//         });
+//       }
+//     }
+//   }
+//   // ─────────────────────────────────────────────
+//   // STATUS SPECIFIC VALIDATIONS
+//   // ─────────────────────────────────────────────
+
+//   let historyEntry = {
+//     fromStatus: currentStatus,
+//     toStatus: newStatus,
+//     changedBy: req.user?.name || "Admin",
+//     changedAt: new Date(),
+//       additionalNotes: additionalNotes || "", // Optional, can be empty
+//     statusDocument: resolvedStatusDocument, // Optional document for this status change
+//   };
+
+//    // 1 → 2: Need Analysis
+//   if (currentStatus === 1 && newStatus === 2) {
+//     if (additionalNotes) order.additionalNotes = additionalNotes;
+    
+//     // Store status document in order if provided
+//     if (resolvedStatusDocument) {
+//       if (!order.statusDocuments) order.statusDocuments = [];
+//       order.statusDocuments.push({
+//         status: newStatus,
+//         document: resolvedStatusDocument,
+//         notes: additionalNotes || "",
+//         uploadedAt: new Date(),
+//         uploadedBy: req.user?.name || "Admin",
+//       });
+//     }
+//   }
+
+//   // 2 → 3: Proposal & Price Quote
+//   else if (currentStatus === 2 && newStatus === 3) {
+//     if (additionalNotes) order.additionalNotes = additionalNotes;
+    
+//     if (resolvedStatusDocument) {
+//       if (!order.statusDocuments) order.statusDocuments = [];
+//       order.statusDocuments.push({
+//         status: newStatus,
+//         document: resolvedStatusDocument,
+//         notes: additionalNotes || "",
+//         uploadedAt: new Date(),
+//         uploadedBy: req.user?.name || "Admin",
+//       });
+//     }
+//   }
+
+//   // 3 → 4: Negotiation & Review
+//   else if (currentStatus === 3 && newStatus === 4) {
+//     if (additionalNotes) order.additionalNotes = additionalNotes;
+
+//     if (negotiationAmount !== undefined && negotiationAmount !== null) {
+//       const totalAmount = Number(order.totalAmount || 0);
+//       const negotiationAmt = Number(negotiationAmount);
+//       const finalAmount = totalAmount - negotiationAmt;
+
+//       if (finalAmount < 0) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Negotiation amount cannot be greater than total amount",
+//         });
+//       }
+
+//       historyEntry.negotiationAmount = negotiationAmt;
+//       historyEntry.finalAmount = finalAmount;
+
+//       order.negotiationAmount = negotiationAmt;
+//       order.finalAmount = finalAmount;
+//     }
+    
+//     if (resolvedStatusDocument) {
+//       if (!order.statusDocuments) order.statusDocuments = [];
+//       order.statusDocuments.push({
+//         status: newStatus,
+//         document: resolvedStatusDocument,
+//         notes: additionalNotes || "",
+//         uploadedAt: new Date(),
+//         uploadedBy: req.user?.name || "Admin",
+//       });
+//     }
+//   }
+  
+//   // 4 → 5: Close Won
+//   else if (currentStatus === 4 && newStatus === 5) {
+//     // Process PO Document (mandatory for Close Won)
+//     let resolvedPoDocument = null;
+//     const uploadedPoFile = req.files?.poDocument?.[0];
+
+//     if (uploadedPoFile) {
+//       const {
+//         getFileUrl,
+//         STORAGE_TYPE,
+//       } = require("../../../middleware/orderNoteFileUpload");
+
+//       resolvedPoDocument = {
+//         originalName: uploadedPoFile.originalname,
+//         fileName: uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
+//         filePath: getFileUrl(req, uploadedPoFile),
+//         mimeType: uploadedPoFile.mimetype,
+//         size: uploadedPoFile.size,
+//         fileType: getFileCategory(uploadedPoFile.mimetype),
+//         uploadedAt: new Date(),
+//       };
+//     } else if (poDocument) {
+//       resolvedPoDocument = poDocument;
+//     }
+
+//     // Validate PO Document (mandatory for Close Won)
+//     if (!resolvedPoDocument) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "poDocument is mandatory when moving to Close Won",
+//       });
+//     }
+
+//     if (!resolvedPoDocument.originalName ||
+//         !resolvedPoDocument.fileName ||
+//         !resolvedPoDocument.filePath) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "poDocument must contain originalName, fileName, and filePath",
+//       });
+//     }
+
+//     historyEntry.poDocument = resolvedPoDocument;
+//     order.poDocument = resolvedPoDocument;
+    
+//     // Also store status document if provided
+//     if (resolvedStatusDocument) {
+//       if (!order.statusDocuments) order.statusDocuments = [];
+//       order.statusDocuments.push({
+//         status: newStatus,
+//         document: resolvedStatusDocument,
+//         notes: additionalNotes || "",
+//         uploadedAt: new Date(),
+//         uploadedBy: req.user?.name || "Admin",
+//       });
+//     }
+//   }
+
+//   // 4 → 6: Closed Loss
+//   else if (currentStatus === 4 && newStatus === 6) {
+//     if (!closeLossReason || closeLossReason.trim() === "") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "closeLossReason is required when moving to Closed Loss",
+//       });
+//     }
+    
+//     historyEntry.closeLossReason = closeLossReason;
+//     order.closeLossReason = closeLossReason;
+    
+//     if (resolvedStatusDocument) {
+//       if (!order.statusDocuments) order.statusDocuments = [];
+//       order.statusDocuments.push({
+//         status: newStatus,
+//         document: resolvedStatusDocument,
+//         notes: additionalNotes || "",
+//         uploadedAt: new Date(),
+//         uploadedBy: req.user?.name || "Admin",
+//       });
+//     }
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // UPDATE ORDER
+//   // ─────────────────────────────────────────────
+//   order.orderStatus = newStatus;
+//   order.updatedBy = req.user?.name;
+
+//    // Only update additionalNotes if provided
+//   if (additionalNotes) {
+//     order.additionalNotes = additionalNotes;
+//   }
+//   // ADD TO ORDER HISTORY
+//   if (!order.orderHistory) {
+//     order.orderHistory = [];
+//   }
+//   order.orderHistory.push(historyEntry);
+
+//   await order.save();
+
+//   // ─────────────────────────────────────────────
+//   // RESPONSE
+//   // ─────────────────────────────────────────────
+//   return res.status(200).json({
+//     success: true,
+//     message: `Order status updated to ${getStatusText(newStatus)} successfully`,
+//     data: {
+//       orderId: order._id,
+//       orderNo: order.orderId,
+//       previousStatus: getStatusText(currentStatus),
+//       currentStatus: getStatusText(newStatus),
+//       updatedAt: new Date(),
+//     },
+//   });
+// });
 const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   const { orderId } = req.query;
   const {
@@ -1704,7 +1936,9 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     additionalNotes,
     negotiationAmount,
     closeLossReason,
-    poDocument,
+    poDocument, // For Close Won only
+    statusDocument, // Generic document for any status change (optional)
+    voiceDocument,
   } = req.body;
 
   // ─────────────────────────────────────────────
@@ -1753,26 +1987,147 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   }
 
   // ─────────────────────────────────────────────
-  // VALIDATE STATUS TRANSITION
+  // VALIDATE STATUS TRANSITION - FULLY FLEXIBLE
   // ─────────────────────────────────────────────
+  // Allow ANY status to move to ANY other status
+  // Just check that it's a different status
   const validTransitions = {
-    1: [2], // Enquiry → Need Analysis
-    2: [3], // Need Analysis → Proposal & Price Quote
-    3: [4], // Proposal & Price Quote → Negotiation & Review
-    4: [5, 6], // Negotiation & Review → Close Won OR Closed Loss
-    5: [], // Close Won - Terminal State (No further changes)
-    6: [], // Closed Loss - Terminal State (No further changes)
+    1: [2, 3, 4, 5, 6], // Enquiry → Any status
+    2: [1, 3, 4, 5, 6], // Need Analysis → Any status (including back to 1)
+    3: [1, 2, 4, 5, 6], // Proposal & Price Quote → Any status
+    4: [1, 2, 3, 5, 6], // Negotiation & Review → Any status
+    5: [1, 2, 3, 4, 6], // Close Won → Any status (reopen)
+    6: [1, 2, 3, 4, 5], // Closed Loss → Any status (reopen)
   };
 
   if (!validTransitions[currentStatus]?.includes(newStatus)) {
     return res.status(400).json({
       success: false,
-      message: `Invalid status transition from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}. Allowed transitions: ${validTransitions[currentStatus]?.map((s) => getStatusText(s)).join(", ") || "None"}`,
+      message: `Invalid status transition from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}.`,
     });
   }
 
   // ─────────────────────────────────────────────
-  // STATUS SPECIFIC VALIDATIONS
+  // HELPER FUNCTION: Process uploaded document
+  // ─────────────────────────────────────────────
+  const processUploadedDocument = (uploadedFile, documentData) => {
+    let resolvedDocument = null;
+
+    if (uploadedFile) {
+      // File was uploaded (local or Spaces)
+      const {
+        getFileUrl,
+        STORAGE_TYPE,
+      } = require("../../../middleware/orderNoteFileUpload");
+
+      resolvedDocument = {
+        originalName: uploadedFile.originalname,
+        fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+        filePath: getFileUrl(req, uploadedFile),
+        mimeType: uploadedFile.mimetype,
+        size: uploadedFile.size,
+        fileType: getFileCategory(uploadedFile.mimetype),
+        uploadedAt: new Date(),
+      };
+    } else if (documentData) {
+      // Fallback: document passed as JSON in req.body (no file upload)
+      resolvedDocument = documentData;
+    }
+
+    return resolvedDocument;
+  };
+
+  // ─────────────────────────────────────────────
+  // PROCESS STATUS DOCUMENT (Optional - for any status change)
+  // ─────────────────────────────────────────────
+  let resolvedStatusDocument = null;
+  const uploadedStatusFile = req.files?.statusDocument?.[0];
+
+  if (uploadedStatusFile || statusDocument) {
+    resolvedStatusDocument = processUploadedDocument(uploadedStatusFile, statusDocument);
+    
+    // Validate document structure if provided
+    if (resolvedStatusDocument) {
+      if (!resolvedStatusDocument.originalName || 
+          !resolvedStatusDocument.fileName || 
+          !resolvedStatusDocument.filePath) {
+        return res.status(400).json({
+          success: false,
+          message: "statusDocument must contain originalName, fileName, and filePath",
+        });
+      }
+    }
+  }
+const processVoiceNote = (uploadedFile, voiceNoteData) => {
+    let resolvedVoiceNote = null;
+
+    if (uploadedFile) {
+      const {
+        getFileUrl,
+        STORAGE_TYPE,
+      } = require("../../../middleware/orderNoteFileUpload");
+
+      // Validate that it's an audio file
+      if (!uploadedFile.mimetype.startsWith("audio/")) {
+        throw new Error("Uploaded file is not an audio file");
+      }
+
+      resolvedVoiceNote = {
+        originalName: uploadedFile.originalname,
+        fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+        filePath: getFileUrl(req, uploadedFile),
+        mimeType: uploadedFile.mimetype,
+        size: uploadedFile.size,
+        fileType: "audio",
+        duration: null, // You can add duration extraction logic here
+        uploadedAt: new Date(),
+      };
+    } else if (voiceNoteData) {
+      resolvedVoiceNote = voiceNoteData;
+      
+      // Validate voice note data
+      if (resolvedVoiceNote && !resolvedVoiceNote.mimeType?.startsWith("audio/")) {
+        throw new Error("Voice note must be an audio file");
+      }
+    }
+
+    return resolvedVoiceNote;
+  };
+
+   // ─────────────────────────────────────────────
+  // PROCESS VOICE NOTE (Optional - for any status change)
+  // ─────────────────────────────────────────────
+  let resolvedVoiceNote = null;
+  const uploadedVoiceFile = req.files?.voiceDocument?.[0];
+
+  try {
+    if (uploadedVoiceFile || voiceDocument) {
+      resolvedVoiceNote = processVoiceNote(
+        uploadedVoiceFile, 
+        voiceDocument
+      );
+      
+      // Validate voice note structure if provided
+      if (resolvedVoiceNote) {
+        if (!resolvedVoiceNote.originalName || 
+            !resolvedVoiceNote.fileName || 
+            !resolvedVoiceNote.filePath ||
+            !resolvedVoiceNote.mimeType) {
+          return res.status(400).json({
+            success: false,
+            message: "voiceNote must contain originalName, fileName, filePath, and mimeType",
+          });
+        }
+      }
+    }
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+  // ─────────────────────────────────────────────
+  // STATUS SPECIFIC VALIDATIONS & PROCESSING
   // ─────────────────────────────────────────────
 
   let historyEntry = {
@@ -1780,63 +2135,19 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     toStatus: newStatus,
     changedBy: req.user?.name || "Admin",
     changedAt: new Date(),
-    // remarks: `Status changed to ${getStatusText(newStatus)}`
+    additionalNotes: additionalNotes || "",
+    statusDocument: resolvedStatusDocument,
+    voiceDocument: resolvedVoiceNote,
   };
 
-  // 1 → 2: Need Analysis
-  if (currentStatus === 1 && newStatus === 2) {
-    historyEntry.additionalNotes = additionalNotes;
-    order.additionalNotes = additionalNotes;
-  }
-
-  // 2 → 3: Proposal & Price Quote
-  else if (currentStatus === 2 && newStatus === 3) {
-    historyEntry.additionalNotes = additionalNotes;
-    order.additionalNotes = additionalNotes;
-  }
-
-// 3 → 4: Negotiation & Review
-else if (currentStatus === 3 && newStatus === 4) {
-  historyEntry.additionalNotes = additionalNotes;
-  order.additionalNotes = additionalNotes;
-
-  if (negotiationAmount !== undefined && negotiationAmount !== null) {
-
-    // convert values to number
-    const totalAmount = Number(order.totalAmount || 0);
-    const negotiationAmt = Number(negotiationAmount);
-
-    // calculate final amount
-    const finalAmount = totalAmount - negotiationAmt;
-
-    // validation
-    if (finalAmount < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Negotiation amount cannot be greater than total amount",
-      });
-    }
-
-    // save in history
-    historyEntry.negotiationAmount = negotiationAmt;
-    historyEntry.finalAmount = finalAmount;
-
-    // save in order
-    order.negotiationAmount = negotiationAmt;
-    order.finalAmount = finalAmount;
-  }
-}
-  // 4 → 5: Close Won
-  else if (currentStatus === 4 && newStatus === 5) {
-    // ─────────────────────────────────────────────
-    // RESOLVE poDocument: from file upload OR from req.body
-    // ─────────────────────────────────────────────
+  // Handle status-specific validations based on TARGET status
+  // For any transition TO status 5 (Close Won)
+  if (newStatus === 5) {
+    // Process PO Document (mandatory for Close Won)
     let resolvedPoDocument = null;
-
     const uploadedPoFile = req.files?.poDocument?.[0];
 
     if (uploadedPoFile) {
-      // ✅ File was uploaded (local or Spaces)
       const {
         getFileUrl,
         STORAGE_TYPE,
@@ -1844,21 +2155,18 @@ else if (currentStatus === 3 && newStatus === 4) {
 
       resolvedPoDocument = {
         originalName: uploadedPoFile.originalname,
-        fileName:
-          uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
-        filePath: getFileUrl(req, uploadedPoFile), // URL for both local & Spaces
+        fileName: uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
+        filePath: getFileUrl(req, uploadedPoFile),
         mimeType: uploadedPoFile.mimetype,
         size: uploadedPoFile.size,
-        fileType: getFileCategory(uploadedPoFile.mimetype), // reuse your existing helper
+        fileType: getFileCategory(uploadedPoFile.mimetype),
+        uploadedAt: new Date(),
       };
     } else if (poDocument) {
-      // ✅ Fallback: poDocument passed as JSON in req.body (no file upload)
       resolvedPoDocument = poDocument;
     }
 
-    // ─────────────────────────────────────────────
-    // VALIDATE
-    // ─────────────────────────────────────────────
+    // Validate PO Document (mandatory for Close Won)
     if (!resolvedPoDocument) {
       return res.status(400).json({
         success: false,
@@ -1866,40 +2174,108 @@ else if (currentStatus === 3 && newStatus === 4) {
       });
     }
 
-    if (
-      !resolvedPoDocument.originalName ||
-      !resolvedPoDocument.fileName ||
-      !resolvedPoDocument.filePath
-    ) {
+    if (!resolvedPoDocument.originalName ||
+        !resolvedPoDocument.fileName ||
+        !resolvedPoDocument.filePath) {
       return res.status(400).json({
         success: false,
         message: "poDocument must contain originalName, fileName, and filePath",
       });
     }
 
-    // ─────────────────────────────────────────────
-    // ASSIGN
-    // ─────────────────────────────────────────────
     historyEntry.poDocument = resolvedPoDocument;
-    historyEntry.additionalNotes = additionalNotes || "";
     order.poDocument = resolvedPoDocument;
-
-    if (additionalNotes) order.additionalNotes = additionalNotes;
   }
 
-  // 4 → 6: Closed Loss
-  else if (currentStatus === 4 && newStatus === 6) {
+  // For any transition TO status 6 (Closed Loss)
+  else if (newStatus === 6) {
     if (!closeLossReason || closeLossReason.trim() === "") {
       return res.status(400).json({
         success: false,
         message: "closeLossReason is required when moving to Closed Loss",
       });
     }
+    
     historyEntry.closeLossReason = closeLossReason;
-    historyEntry.additionalNotes = additionalNotes || "";
-
     order.closeLossReason = closeLossReason;
-    if (additionalNotes) order.additionalNotes = additionalNotes;
+  }
+
+  // For any transition TO status 4 (Negotiation & Review)
+  else if (newStatus === 4) {
+    // Handle negotiation amount if provided
+    if (negotiationAmount !== undefined && negotiationAmount !== null) {
+      const totalAmount = Number(order.totalAmount || 0);
+      const negotiationAmt = Number(negotiationAmount);
+      const finalAmount = totalAmount - negotiationAmt;
+
+      if (finalAmount < 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Negotiation amount cannot be greater than total amount",
+        });
+      }
+
+      historyEntry.negotiationAmount = negotiationAmt;
+      historyEntry.finalAmount = finalAmount;
+
+      order.negotiationAmount = negotiationAmt;
+      order.finalAmount = finalAmount;
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // HANDLE REOPENING LOGIC (Moving from terminal to active)
+  // ─────────────────────────────────────────────
+  
+  // If moving from Closed Won (5) or Closed Loss (6) to any other status
+  if ((currentStatus === 5 || currentStatus === 6) && newStatus !== currentStatus) {
+    // Clear terminal-specific fields when reopening
+    if (currentStatus === 5) {
+      // Optionally clear poDocument or keep for history
+      // order.poDocument = null; // Uncomment if you want to clear
+    }
+    if (currentStatus === 6) {
+      // Optionally clear closeLossReason
+      // order.closeLossReason = ""; // Uncomment if you want to clear
+    }
+    
+    // Add a remark in history about reopening
+    historyEntry.remarks = `Order reopened from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}`;
+  }
+
+  // ─────────────────────────────────────────────
+  // COMMON UPDATES FOR ALL STATUS CHANGES
+  // ─────────────────────────────────────────────
+
+  // Update additionalNotes if provided
+  if (additionalNotes) {
+    order.additionalNotes = additionalNotes;
+  }
+
+  // Store status document if provided (for any status change)
+  if (resolvedStatusDocument) {
+    if (!order.statusDocuments) order.statusDocuments = [];
+    order.statusDocuments.push({
+      fromStatus: currentStatus,
+      toStatus: newStatus,
+      document: resolvedStatusDocument,
+      notes: additionalNotes || "",
+      uploadedAt: new Date(),
+      uploadedBy: req.user?.name || "Admin",
+    });
+  }
+
+
+  if (resolvedVoiceNote) {
+    if (!order.voiceNotes) order.voiceNotes = [];
+    order.voiceNotes.push({
+      fromStatus: currentStatus,
+      toStatus: newStatus,
+      voiceNote: resolvedVoiceNote,
+      notes:  additionalNotes || "",
+      uploadedAt: new Date(),
+      uploadedBy: req.user?.name || "Admin",
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -1921,28 +2297,28 @@ else if (currentStatus === 3 && newStatus === 4) {
   // ─────────────────────────────────────────────
   return res.status(200).json({
     success: true,
-    message: `Order status updated to ${getStatusText(newStatus)} successfully`,
+    message: `Order status updated from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)} successfully`,
     data: {
       orderId: order._id,
       orderNo: order.orderId,
       previousStatus: getStatusText(currentStatus),
       currentStatus: getStatusText(newStatus),
+      hasAdditionalNotes: !!additionalNotes,
+      hasDocument: !!resolvedStatusDocument,
+      hasVoiceNote: !!resolvedVoiceNote,
       updatedAt: new Date(),
     },
   });
 });
-
 // ─── GET SINGLE ORDER DETAILS ──────────────────────────────────
 const getOrderDetails = asyncHandler(async (req, res) => {
-  const { orderId } = req.params;
+  const { orderId } = req.query;
 
   if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: !orderId ? "orderId is required" : "Invalid orderId",
-      });
+    return res.status(400).json({
+      success: false,
+      message: !orderId ? "orderId is required" : "Invalid orderId",
+    });
   }
 
   const order = await orderBooking
@@ -1957,7 +2333,6 @@ const getOrderDetails = asyncHandler(async (req, res) => {
   if (!order) {
     return res.status(404).json({ success: false, message: "Order not found" });
   }
-
   const formattedOrderHistory =
     order.orderHistory?.map((history) => ({
       fromStatus: history.fromStatus,
@@ -1974,6 +2349,8 @@ const getOrderDetails = asyncHandler(async (req, res) => {
       negotiationAmount: history.negotiationAmount,
       closeLossReason: history.closeLossReason,
       poDocument: history.poDocument,
+      statusDocument: history.statusDocument,
+      voiceDocument: history.voiceDocument,
     })) || [];
 
   const formattedOrder = {
@@ -1981,7 +2358,6 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     orderStatusText: getStatusText(order.orderStatus),
     orderHistory: formattedOrderHistory,
   };
-
   return res.status(200).json({
     success: true,
     message: "Order fetched successfully",

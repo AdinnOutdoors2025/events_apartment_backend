@@ -1,15 +1,36 @@
 const mongoose = require("mongoose");
 
-// ─── Sub-schema: Order History ─────────────────────────────────────
+// Helper function to get status text
+const getStatusText = (status) => {
+  switch (Number(status)) {
+    case 1:
+      return "Enquiry";
+    case 2:
+      return "Need Analysis";
+    case 3:
+      return "Proposal & Price Quote";
+    case 4:
+      return "Negotiation & Review";
+    case 5:
+      return "Close Won";
+    case 6:
+      return "Closed Loss";
+    default:
+      return "Unknown";
+  }
+};
+// ─── Order History ─────────────────────────────────────
 const OrderHistorySchema = new mongoose.Schema(
   {
     fromStatus: { type: Number, default: null },
+    fromStatusText: { type: String },
     toStatus: { type: Number, required: true },
+    toStatusText: { type: String },
     changedBy: { type: String, required: true },
     changedAt: { type: Date, default: Date.now },
     remarks: { type: String, trim: true },
     additionalNotes: { type: String, trim: true },
-    negotiationAmount: { type: Number, default: null },
+    // negotiationAmount: { type: Number, default: null },
 
     closeLossReason: { type: String, trim: true },
     poDocument: {
@@ -24,7 +45,7 @@ const OrderHistorySchema = new mongoose.Schema(
       },
       uploadedAt: { type: Date, default: Date.now },
     },
-   
+
     statusDocument: {
       // Generic document for any status change (optional)
       originalName: { type: String },
@@ -38,7 +59,7 @@ const OrderHistorySchema = new mongoose.Schema(
       },
       uploadedAt: { type: Date, default: Date.now },
     },
-     voiceDocument: {
+    voiceDocument: {
       originalName: { type: String },
       fileName: { type: String },
       filePath: { type: String },
@@ -56,7 +77,7 @@ const OrderHistorySchema = new mongoose.Schema(
   { _id: false },
 );
 
-// ─── Sub-schema: Individual Promoter ─────────────────────────────────────
+// ─── Individual Promoter ─────────────────────────────────────
 const PromoterSchema = new mongoose.Schema(
   {
     _promoterId: {
@@ -85,7 +106,7 @@ const PromoterSchema = new mongoose.Schema(
   { _id: false },
 );
 
-// ─── Sub-schema: Customer Details ─────────────────────────────────────
+// ─── Customer Details ─────────────────────────────────────
 const CustomerDetailsSchema = new mongoose.Schema(
   {
     brandOrCompanyName: {
@@ -117,7 +138,7 @@ const CustomerDetailsSchema = new mongoose.Schema(
   { _id: false },
 );
 
-// ─── Sub-schema: PO Document ─────────────────────────────────────
+// ─── PO Document ─────────────────────────────────────
 const PODocumentSchema = new mongoose.Schema(
   {
     originalName: { type: String },
@@ -136,7 +157,16 @@ const PODocumentSchema = new mongoose.Schema(
   },
   { _id: false },
 );
-
+// ─── Daily Schedule ─────────────────────────────────────
+const DailyScheduleSchema = new mongoose.Schema(
+  {
+    days: { type: Number, required: true }, // 1, 2, 3, etc.
+    fromTime: { type: String, required: true }, // "10:00 AM" format
+    toTime: { type: String, required: true }, // "2:00 PM" format
+    notes: { type: String, trim: true }, // Optional notes for this day
+  },
+  { _id: false },
+);
 // ─── Main Schema ─────────────────────────────────────────────────────
 const OrderBookingSchema = new mongoose.Schema(
   {
@@ -167,8 +197,8 @@ const OrderBookingSchema = new mongoose.Schema(
     fromDate: { type: Date },
     toDate: { type: Date },
     daysOfEvent: { type: Number, default: 0 },
-    daysOfApartment: { type: Number, default: 0 },
-
+    // daysOfApartment: { type: Number, default: 0 },
+    dailySchedule: { type: [DailyScheduleSchema], default: [] },
     // Promoter Information
     promoterRequired: {
       type: Number,
@@ -213,7 +243,7 @@ const OrderBookingSchema = new mongoose.Schema(
     additionalNotes: { type: String, trim: true, default: "" },
     closeLossReason: { type: String, trim: true, default: "" },
     poDocument: { type: PODocumentSchema, default: null },
- 
+
     document: {
       originalName: { type: String },
       fileName: { type: String },
@@ -226,7 +256,7 @@ const OrderBookingSchema = new mongoose.Schema(
       },
       uploadedAt: { type: Date, default: Date.now },
     },
-    voiceNote: { 
+    voiceNote: {
       originalName: { type: String },
       fileName: { type: String },
       filePath: { type: String },
@@ -237,7 +267,7 @@ const OrderBookingSchema = new mongoose.Schema(
         enum: ["audio"],
       },
       uploadedAt: { type: Date, default: Date.now },
-     },
+    },
     // Order Notes
     orderNote: {
       text: { type: String, default: "" },
@@ -275,6 +305,26 @@ OrderBookingSchema.pre("save", function () {
   if (this.fromDate && this.toDate && this.toDate < this.fromDate) {
     return next(new Error("toDate must be on or after fromDate"));
   }
+
+  // Auto-populate status text for order history entries
+  if (this.orderHistory && this.orderHistory.length > 0) {
+    this.orderHistory.forEach((history) => {
+      if (history.fromStatus !== undefined && history.fromStatus !== null) {
+        history.fromStatusText = getStatusText(history.fromStatus);
+      }
+      if (history.toStatus !== undefined && history.toStatus !== null) {
+        history.toStatusText = getStatusText(history.toStatus);
+      }
+    });
+  }
 });
+// Add virtual fields for current status text
+OrderBookingSchema.virtual("currentStatusText").get(function () {
+  return getStatusText(this.orderStatus);
+});
+
+// Include virtuals when converting to JSON
+OrderBookingSchema.set("toJSON", { virtuals: true });
+OrderBookingSchema.set("toObject", { virtuals: true });
 
 module.exports = mongoose.model("ApartmentOrderBooking", OrderBookingSchema);

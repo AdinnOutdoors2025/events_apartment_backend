@@ -15,8 +15,11 @@ const protect = (req, res, next) => {
         process.env.JWT_SECRET
       );
 
-      req.user = decoded.id;
-
+       req.user = {
+        id: decoded.id,
+        userType: decoded.userType,
+        name: decoded.name // Get name directly from token
+      };
       next();
     } catch (error) {
       return res.status(401).json({

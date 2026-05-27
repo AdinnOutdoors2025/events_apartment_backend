@@ -38,9 +38,13 @@ exports.register = async (req, res) => {
     });
 
     // response
-    const token =
-      generateToken(user._id);
-
+    // const token =
+    //   generateToken(user._id);
+  const token = generateToken({
+      id: user._id,
+      userType: user.userType,
+      name: user.name
+    });
     return successResponse(
       res,
       "User registered successfully",
@@ -211,8 +215,8 @@ exports.login = async (req, res) => {
     const token =
       generateToken({
         id: user._id,
-        userType:
-          user.userType,
+        userType:user.userType,
+        name: user.name
       });
 
     return successResponse(

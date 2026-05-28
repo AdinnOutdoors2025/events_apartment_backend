@@ -9,6 +9,7 @@ const {
   apartmentEventGet,
   updateOrderStatusOnly,
   getOrderDetails,
+  sendOrderMail,
 } = require("../../../controllers/Admin/EventController/eventOrderController");
 const protect = require("../../../middleware/authMiddleware");
 
@@ -33,6 +34,7 @@ router.put(
   updateOrderStatusOnly,
 );
 router.get("/order-details", protect, getOrderDetails);
+router.get("/send-order-mail",protect,sendOrderMail);
 
 router.get("/profile", protect, (req, res) => {
   res.json({

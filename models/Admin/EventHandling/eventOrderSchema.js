@@ -15,6 +15,8 @@ const getStatusText = (status) => {
       return "Close Won";
     case 6:
       return "Closed Loss";
+    case 7:
+      return "Project Code Creation";
     default:
       return "Unknown";
   }
@@ -109,6 +111,13 @@ const PromoterSchema = new mongoose.Schema(
 // ─── Customer Details ─────────────────────────────────────
 const CustomerDetailsSchema = new mongoose.Schema(
   {
+    // 1 Individual  2 Agency
+     customerType: {
+      type: Number,
+      enum: [1,2], 
+    },
+    gstNumber: { type: Number, default: "" },
+    designation: { type: String, default: "" },
     brandOrCompanyName: {
       type: String,
       trim: true,
@@ -218,7 +227,7 @@ const OrderBookingSchema = new mongoose.Schema(
       default: 1,
     },
     discountPercentage: { type: Number, default: 0 },
-    negotiationAmount: { type: Number, default: null },
+    // negotiationAmount: { type: Number, default: null },
     finalAmount: { type: Number, default: 0 },
     // Calculated Amounts
     sqfet: { type: Number, default: 0 },
@@ -232,14 +241,13 @@ const OrderBookingSchema = new mongoose.Schema(
     gstAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
 
-    // Order Status
+    // Order Status 1. Enquiry 2. Need analysis 3. Proposal & Price Quote 4. Negotiation & Review 5. Close Won  6. Closed loss 7. Project Code Creation
     orderStatus: {
       type: Number,
-      enum: [0, 1, 2, 3, 4, 5, 6],
+      enum: [0, 1, 2, 3, 4, 5, 6, 7],
       default: 1,
     },
 
-    // Additional Information
     additionalNotes: { type: String, trim: true, default: "" },
     closeLossReason: { type: String, trim: true, default: "" },
     poDocument: { type: PODocumentSchema, default: null },
@@ -288,7 +296,17 @@ const OrderBookingSchema = new mongoose.Schema(
 
     // Order History
     orderHistory: { type: [OrderHistorySchema], default: [] },
-
+ // Mail Tracking Fields - Add these two fields
+    isMailSent: {
+      type: Boolean,
+      default: false,
+      description: "Indicates if order confirmation mail has been sent"
+    },
+    mailSentAt: {
+      type: Date,
+      default: null,
+      description: "Timestamp when the mail was successfully sent"
+    },
     // Audit Fields
     createdBy: { type: String },
     updatedBy: { type: String },

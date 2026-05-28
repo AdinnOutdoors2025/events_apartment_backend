@@ -197,7 +197,7 @@ exports.login = async (req, res) => {
 
       if (isUserPassword) {
         user = normalUser;
-        userRole = "user";
+        userRole = "staff user";
       }
     }
 

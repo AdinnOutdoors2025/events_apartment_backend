@@ -10,24 +10,30 @@ const apartmentOrderRoutes = require("./routes/Admin/EventRoutes/eventOrderRoute
 const elementQuotationRoutes = require("./routes/Admin/EventRoutes/eventElementQuotationRoutes")
 const userRoutes = require("./routes/Admin/UserRoutes/userRoutes")
 const gstDetailRoutes = require('./routes/Admin/GstDetailRoutes/gstDetailRoutes');
+
+
+const userClientRoutes = require("./routes/client/UserRoutes/UserRoutes")
 connectDB();
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-// route
+// Admin route
 app.use("/admin", authRoutes);
 app.use('/admin', apartmentRoutes);
 app.use('/admin', apartmentEventRoutes);
 app.use('/admin', apartmentOrderRoutes);
 app.use('/admin', elementQuotationRoutes);
 app.use('/gstdetails', gstDetailRoutes);
-app.use('/user', userRoutes);
-app.use(
-  "/uploads",
-  express.static("uploads")
-);
+app.use('/admin', userRoutes);
+
+
+// User route
+
+app.use('/user', userClientRoutes);
+
+app.use("/uploads",express.static("uploads"));
 app.get("/", (req, res) => {
   res.send("API Running");
 });

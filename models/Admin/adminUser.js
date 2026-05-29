@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     userType: {
       type: Number,
       required: true,
-      default: 1
+      default: 1    // 1 - Admin  2 - Staff Admin  3 - Client
     },
     // role: {
     //   type: Number,

@@ -112,9 +112,9 @@ const PromoterSchema = new mongoose.Schema(
 const CustomerDetailsSchema = new mongoose.Schema(
   {
     // 1 Individual  2 Agency
-     customerType: {
+    customerType: {
       type: Number,
-      enum: [1,2], 
+      enum: [1, 2],
     },
     gstNumber: { type: Number, default: "" },
     designation: { type: String, default: "" },
@@ -180,6 +180,11 @@ const DailyScheduleSchema = new mongoose.Schema(
 const OrderBookingSchema = new mongoose.Schema(
   {
     // Basic Information
+    // userId: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: "User",
+    //   required: true,
+    // },
     orderId: { type: String, unique: true },
     apartmentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -296,16 +301,16 @@ const OrderBookingSchema = new mongoose.Schema(
 
     // Order History
     orderHistory: { type: [OrderHistorySchema], default: [] },
- // Mail Tracking Fields - Add these two fields
+    // Mail Tracking Fields - Add these two fields
     isMailSent: {
       type: Boolean,
       default: false,
-      description: "Indicates if order confirmation mail has been sent"
+      description: "Indicates if order confirmation mail has been sent",
     },
     mailSentAt: {
       type: Date,
       default: null,
-      description: "Timestamp when the mail was successfully sent"
+      description: "Timestamp when the mail was successfully sent",
     },
     // Audit Fields
     createdBy: { type: String },

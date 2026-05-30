@@ -13,6 +13,7 @@ const gstDetailRoutes = require('./routes/Admin/GstDetailRoutes/gstDetailRoutes'
 
 
 const userClientRoutes = require("./routes/client/UserRoutes/UserRoutes")
+const userProfileRoutes = require("./routes/client/UserProfileRoutes/UserProfileRoutes")
 connectDB();
 
 const app = express();
@@ -32,6 +33,7 @@ app.use('/admin', userRoutes);
 // User route
 
 app.use('/user', userClientRoutes);
+app.use('/user', userProfileRoutes);
 
 app.use("/uploads",express.static("uploads"));
 app.get("/", (req, res) => {

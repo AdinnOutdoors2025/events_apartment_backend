@@ -162,7 +162,8 @@ const registerSendOtp = async (req, res) => {
 
     // ================= SMS MESSAGE =================
 
-    const message = `Welcome to Adinn Outdoors! Your registration OTP is ${otp}. Valid for 5 minutes. Do not share it.`;
+    
+    const message = `Welcome to ADINN. Your Brand Activation Code is ${otp}. Use it to verify your brand owner account. Valid for 5 minutes.`
 
     // ================= SEND SMS =================
 

@@ -39,10 +39,17 @@ const userProfileSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
-
-    logo: {
-      type: String,
-      default: "",
+    logoDocument: {
+      originalName: { type: String },
+      fileName: { type: String },
+      filePath: { type: String },
+      mimeType: { type: String },
+      size: { type: Number },
+      fileType: {
+        type: String,
+        enum: ["image"],
+      },
+      uploadedAt: { type: Date, default: Date.now },
     },
 
     targetCustomer: {
@@ -66,6 +73,12 @@ const userProfileSchema = new mongoose.Schema(
       type: Number,
       enum: [0,1, 2],
       default: 1, //0 = Skip 1 = Incomplete, 2 = Completed, 
+    },
+     userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true, // 👈 one profile per user at DB level
     },
   },
   {

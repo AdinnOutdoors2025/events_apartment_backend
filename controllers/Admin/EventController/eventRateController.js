@@ -1,29 +1,20 @@
 const EventRate = require("../../../models/Admin/EventHandling/eventRateSchema");
-
+const { successResponse, errorResponse } = require("../../../utils/response");
 exports.saveEventRate = async (req, res) => {
   try {
     const { id, eventName, amount, status } = req.body;
 
     // VALIDATION
     if (status === undefined || status === null) {
-      return res.status(400).json({
-        success: false,
-        message: "status is required",
-      });
+      return errorResponse(res, "status is required", 400);
     }
 
     if (!eventName) {
-      return res.status(400).json({
-        success: false,
-        message: "eventName is required",
-      });
+      return errorResponse(res, "eventName is required", 400);
     }
 
     if (amount === undefined || amount === null) {
-      return res.status(400).json({
-        success: false,
-        message: "amount is required",
-      });
+      return errorResponse(res, "amount is required", 400);
     }
 
     let saveData;
@@ -45,15 +36,10 @@ exports.saveEventRate = async (req, res) => {
       );
 
       if (!saveData) {
-        return res.status(404).json({
-          success: false,
-          message: "Event Rate not found",
-        });
+        return errorResponse(res, "Event Rate not found", 404);
       }
 
-      return res.status(200).json({
-        success: true,
-        message: "Event Rate updated successfully",
+      return successResponse(res, "Event Rate updated successfully", {
         data: saveData,
       });
     }
@@ -67,10 +53,7 @@ exports.saveEventRate = async (req, res) => {
       status,
     });
 
-    return res.status(201).json({
-      success: true,
-      message: "Event Rate saved successfully",
-
+    return successResponse(res, "Event Rate saved successfully", {
       data: saveData,
 
       updatedBy: req.user?.name || "Admin",
@@ -78,14 +61,11 @@ exports.saveEventRate = async (req, res) => {
   } catch (error) {
     console.log(error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-
-      error: error.message,
-    });
+    return errorResponse(res, "Internal Server Error", 500);
   }
 };
+
+
 // ====================== LIST EVENT RATE ======================
 exports.listEventRate = async (req, res) => {
   try {
@@ -96,18 +76,12 @@ exports.listEventRate = async (req, res) => {
       createdAt: -1,
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Event Rate list fetched successfully",
+    return successResponse(res, "Event Rate list fetched successfully", {
       totalCount: eventList.length,
       data: eventList,
     });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-      error: error.message,
-    });
+    return errorResponse(res, "Internal Server Error", 500);
   }
 };

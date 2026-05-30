@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const protect = require("../../../middleware/authMiddleware");
+const upload = require("../../../middleware/orderNoteFileUpload");
 const {
   saveOrUpdateUserProfile,
   getUserProfile,
@@ -9,7 +10,9 @@ const {
 } = require("../../../controllers/client/UserProfileController/UserProfileController");
 
 // Create Profile (First Time Only)
-router.post("/profile-save",protect, saveOrUpdateUserProfile);
+router.post("/profile-save",protect,upload.fields([
+    { name: "logoDocument", maxCount: 10 },
+  ]), saveOrUpdateUserProfile);
 
 
 // Get Single Profile

@@ -1,26 +1,17 @@
 const Quotation = require("../../../models/Admin/EventHandling/eventElementsQuotation");
 const mongoose = require("mongoose");
+const { successResponse, errorResponse } = require("../../../utils/response");
 const createQuotation = async (req, res) => {
   try {
-    const {
-      quotationId,
-      stateCode,
-      item,
-    } = req.body;
+    const { quotationId, stateCode, item } = req.body;
 
     // VALIDATION
     if (!stateCode) {
-      return res.status(400).json({
-        success: false,
-        message: "State code is required",
-      });
+      return errorResponse(res, "State code is required", 400);
     }
 
     if (!item) {
-      return res.status(400).json({
-        success: false,
-        message: "Item data is required",
-      });
+      return errorResponse(res, "Item data is required", 400);
     }
 
     // ─────────────────────────────────────
@@ -29,37 +20,21 @@ const createQuotation = async (req, res) => {
 
     if (quotationId) {
       // VALID OBJECT ID
-      if (
-        !mongoose.Types.ObjectId.isValid(
-          quotationId
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid quotationId",
-        });
+      if (!mongoose.Types.ObjectId.isValid(quotationId)) {
+        return errorResponse(res, "Invalid quotationId", 400);
       }
 
       // FIND QUOTATION
-      const quotation =
-        await Quotation.findById(
-          quotationId
-        );
+      const quotation = await Quotation.findById(quotationId);
 
       if (!quotation) {
-        return res.status(404).json({
-          success: false,
-          message: "Quotation not found",
-        });
+        return errorResponse(res, "Quotation not found", 404);
       }
 
       // CHECK ITEM EXIST
-      const itemIndex =
-        quotation.items.findIndex(
-          (val) =>
-            val.elementId ===
-            item.elementId
-        );
+      const itemIndex = quotation.items.findIndex(
+        (val) => val.elementId === item.elementId,
+      );
 
       // UPDATE EXISTING ITEM
       if (itemIndex !== -1) {
@@ -72,39 +47,28 @@ const createQuotation = async (req, res) => {
 
         const now = new Date();
 
-        const day = String(
-          now.getDate()
-        ).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
 
-        const month = String(
-          now.getMonth() + 1
-        ).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
 
-        const year =
-          now.getFullYear();
+        const year = now.getFullYear();
 
         const newItem = {
           ...item,
 
-          elementId:
-            `${stateCode}-ITEM-${day}${month}${year}-${quotation.items.length + 1}`,
+          elementId: `${stateCode}-ITEM-${day}${month}${year}-${quotation.items.length + 1}`,
         };
 
         quotation.items.push(newItem);
       }
 
       // UPDATE STATE CODE
-      quotation.stateCode =
-        stateCode;
+      quotation.stateCode = stateCode;
 
       // SAVE
       await quotation.save();
 
-      return res.status(200).json({
-        success: true,
-        message:
-          "Quotation Updated Successfully",
-      });
+      return successResponse(res, "Quotation Updated Successfully");
     }
 
     // ─────────────────────────────────────
@@ -113,57 +77,39 @@ const createQuotation = async (req, res) => {
 
     const now = new Date();
 
-    const day = String(
-      now.getDate()
-    ).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
 
-    const month = String(
-      now.getMonth() + 1
-    ).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
 
     const year = now.getFullYear();
 
     const newItem = {
       ...item,
 
-      elementId:
-        `${stateCode}-ITEM-${day}${month}${year}-1`,
+      elementId: `${stateCode}-ITEM-${day}${month}${year}-1`,
     };
 
-    const quotation =
-      await Quotation.create({
-        stateCode,
-        items: [newItem],
-      });
+    const quotation = await Quotation.create({
+      stateCode,
+      items: [newItem],
+    });
 
-    return res.status(201).json({
-      success: true,
-      message:
-        "Quotation Created Successfully",
-    });
+    return successResponse(res, "Quotation Created Successfully", 201);
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return errorResponse(res, error.message, 500);
   }
 };
-
 
 const listQuotation = async (req, res) => {
   try {
     const quotations = await Quotation.find().sort({ createdAt: -1 });
 
-    return res.status(200).json({
-      success: true,
+    return successResponse(res, "Quotations fetched successfully", {
       count: quotations.length,
-      data: quotations,
+      quotations,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return errorResponse(res, error.message, 500);
   }
 };
 module.exports = {

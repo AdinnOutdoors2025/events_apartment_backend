@@ -1,5 +1,6 @@
 require("dotenv").config();
 const User = require("../../../models/client/UserModule/UserSchema");
+const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema"); 
 const generateToken = require("../../../utils/generateToken");
 const axios = require("axios");
 
@@ -456,7 +457,7 @@ const loginVerifyOtp = async (req, res) => {
     // ================= TOKEN =================
 
     const token = generateToken(user);
-
+  const profile = await UserProfile.findOne({ userId: user._id });
     return res.json({
       success: true,
       message: "Login successful",
@@ -467,6 +468,7 @@ const loginVerifyOtp = async (req, res) => {
         userEmail: user.userEmail,
         userPhone: user.userPhone,
         userType: user.userType,
+        profileCompleted: profile ? profile.profileCompleted : null,
       },
     });
   } catch (err) {

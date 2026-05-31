@@ -2,23 +2,22 @@ const mongoose = require("mongoose");
 
 const userProfileSchema = new mongoose.Schema(
   {
-   
     brandOwnerName: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
 
     companyBrandName: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
 
     email: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
       lowercase: true,
     },
 
@@ -71,10 +70,10 @@ const userProfileSchema = new mongoose.Schema(
 
     profileCompleted: {
       type: Number,
-      enum: [0,1, 2],
-      default: 1, //0 = Skip 1 = Incomplete, 2 = Completed, 
+      enum: [0, 1, 2],
+      default: 1, //0 = Skip 1 = Incomplete, 2 = Completed,
     },
-     userId: {
+    userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
@@ -83,7 +82,7 @@ const userProfileSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model("UserProfile", userProfileSchema);

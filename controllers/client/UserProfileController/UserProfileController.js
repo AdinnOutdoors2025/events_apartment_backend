@@ -1,5 +1,6 @@
 // const asyncHandler = require("express-async-handler");
 const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema");
+const {getFileUrl} = require("../../../middleware/orderNoteFileUpload");
 
 function getFileCategory(mimeType) {
   if (mimeType.startsWith("image/")) return "image";
@@ -22,7 +23,7 @@ function getFileCategory(mimeType) {
 // Create Profile (Only First Time)
 const saveOrUpdateUserProfile = async (req, res) => {
   try {
-    const userId = req.user.id; // 👈 from protect middleware
+    const userId = req.user.id;
 
     const {
       id,
@@ -32,26 +33,22 @@ const saveOrUpdateUserProfile = async (req, res) => {
       gstNumber,
       industryCategory,
       productServiceDescription,
-      logoDocument,
       targetCustomer,
       averageProductPrice,
       campaignGoal,
       profileCompleted,
     } = req.body;
 
-    let profile;
-
     const processLogoDocument = (uploadedFile) => {
       if (!uploadedFile) return null;
 
-      const {
-        getFileUrl,
-        STORAGE_TYPE,
-      } = require("../../../middleware/orderNoteFileUpload");
+      
 
       return {
         originalName: uploadedFile.originalname,
-        fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+        fileName:
+          uploadedFile.filename ||
+          uploadedFile.key?.split("/").pop(),
         filePath: getFileUrl(req, uploadedFile),
         mimeType: uploadedFile.mimetype,
         size: uploadedFile.size,
@@ -60,41 +57,63 @@ const saveOrUpdateUserProfile = async (req, res) => {
       };
     };
 
-    // Process logo document from uploaded file
-    let resolvedLogoDocument = null;
     const uploadedLogoFile = req.files?.logoDocument?.[0];
+    const resolvedLogoDocument = uploadedLogoFile
+      ? processLogoDocument(uploadedLogoFile)
+      : undefined;
 
-    if (uploadedLogoFile) {
-      resolvedLogoDocument = processLogoDocument(uploadedLogoFile);
-    }
+    let profile;
 
+    // UPDATE
     if (id) {
-      // ── UPDATE ────────────────────────────────────────
       const updateData = {};
+
       if (brandOwnerName !== undefined)
         updateData.brandOwnerName = brandOwnerName;
+
       if (companyBrandName !== undefined)
         updateData.companyBrandName = companyBrandName;
-      if (email !== undefined) updateData.email = email;
-      if (gstNumber !== undefined) updateData.gstNumber = gstNumber;
+
+      if (email !== undefined)
+        updateData.email = email;
+
+      if (gstNumber !== undefined)
+        updateData.gstNumber = gstNumber;
+
       if (industryCategory !== undefined)
         updateData.industryCategory = industryCategory;
+
       if (productServiceDescription !== undefined)
-        updateData.productServiceDescription = productServiceDescription;
-      // if (logoDocument !== undefined) updateData.logoDocument = logoDocument;
+        updateData.productServiceDescription =
+          productServiceDescription;
+
       if (targetCustomer !== undefined)
         updateData.targetCustomer = targetCustomer;
+
       if (averageProductPrice !== undefined)
         updateData.averageProductPrice = averageProductPrice;
-      if (campaignGoal !== undefined) updateData.campaignGoal = campaignGoal;
-      if (profileCompleted !== undefined)
-        updateData.profileCompleted = profileCompleted;
 
-      // ✅ Match both _id AND userId to prevent updating another user's profile
+      if (campaignGoal !== undefined)
+        updateData.campaignGoal = campaignGoal;
+
+      if (profileCompleted !== undefined)
+        updateData.profileCompleted = Number(profileCompleted);
+
+      if (resolvedLogoDocument)
+        updateData.logoDocument = resolvedLogoDocument;
+
       profile = await UserProfile.findOneAndUpdate(
-        { _id: id, userId },
-        { $set: updateData },
-        { new: true, runValidators: true },
+        {
+          _id: id,
+          userId,
+        },
+        {
+          $set: updateData,
+        },
+        {
+          new: true,
+          runValidators: true,
+        }
       );
 
       if (!profile) {
@@ -104,19 +123,21 @@ const saveOrUpdateUserProfile = async (req, res) => {
         });
       }
     } else {
-      // ── CREATE ────────────────────────────────────────
-      // ✅ Check if this user already has a profile
-      const existingProfile = await UserProfile.findOne({ userId });
+      // CREATE
+      const existingProfile = await UserProfile.findOne({
+        userId,
+      });
+
       if (existingProfile) {
         return res.status(400).json({
           success: false,
           message: "Profile already exists",
-          data: existingProfile, // 👈 return existing so frontend can use the id
+          data: existingProfile,
         });
       }
 
       profile = await UserProfile.create({
-        userId, // 👈 store userId on the profile
+        userId,
         brandOwnerName,
         companyBrandName,
         email,
@@ -127,11 +148,14 @@ const saveOrUpdateUserProfile = async (req, res) => {
         targetCustomer,
         averageProductPrice,
         campaignGoal,
-        profileCompleted: profileCompleted ?? 1,
+        profileCompleted:
+          profileCompleted !== undefined
+            ? Number(profileCompleted)
+            : 0,
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: id
         ? "Profile updated successfully"
@@ -139,13 +163,9 @@ const saveOrUpdateUserProfile = async (req, res) => {
       data: profile,
     });
   } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid profile ID format",
-      });
-    }
-    res.status(500).json({
+    console.error(error);
+
+    return res.status(500).json({
       success: false,
       message: "Failed to save profile",
       error: error.message,

@@ -1,26 +1,5 @@
-// const asyncHandler = require("express-async-handler");
 const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema");
-const {getFileUrl} = require("../../../middleware/orderNoteFileUpload");
 
-function getFileCategory(mimeType) {
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("audio/")) return "audio";
-  if (mimeType === "application/pdf") return "pdf";
-  if (
-    mimeType === "application/vnd.ms-excel" ||
-    mimeType ===
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  )
-    return "excel";
-  if (
-    mimeType === "application/msword" ||
-    mimeType ===
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  )
-    return "word";
-  return "other";
-}
-// Create Profile (Only First Time)
 const saveOrUpdateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -39,29 +18,15 @@ const saveOrUpdateUserProfile = async (req, res) => {
       profileCompleted,
     } = req.body;
 
-    const processLogoDocument = (uploadedFile) => {
-      if (!uploadedFile) return null;
-
-      
-
-      return {
-        originalName: uploadedFile.originalname,
-        fileName:
-          uploadedFile.filename ||
-          uploadedFile.key?.split("/").pop(),
-        filePath: getFileUrl(req, uploadedFile),
-        mimeType: uploadedFile.mimetype,
-        size: uploadedFile.size,
-        fileType: getFileCategory(uploadedFile.mimetype),
-        uploadedAt: new Date(),
-      };
-    };
-
+       // ─────────────────────────────────────────────────────
+    // PROCESS LOGO FILE
+    // ─────────────────────────────────────────────────────
     const uploadedLogoFile = req.files?.logoDocument?.[0];
-    const resolvedLogoDocument = uploadedLogoFile
-      ? processLogoDocument(uploadedLogoFile)
-      : undefined;
 
+    const resolvedLogoDocument = uploadedLogoFile
+      ? req.processFile(uploadedLogoFile)   // 👈 uses folder from route
+      : undefined;
+    
     let profile;
 
     // UPDATE

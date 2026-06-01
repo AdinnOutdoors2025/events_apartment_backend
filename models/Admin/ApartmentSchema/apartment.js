@@ -34,7 +34,7 @@ const apartmentSchema = new mongoose.Schema(
       ref: "ExcelUploadSession",
       default: null,
     },
-
+    
     // ── WHICH SESSION LAST UPDATED THIS RECORD ──
     lastUpdatedBySession: {
       type: mongoose.Schema.Types.ObjectId,

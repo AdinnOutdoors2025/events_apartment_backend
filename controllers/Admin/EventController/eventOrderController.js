@@ -1285,17 +1285,16 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     // ─────────────────────────────────────────────
 
     const adminEmail = process.env.ADMIN_EMAIL || "srfsdev@adinn.co.in";
-
+    const toMail = process.env.T0_EMail;
+    const ccMail = process.env.CC_EMail;
     const mailPayload = {
       mailtype: "apartmentevent",
 
       userEmail: orderData?.customerDetails?.email || "",
 
       adminEmail: adminEmail,
-      // to: process.env.T0_EMAIL,
-      // cc: process.env.CC_MAIL,
-      to: "deoajay1210@gmail.com",
-      cc: "deoajay333@gmail.com",
+      to: toMail,
+      cc: ccMail,
       customerDetails: {
         // Customer Details (these come from customerDetails object)
         customerType: orderData?.customerDetails?.customerType || "",
@@ -1314,8 +1313,16 @@ const sendOrderMail = asyncHandler(async (req, res) => {
 
       // Order Details
       orderId: orderData?.orderId,
-      fromDate: orderData?.fromDate,
-      toDate: orderData?.toDate,
+      fromDate: orderData?.fromDate
+        ? new Date(orderData.fromDate)
+            .toLocaleDateString("en-GB")
+            .replace(/\//g, "-")
+        : null,
+      toDate: orderData?.toDate
+        ? new Date(orderData.toDate)
+            .toLocaleDateString("en-GB")
+            .replace(/\//g, "-")
+        : null,
 
       // Apartment Details
       apartmentDetails: {
@@ -1360,7 +1367,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     // ─────────────────────────────────────────────
 
     const response = await axios.post(
-      "https://adinndigital.com/api/apartmenteventmanagement/index_apartmentevent.php",
+      "https://adinndigital.com/api/apartmenteventmanagement/index_apartmenteventmanagement.php",
       mailPayload,
       {
         headers: {

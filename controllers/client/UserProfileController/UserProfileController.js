@@ -1,5 +1,5 @@
 const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema");
-
+const { successResponse, errorResponse } = require("../../../utils/response");
 const saveOrUpdateUserProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -18,15 +18,15 @@ const saveOrUpdateUserProfile = async (req, res) => {
       profileCompleted,
     } = req.body;
 
-       // ─────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────
     // PROCESS LOGO FILE
     // ─────────────────────────────────────────────────────
     const uploadedLogoFile = req.files?.logoDocument?.[0];
 
     const resolvedLogoDocument = uploadedLogoFile
-      ? req.processFile(uploadedLogoFile)   // 👈 uses folder from route
+      ? req.processFile(uploadedLogoFile) // 👈 uses folder from route
       : undefined;
-    
+
     let profile;
 
     // UPDATE
@@ -39,18 +39,15 @@ const saveOrUpdateUserProfile = async (req, res) => {
       if (companyBrandName !== undefined)
         updateData.companyBrandName = companyBrandName;
 
-      if (email !== undefined)
-        updateData.email = email;
+      if (email !== undefined) updateData.email = email;
 
-      if (gstNumber !== undefined)
-        updateData.gstNumber = gstNumber;
+      if (gstNumber !== undefined) updateData.gstNumber = gstNumber;
 
       if (industryCategory !== undefined)
         updateData.industryCategory = industryCategory;
 
       if (productServiceDescription !== undefined)
-        updateData.productServiceDescription =
-          productServiceDescription;
+        updateData.productServiceDescription = productServiceDescription;
 
       if (targetCustomer !== undefined)
         updateData.targetCustomer = targetCustomer;
@@ -58,14 +55,12 @@ const saveOrUpdateUserProfile = async (req, res) => {
       if (averageProductPrice !== undefined)
         updateData.averageProductPrice = averageProductPrice;
 
-      if (campaignGoal !== undefined)
-        updateData.campaignGoal = campaignGoal;
+      if (campaignGoal !== undefined) updateData.campaignGoal = campaignGoal;
 
       if (profileCompleted !== undefined)
         updateData.profileCompleted = Number(profileCompleted);
 
-      if (resolvedLogoDocument)
-        updateData.logoDocument = resolvedLogoDocument;
+      if (resolvedLogoDocument) updateData.logoDocument = resolvedLogoDocument;
 
       profile = await UserProfile.findOneAndUpdate(
         {
@@ -78,7 +73,7 @@ const saveOrUpdateUserProfile = async (req, res) => {
         {
           new: true,
           runValidators: true,
-        }
+        },
       );
 
       if (!profile) {
@@ -114,27 +109,19 @@ const saveOrUpdateUserProfile = async (req, res) => {
         averageProductPrice,
         campaignGoal,
         profileCompleted:
-          profileCompleted !== undefined
-            ? Number(profileCompleted)
-            : 0,
+          profileCompleted !== undefined ? Number(profileCompleted) : 0,
       });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: id
-        ? "Profile updated successfully"
-        : "Profile created successfully",
-      data: profile,
-    });
+    return successResponse(
+      res,
+      id ? "Profile updated successfully" : "Profile created successfully",
+      profile,
+    );
   } catch (error) {
     console.error(error);
 
-    return res.status(500).json({
-      success: false,
-      message: "Failed to save profile",
-      error: error.message,
-    });
+    return errorResponse(res, "Failed to save profile", error.message);
   }
 };
 // Get All Profiles
@@ -143,9 +130,7 @@ const getAllProfiles = async (req, res) => {
 
     .sort({ createdAt: -1 });
 
-  res.status(200).json({
-    success: true,
-    count: profiles.length,
+  return successResponse(res, "Profiles fetched successfully", {
     data: profiles,
   });
 };
@@ -155,38 +140,24 @@ const getUserProfile = async (req, res) => {
     const { userId } = req.query;
 
     if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
+      return errorResponse(res, "userId is required", 400);
     }
 
     const profile = await UserProfile.findById(userId.trim()); // trim whitespace
 
     if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: "Profile not found",
-      });
+      return errorResponse(res, "Profile not found", 400);
     }
 
-    res.status(200).json({
-      success: true,
+    return successResponse(res, {
       data: profile,
     });
   } catch (error) {
     console.log("Error:", error.message); // 👈 check actual error
     if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid userId format",
-      });
+      return errorResponse(res, "Invalid userId format", 400);
     }
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch profile",
-      error: error.message,
-    });
+    return errorResponse(res, "Failed to fetch profile", 500);
   }
 };
 

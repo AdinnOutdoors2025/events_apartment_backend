@@ -1,6 +1,7 @@
 require("dotenv").config();
-const User = require("../../../models/client/UserModule/UserSchema");
 const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema"); 
+const User = require("../../../models/client/UserModule/UserSchema");
+
 const generateToken = require("../../../utils/generateToken");
 const axios = require("axios");
 
@@ -116,7 +117,7 @@ function validateOtp(key, otp) {
 }
 
 const registerSendOtp = async (req, res) => {
-  const { userName, userEmail, userPhone } = req.body;
+  const { userName, userEmail, userPhone,customerType  } = req.body;
 
   try {
     // ================= VALIDATION =================
@@ -147,6 +148,7 @@ const registerSendOtp = async (req, res) => {
       userName,
       userEmail,
       userPhone,
+       customerType,
     });
 
     // ================= SMS MESSAGE =================
@@ -225,7 +227,7 @@ const verifyRegisterOtp = async (req, res) => {
       });
     }
 
-    const { userName, userEmail } = storedData.userData;
+    const { userName, userEmail,customerType  } = storedData.userData;
 
     // ================= CREATE USER =================
 
@@ -234,6 +236,7 @@ const verifyRegisterOtp = async (req, res) => {
       userEmail,
       userPhone,
       userType: 3,
+      customerType
     });
 
     await newUser.save();
@@ -256,6 +259,7 @@ const verifyRegisterOtp = async (req, res) => {
         userEmail: newUser.userEmail,
         userPhone: newUser.userPhone,
         userType: newUser.userType,
+        customerType: newUser.customerType,
       },
     });
   } catch (err) {
@@ -468,7 +472,8 @@ const loginVerifyOtp = async (req, res) => {
         userEmail: user.userEmail,
         userPhone: user.userPhone,
         userType: user.userType,
-        profileCompleted: profile ? profile.profileCompleted : null,
+        customerType: user.customerType,
+        profileCompleted: profile ? profile.profileCompleted : 1,
       },
     });
   } catch (err) {

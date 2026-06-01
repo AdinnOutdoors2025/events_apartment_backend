@@ -122,7 +122,7 @@ const parseBankDetails = (item) => ({
 const hasDataChanged = (existing, incoming, bankDetails) => {
   // Scalar fields
   const scalarFields = [
-    "apartmentName", "city", "location", "jioLocation",
+    "apartmentName", "city","state", "location", "jioLocation",
     "permissionStatus", "rating", "contactPersonPhone",
     "fromTGValues", "toTGValues", "residencyCount",
     "approxPeopleCount", "perDayRent",
@@ -194,6 +194,7 @@ const uploadExcel = async (req, res) => {
         // ── PARSE FIELDS ──────────────────────────────────────────────────────
         const apartmentName      = item.apartmentName?.toString().trim();
         const city               = item.city?.toString().trim();
+        const state               = item.state?.toString().trim();
         const location           = item.location?.toString().trim();
         const jioLocation        = item.jioLocation?.toString().trim()      || "";
         const permissionStatus   = item.permissionStatus?.toString().trim() || "";
@@ -223,7 +224,7 @@ const uploadExcel = async (req, res) => {
 
         // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
         if (
-          !apartmentName  ||
+          !apartmentName  || !state ||
           !city || !location || 
           !contactPersonPhone || 
           isNaN(residencyCount) || isNaN(perDayRent)
@@ -235,6 +236,7 @@ const uploadExcel = async (req, res) => {
         const incomingData = {
           apartmentName,
           city,
+          state,
           location,
           jioLocation,
           permissionStatus,
@@ -256,11 +258,12 @@ const uploadExcel = async (req, res) => {
           existingApartment = await Apartment.findOne({
             apartmentName: { $regex: new RegExp(`^${escapeRegex(apartmentName)}$`, "i") },
             city:          { $regex: new RegExp(`^${escapeRegex(city)}$`,          "i") },
+            state:         { $regex: new RegExp(`^${escapeRegex(state)}$`,         "i") },
             location:      { $regex: new RegExp(`^${escapeRegex(location)}$`,      "i") },
             contactPersonPhone
           });
           if (existingApartment) {
-            matchedBy = "name+city+location";
+            matchedBy = "name+city+state+location";
           }
         }
 
@@ -281,6 +284,7 @@ const uploadExcel = async (req, res) => {
                 $set: {
                   apartmentName,
                   city,
+                  state,
                   location,
                   jioLocation,
                   permissionStatus,
@@ -495,6 +499,172 @@ const getMinMaxValues = (apartments = []) => {
   };
 };
 
+// const listApartments = async (req, res) => {
+//   try {
+//     const pageNumber = parseInt(req.body.pageNumber) || 1;
+//     const count = parseInt(req.body.count) || 10;
+//     const skip = (pageNumber - 1) * count;
+//     const { sessionId } = req.body;
+
+//     let filter = ApartmentFilters(req.body);
+
+//       let priceRangeFilter = {};
+
+//     if (sessionId) {
+
+//       const sessionObjectId =
+//         new mongoose.Types.ObjectId(
+//           sessionId
+//         );
+
+//       priceRangeFilter = {
+//         $or: [
+//           {
+//             createdBySession:
+//               sessionObjectId,
+//           },
+//           {
+//             lastUpdatedBySession:
+//               sessionObjectId,
+//           },
+//           {
+//             skippedBySession:
+//               sessionObjectId,
+//           },
+//         ],
+//       };
+//     }
+//     // ─────────────────────────────────────────────────────────────────────
+
+//     if (sessionId) {
+//       const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
+
+//       const sessionCondition = {
+//         $or: [
+//           { createdBySession: sessionObjectId },
+//           { lastUpdatedBySession: sessionObjectId },
+//           { skippedBySession: sessionObjectId },
+//         ],
+//       };
+
+//       // Main filter
+//       if (filter.$or) {
+//         filter = {
+//           $and: [{ $or: filter.$or }, sessionCondition],
+//         };
+//       } else {
+//         filter = { ...filter, ...sessionCondition };
+//       }
+//     }
+
+//     // TOTAL COUNT
+//     const totalCount = await Apartment.countDocuments(filter);
+
+//     // APARTMENTS (filtered)
+//     const apartments = await Apartment.find(filter)
+//       .populate("createdBySession", "fileName createdAt")
+//       .populate("lastUpdatedBySession", "fileName createdAt")
+//       .populate("skippedBySession", "fileName createdAt")
+//       .sort({ updatedAt: -1 })
+//       .skip(skip)
+//       .limit(count)
+//       .lean();
+
+//     // ── PRICE RANGE: fetched WITHOUT price filters so values never change ──
+//     const allApartmentsForRange = await Apartment.find(priceRangeFilter)
+//       .select("fromTGValues toTGValues perDayRent")
+//       .lean();
+//     const priceRange = getMinMaxValues(allApartmentsForRange);
+//     // ──────────────────────────────────────────────────────────────────────
+
+//     // Add status field to each apartment
+//     const apartmentsWithStatus = apartments.map((apt) => {
+//       let status = "unknown";
+//       if (sessionId) {
+//         const sid = sessionId.toString();
+//         if (
+//           apt.createdBySession?._id?.toString() === sid &&
+//           apt.lastUpdatedBySession?._id?.toString() === sid &&
+//           !apt.skippedBySession
+//         ) {
+//           status = "inserted";
+//         } else if (
+//           apt.lastUpdatedBySession?._id?.toString() === sid &&
+//           apt.createdBySession?._id?.toString() !== sid
+//         ) {
+//           status = "updated";
+//         } else if (apt.skippedBySession?._id?.toString() === sid) {
+//           status = "skipped";
+//         }
+//       }
+//       return {
+//         ...apt,
+//         perDayRent: apt.perDayRent
+//           ? Number(apt.perDayRent).toLocaleString("en-IN")
+//           : "0",
+//         sessionStatus: status,
+//         isActive: apt.isActive ? "Active" : "Inactive",
+//       };
+//     });
+
+//     // LOCATION & CITY for session
+//     let sessionFilter = {};
+//     if (sessionId) {
+//       const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
+//       sessionFilter = {
+//         $or: [
+//           { createdBySession: sessionObjectId },
+//           { lastUpdatedBySession: sessionObjectId },
+//           { skippedBySession: sessionObjectId },
+//         ],
+//       };
+//     }
+
+//     const sessionApartments = await Apartment.find(sessionFilter).lean();
+
+//     const uniqueLocations = [
+//       ...new Set(sessionApartments.map((a) => a.location).filter(Boolean)),
+//     ];
+//     const uniqueCities = [
+//       ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+//     ];
+
+//     // SESSION DETAILS
+//     let latestSession = null;
+//     if (sessionId) {
+//       latestSession = await UploadSession.findById(sessionId).lean();
+//     } else {
+//       latestSession = await UploadSession.findOne().sort({ createdAt: -1 }).lean();
+//     }
+
+//     return successResponse(res, "Apartments fetched successfully", {
+//       pageNumber,
+//       count,
+//       totalCount,
+//       totalPages: Math.ceil(totalCount / count),
+//       file: {
+//         sessionId: latestSession?._id,
+//         fileName: latestSession?.fileName || "",
+//         totalRows: latestSession?.totalRows || 0,
+//         insertedCount: latestSession?.insertedCount || 0,
+//         updatedCount: latestSession?.updatedCount || 0,
+//         skippedCount: latestSession?.skippedCount || 0,
+//         uploadedAt: latestSession?.createdAt || null,
+//       },
+//       locationFilter: uniqueLocations,
+//       cityFilter: uniqueCities,
+//       priceRange,
+//       apartments: apartmentsWithStatus,
+//     });
+//   } catch (error) {
+//     return errorResponse(res, "Error Fetching Apartments", error.message);
+//   }
+// };
+
+
+// ─────────────────────────────────────────────
+// 4. GET APARTMENT BY ID
+// ─────────────────────────────────────────────
 const listApartments = async (req, res) => {
   try {
     const pageNumber = parseInt(req.body.pageNumber) || 1;
@@ -502,35 +672,13 @@ const listApartments = async (req, res) => {
     const skip = (pageNumber - 1) * count;
     const { sessionId } = req.body;
 
-    let filter = ApartmentFilters(req.body);
+    // ── GET userType FROM AUTHENTICATED USER ──
+    const userType = req.user?.userType; // 1, 2 → all; 3 → only isActive: true
 
-      let priceRangeFilter = {};
+    // ── BUILD MAIN FILTER (passes userType for isActive scoping) ──
+    let filter = ApartmentFilters(req.body, userType);
 
-    if (sessionId) {
-
-      const sessionObjectId =
-        new mongoose.Types.ObjectId(
-          sessionId
-        );
-
-      priceRangeFilter = {
-        $or: [
-          {
-            createdBySession:
-              sessionObjectId,
-          },
-          {
-            lastUpdatedBySession:
-              sessionObjectId,
-          },
-          {
-            skippedBySession:
-              sessionObjectId,
-          },
-        ],
-      };
-    }
-    // ─────────────────────────────────────────────────────────────────────
+    let priceRangeFilter = {};
 
     if (sessionId) {
       const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
@@ -543,7 +691,7 @@ const listApartments = async (req, res) => {
         ],
       };
 
-      // Main filter
+      // Merge session condition into main filter
       if (filter.$or) {
         filter = {
           $and: [{ $or: filter.$or }, sessionCondition],
@@ -551,6 +699,14 @@ const listApartments = async (req, res) => {
       } else {
         filter = { ...filter, ...sessionCondition };
       }
+
+      // priceRangeFilter scoped to session
+      priceRangeFilter = sessionCondition;
+    }
+
+    // ── APPLY isActive SCOPE TO priceRangeFilter FOR userType 3 ──
+    if (userType === 3) {
+      priceRangeFilter = { ...priceRangeFilter, isActive: true };
     }
 
     // TOTAL COUNT
@@ -566,12 +722,11 @@ const listApartments = async (req, res) => {
       .limit(count)
       .lean();
 
-    // ── PRICE RANGE: fetched WITHOUT price filters so values never change ──
+    // ── PRICE RANGE: fetched WITHOUT price filters, but WITH isActive scope for userType 3 ──
     const allApartmentsForRange = await Apartment.find(priceRangeFilter)
       .select("fromTGValues toTGValues perDayRent")
       .lean();
     const priceRange = getMinMaxValues(allApartmentsForRange);
-    // ──────────────────────────────────────────────────────────────────────
 
     // Add status field to each apartment
     const apartmentsWithStatus = apartments.map((apt) => {
@@ -599,10 +754,11 @@ const listApartments = async (req, res) => {
           ? Number(apt.perDayRent).toLocaleString("en-IN")
           : "0",
         sessionStatus: status,
+        isActive: apt.isActive ? "Active" : "Inactive",
       };
     });
 
-    // LOCATION & CITY for session
+    // ── LOCATION & CITY FILTER: scoped by session + isActive for userType 3 ──
     let sessionFilter = {};
     if (sessionId) {
       const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
@@ -615,6 +771,11 @@ const listApartments = async (req, res) => {
       };
     }
 
+    // Apply isActive scope for userType 3 on locationFilter/cityFilter query
+    if (userType === 3) {
+      sessionFilter = { ...sessionFilter, isActive: true };
+    }
+
     const sessionApartments = await Apartment.find(sessionFilter).lean();
 
     const uniqueLocations = [
@@ -622,6 +783,9 @@ const listApartments = async (req, res) => {
     ];
     const uniqueCities = [
       ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+    ];
+    const uniqueStates = [
+      ...new Set(sessionApartments.map((a) => a.state).filter(Boolean)),
     ];
 
     // SESSION DETAILS
@@ -648,6 +812,7 @@ const listApartments = async (req, res) => {
       },
       locationFilter: uniqueLocations,
       cityFilter: uniqueCities,
+      stateFilter: uniqueStates,
       priceRange,
       apartments: apartmentsWithStatus,
     });
@@ -655,12 +820,6 @@ const listApartments = async (req, res) => {
     return errorResponse(res, "Error Fetching Apartments", error.message);
   }
 };
-
-
-// ─────────────────────────────────────────────
-// 4. GET APARTMENT BY ID
-// ─────────────────────────────────────────────
-
 const getApartmentById = async (req, res) => {
   try {
     const { apartmentId } = req.query;
@@ -716,6 +875,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       apartmentId,
       apartmentName,
       city,
+      state,
       location,
       jioLocation,
       photo,
@@ -736,12 +896,13 @@ const createOrUpdateParticularApartment = async (req, res) => {
       ifscCode,
       phoneNumber,
       upiId,
+      isActive
     } = req.body;
 
     // =====================================================
     // VALIDATION
     // =====================================================
-    if (!apartmentName || !city || !location || !contactPersonPhone) {
+    if (!apartmentName || !city || !state || !location || !contactPersonPhone) {
       return res.status(400).json({
         success: false,
         message: "Required fields are missing",
@@ -764,6 +925,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
     const apartmentData = {
       apartmentName,
       city,
+      state,
       location,
       jioLocation,
       photo,
@@ -776,6 +938,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       toTGValues,
       perDayRent,
       updatedBy,
+      isActive: isActive ?? true,
     };
 
     // =====================================================
@@ -879,12 +1042,57 @@ const createOrUpdateParticularApartment = async (req, res) => {
     });
   }
 };
+const updateApartmentStatus = async (req, res) => {
+  try {
+    const { apartmentId, isActive } = req.body;
+
+    if (!apartmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Apartment ID is required",
+      });
+    }
+
+    const apartment = await Apartment.findOneAndUpdate(
+      { apartmentId },
+      {
+        $set: {
+          isActive,
+        },
+      },
+      {
+        new: true,
+      }
+    );
+
+    if (!apartment) {
+      return res.status(404).json({
+        success: false,
+        message: "Apartment not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: isActive
+        ? "Apartment activated successfully"
+        : "Apartment deactivated successfully",
+      data: apartment,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 module.exports = {
   uploadExcel,
   getUploadSessions,
   listApartments,
   getApartmentById,
-  createOrUpdateParticularApartment
+  createOrUpdateParticularApartment,
+  updateApartmentStatus
 };
 
 

@@ -38,8 +38,7 @@ app.use('/admin', userRoutes);
 // User route
 
 app.use('/user', userClientRoutes);
-app.use('/user', userProfileRoutes);
-
+app.use('/user', userProfileRoutes)
 
 app.get("/", (req, res) => {
   res.send("API Running");

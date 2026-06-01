@@ -1262,13 +1262,13 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         success: false,
         message: "Mail has already been sent for this order",
         mailSentAt: orderData.mailSentAt,
-        orderStatus: orderData.orderStatus
+        orderStatus: orderData.orderStatus,
       });
     }
-   // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
     // STATUS VALIDATION - MUST BE STATUS 5 TO SEND MAIL
     // ─────────────────────────────────────────────
-      
+
     if (orderData.orderStatus !== 5) {
       const currentStatusText = getStatusText(orderData.orderStatus);
       return res.status(400).json({
@@ -1277,7 +1277,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         currentStatus: orderData.orderStatus,
         currentStatusText: currentStatusText,
         requiredStatus: 5,
-        requiredStatusText: "Close Won"
+        requiredStatusText: "Close Won",
       });
     }
     // ─────────────────────────────────────────────
@@ -1287,22 +1287,30 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     const adminEmail = process.env.ADMIN_EMAIL || "srfsdev@adinn.co.in";
 
     const mailPayload = {
-      mailtype: "order",
+      mailtype: "apartmentevent",
 
       userEmail: orderData?.customerDetails?.email || "",
 
       adminEmail: adminEmail,
-
-      // Customer Details (these come from customerDetails object)
-      customerType: orderData?.customerDetails?.customerType || "",
-      gstNumber: orderData?.customerDetails?.gstNumber || "",
-      designation: orderData?.customerDetails?.designation || "",
-      brandOrCompanyName: orderData?.customerDetails?.brandOrCompanyName || "",
-      contactPersonName: orderData?.customerDetails?.contactPersonName || "",
-      contactPersonPhoneNumber:
-        orderData?.customerDetails?.contactPersonPhoneNumber || "",
-      email: orderData?.customerDetails?.email || "",
-      additionalNotes: orderData?.customerDetails?.additionalNotes || "",
+      // to: process.env.T0_EMAIL,
+      // cc: process.env.CC_MAIL,
+      to: "deoajay1210@gmail.com",
+      cc: "deoajay333@gmail.com",
+      customerDetails: {
+        // Customer Details (these come from customerDetails object)
+        customerType: orderData?.customerDetails?.customerType || "",
+        gstNumber: orderData?.customerDetails?.gstNumber || "",
+        designation: orderData?.customerDetails?.designation || "",
+        brandOrCompanyName:
+          orderData?.customerDetails?.brandOrCompanyName || "",
+        contactPersonName: orderData?.customerDetails?.contactPersonName || "",
+        contactPersonPhoneNumber:
+          orderData?.customerDetails?.contactPersonPhoneNumber || "",
+        email: orderData?.customerDetails?.email || "",
+        additionalNotes: orderData?.customerDetails?.additionalNotes || "",
+        gstNumber: orderData?.customerDetails?.gstNumber || "",
+        designation: orderData?.customerDetails?.designation || "",
+      },
 
       // Order Details
       orderId: orderData?.orderId,
@@ -1352,7 +1360,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     // ─────────────────────────────────────────────
 
     const response = await axios.post(
-      "https://adinndigital.com/api/roadshowsprojector/index_projector.php",
+      "https://adinndigital.com/api/apartmenteventmanagement/index_apartmentevent.php",
       mailPayload,
       {
         headers: {
@@ -1367,30 +1375,30 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     // RESPONSE
     // ─────────────────────────────────────────────
 
-    const isMailSuccess = response.data && (
-      response.data.success === true || 
-      response.data.status === "success" || 
-      response.status === 200
-    );
+    const isMailSuccess =
+      response.data &&
+      (response.data.success === true ||
+        response.data.status === "success" ||
+        response.status === 200);
 
     if (!isMailSuccess) {
       return res.status(500).json({
         success: false,
         message: "Mail API returned failure response",
-        phpResponse: response.data
+        phpResponse: response.data,
       });
     }
 
     // ─────────────────────────────────────────────
     // UPDATE ORDER WITH MAIL SENT STATUS AND TIMESTAMP
     // ─────────────────────────────────────────────
-    
+
     const updatedOrder = await orderBooking.findByIdAndUpdate(
       orderId,
       {
         $set: {
           isMailSent: true,
-          mailSentAt: new Date()
+          mailSentAt: new Date(),
         },
         $push: {
           orderHistory: {
@@ -1401,17 +1409,17 @@ const sendOrderMail = asyncHandler(async (req, res) => {
             changedBy: "System",
             changedAt: new Date(),
             remarks: `Order confirmation email sent successfully to ${orderData?.customerDetails?.email}`,
-            additionalNotes: `Mail sent at: ${new Date().toISOString()}`
-          }
-        }
+            additionalNotes: `Mail sent at: ${new Date().toISOString()}`,
+          },
+        },
       },
-      { new: true } // Return updated document
+      { new: true }, // Return updated document
     );
 
     console.log("📧 Order updated with mail sent status:", {
       isMailSent: updatedOrder.isMailSent,
       mailSentAt: updatedOrder.mailSentAt,
-      orderId: updatedOrder.orderId
+      orderId: updatedOrder.orderId,
     });
 
     // ─────────────────────────────────────────────
@@ -1425,11 +1433,10 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         isMailSent: updatedOrder.isMailSent,
         mailSentAt: updatedOrder.mailSentAt,
         orderId: updatedOrder.orderId,
-        orderStatus: updatedOrder.orderStatus
+        orderStatus: updatedOrder.orderStatus,
       },
       phpResponse: response.data,
     });
-
   } catch (error) {
     console.log("❌ Send Mail Error:", error);
   }

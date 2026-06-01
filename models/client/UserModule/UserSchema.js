@@ -6,7 +6,11 @@ const userSchema = new mongoose.Schema(
     userEmail: { type: String },
     userPhone: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
-
+    customerType: {
+      type: Number,
+      enum: [1, 2],
+      default: 1, //1 = Brand Owner 2 = Agency 
+    },
     userType: {
       type: Number,
       required: true,

@@ -50,6 +50,7 @@ const apartmentSchema = new mongoose.Schema(
     apartmentName: { type: String, required: true, trim: true },
     // apartmentAddress: { type: String, trim: true },
     city: { type: String, required: true, trim: true },
+    state: { type: String, required: true, trim: true },
     location: { type: String, required: true, trim: true },
     jioLocation: { type: String, trim: true, default: "" },
     // photo: { type: String, trim: true, },
@@ -80,6 +81,10 @@ const apartmentSchema = new mongoose.Schema(
     //     remarks: String,
     //   },
     // ],
+      isActive: {
+      type: Boolean,
+      default: true,
+    },
     perDayRent: { type: Number, required: true, min: 0 },
     updatedBy: { type: String },
   },

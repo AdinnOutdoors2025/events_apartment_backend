@@ -544,6 +544,8 @@ const getStatusText = (status) => {
       return "Close Won";
     case 6:
       return "Closed Loss";
+    case 7:
+      return "Project Code Creation";
     default:
       return "Unknown";
   }
@@ -635,6 +637,10 @@ const getOrderStatusCounts = async (filter = {}) => {
       count: 0,
       totalAmount: 0,
     },
+    "Project Code Creation": {
+      count: 0,
+      totalAmount: 0,
+    },
   };
 
   statusCounts.forEach((item) => {
@@ -662,6 +668,10 @@ const getOrderStatusCounts = async (filter = {}) => {
       case 6:
         counts["Closed Loss"].count = item.count;
         counts["Closed Loss"].totalAmount = item.totalAmount || 0;
+        break;
+      case 7:
+        counts["Project Code Creation"].count = item.count;
+        counts["Project Code Creation"].totalAmount = item.totalAmount || 0;
         break;
     }
   });
@@ -1262,7 +1272,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         success: false,
         message: "Mail has already been sent for this order",
         mailSentAt: orderData.mailSentAt,
-        orderStatus: orderData.orderStatus,
+        orderStatus: 7,
       });
     }
     // ─────────────────────────────────────────────
@@ -1406,13 +1416,14 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         $set: {
           isMailSent: true,
           mailSentAt: new Date(),
+          orderStatus: 7,
         },
         $push: {
           orderHistory: {
             fromStatus: orderData.orderStatus,
             fromStatusText: getStatusText(orderData.orderStatus),
-            toStatus: orderData.orderStatus,
-            toStatusText: getStatusText(orderData.orderStatus),
+            toStatus: 7,
+            toStatusText: getStatusText(7),
             changedBy: "System",
             changedAt: new Date(),
             remarks: `Order confirmation email sent successfully to ${orderData?.customerDetails?.email}`,
@@ -1440,7 +1451,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         isMailSent: updatedOrder.isMailSent,
         mailSentAt: updatedOrder.mailSentAt,
         orderId: updatedOrder.orderId,
-        orderStatus: updatedOrder.orderStatus,
+        orderStatus: 7,
       },
       phpResponse: response.data,
     });

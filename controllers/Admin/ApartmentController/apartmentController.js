@@ -225,9 +225,9 @@ const uploadExcel = async (req, res) => {
 
         // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
         if (
-          !apartmentName  || !state ||
+          !apartmentName  || 
           !city || !location || 
-          !contactPersonPhone || !contactPersonName ||
+          !contactPersonPhone || 
           isNaN(residencyCount) || isNaN(perDayRent)
         ) {
           skippedData.push({ row: item, message: "Missing required fields" });
@@ -263,7 +263,6 @@ const uploadExcel = async (req, res) => {
             state:         { $regex: new RegExp(`^${escapeRegex(state)}$`,         "i") },
             location:      { $regex: new RegExp(`^${escapeRegex(location)}$`,      "i") },
             contactPersonPhone,
-            contactPersonName
           });
           if (existingApartment) {
             matchedBy = "name+city+state+location";

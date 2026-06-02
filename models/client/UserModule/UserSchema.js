@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema(
     userType: {
       type: Number,
       required: true,
-      default: 3,
+      default: 3, // 1 - Admin, 2 - Staff Admin, 3 - Client
     },
   },
   {

@@ -2,86 +2,554 @@ const User = require("../../../models/Admin/UserManagement/userManagement");
 const Admin = require("../../../models/Admin/adminUser");
 const bcrypt = require("bcryptjs");
 const { successResponse, errorResponse } = require('../../../utils/response');
-// CREATE USER
-const createUser = async (req, res) => {
+const generateToken = require("../../../utils/generateToken");
+const axios = require("axios");
+
+const NETTYFISH_API_KEY = process.env.NETTYFISH_API_KEY;
+const NETTYFISH_SENDER_ID = process.env.NETTYFISH_SENDER_ID;
+const NETTYFISH_TEMPLATE_ID_REGISTER =process.env.NETTYFISH_TEMPLATE_ID_REGISTER;
+const NETTYFISH_TEMPLATE_ID_LOGIN = process.env.NETTYFISH_TEMPLATE_ID_LOGIN;
+const NETTYFISH_TEMPLATE_ID_RESEND = process.env.NETTYFISH_TEMPLATE_ID_RESEND;
+
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+const otpStore = {};
+async function sendSms(userPhone, message, templateId) {
   try {
-    const { userName,phoneNumber,email,password} = req.body;
+    // Format mobile number
+    const mobileNumber = userPhone.toString().replace(/\D/g, "");
+    const formattedNumber =
+      mobileNumber.length === 10 ? `91${mobileNumber}` : mobileNumber;
 
-    // VALIDATION
-    if (!userName ||!phoneNumber ||!email ||!password) {
+    // Validation
+    if (!formattedNumber) {
+      console.log("Invalid mobile number:", userPhone);
+      return false;
+    }
+
+    if (!message) {
+      console.log("Message is required");
+      return false;
+    }
+
+    // Use provided template ID or fallback to environment variable
+    const tid = templateId;
+    // console.log("Using Template ID:", tid);
+    if (!tid) {
+      console.log("No template ID found in environment variables");
+      return false;
+    }
+
+    // Build API URL
+    const apiUrl = `https://retailsms.nettyfish.com/api/mt/SendSMS?APIKey=${NETTYFISH_API_KEY}&senderid=${NETTYFISH_SENDER_ID}&channel=Trans&DCS=0&flashsms=0&number=${formattedNumber}&dlttemplateid=${tid}&text=${encodeURIComponent(message)}&route=17`;
+
+    // console.log("Sending SMS to:", formattedNumber);
+    // console.log("Using Template ID:", tid);
+
+    // API Call
+    const response = await axios.get(apiUrl, {
+      timeout: 10000, // 10 second timeout
+    });
+
+    // console.log("SMS API Response:", JSON.stringify(response.data));
+
+    // Success Check
+    if (
+      typeof response.data === "object" &&
+      response.data.ErrorCode === "000"
+    ) {
+      // console.log("SMS sent successfully to:", formattedNumber);
+      return true;
+    }
+
+    if (
+      typeof response.data === "string" &&
+      response.data.includes("Message Accepted")
+    ) {
+      console.log("SMS accepted successfully");
+      return true;
+    }
+
+    console.log("SMS failed - Response:", response.data);
+    return false;
+  } catch (err) {
+    console.log("SMS SEND ERROR - Full details:", {
+      message: err.message,
+      response: err.response?.data,
+      status: err.response?.status,
+      phone: userPhone,
+    });
+    return false;
+  }
+}
+
+function generateAndStoreOtp(key, userData) {
+  const otp = Math.floor(1000 + Math.random() * 9000);
+
+  otpStore[key] = {
+    otp,
+    expiresAt: Date.now() + 5 * 60 * 1000,
+    userData,
+  };
+
+  return otp;
+}
+
+function validateOtp(key, otp) {
+  const stored = otpStore[key];
+
+  if (!stored) {
+    return "No OTP found";
+  }
+
+  if (Date.now() > stored.expiresAt) {
+    delete otpStore[key];
+    return "OTP expired";
+  }
+
+  if (stored.otp.toString() !== otp.toString()) {
+    return "Invalid OTP";
+  }
+
+  return null;
+}
+
+const registerSendOtp = async (req, res) => {
+  const { userName, userEmail, userPhone  } = req.body;
+
+  try {
+    // ================= VALIDATION =================
+
+    if (!userName || !userPhone) {
       return res.status(400).json({
         success: false,
-        message:
-          "All fields are required",
+        message: "All fields are required",
       });
     }
 
-    // CHECK EMAIL IN USER
-    const emailExists =
-      await User.findOne({ email });
+    // ================= CHECK PHONE =================
 
-    if (emailExists) {
+    const existingPhone = await User.findOne({
+      userPhone,
+    });
+
+    if (existingPhone) {
       return res.status(400).json({
         success: false,
-        message:
-          "Email already exists",
+        message: "Phone number already registered",
       });
     }
 
-    // CHECK PHONE IN USER
-    const userPhoneExists =
-      await User.findOne({
-        phoneNumber,
-      });
+    // ================= GENERATE OTP =================
 
-    // CHECK PHONE IN ADMIN
-    const adminPhoneExists =
-      await Admin.findOne({
-        phoneNumber,
-      });
+    const otp = generateAndStoreOtp(userPhone, {
+      userName,
+      userEmail,
+      userPhone,
+    });
 
-    // PHONE ALREADY EXISTS
-    if (userPhoneExists ||adminPhoneExists) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Phone number already exists",
-      });
-    }
+    // ================= SMS MESSAGE =================
 
-    // HASH PASSWORD
-    const salt =await bcrypt.genSalt(10);
+    const message = `Welcome to ADINN. Your Brand Activation Code is ${otp}. Use it to verify your brand owner account. Valid for 5 minutes.`;
 
-    const hashedPassword =await bcrypt.hash(
-        password,
-        salt
+    // ================= SEND SMS =================
+
+    if (IS_PRODUCTION) {
+      const smsSent = await sendSms(
+        userPhone,
+        message,
+        NETTYFISH_TEMPLATE_ID_REGISTER,
       );
 
-    // CREATE USER
-    const newUser =
-      await User.create({
-        userName,
-        phoneNumber,
-        email,
-        password: hashedPassword,
-        userType: 2,
+      if (!smsSent) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to send OTP",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "OTP sent to mobile number",
       });
+    } else {
+      return res.json({
+        success: true,
+        message: "OTP sent successfully",
+        testOtp: otp,
+      });
+    }
+  } catch (err) {
+    console.log("Register Send OTP Error:", err);
 
-    return successResponse(
-      res,
-      "User created successfully",
-      newUser,
-      201
-    );
-
-  } catch (error) {
-    return errorResponse(
-      res,
-      error.message,
-      null,
-      500
-    );
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
   }
 };
 
-module.exports = {createUser};
+const verifyRegisterOtp = async (req, res) => {
+  const { userPhone,userEmail, otp } = req.body;
+
+  try {
+    // ================= VALIDATION =================
+
+    if (!userPhone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number and OTP are required",
+      });
+    }
+
+    // ================= VERIFY OTP =================
+
+    const otpError = validateOtp(userPhone, otp);
+
+    if (otpError) {
+      return res.status(400).json({
+        success: false,
+        message: otpError,
+      });
+    }
+
+    // ================= GET STORED DATA =================
+
+    const storedData = otpStore[userPhone];
+
+    if (!storedData) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP data not found",
+      });
+    }
+
+    const { userName, userEmail  } = storedData.userData;
+
+    // ================= CREATE USER =================
+
+    const newUser = new User({
+      userName,
+      userEmail,
+      userPhone,
+      userType: 2, // Staff Admin
+    });
+
+    await newUser.save();
+
+    // ================= DELETE OTP =================
+
+    delete otpStore[userPhone];
+
+    // ================= GENERATE TOKEN =================
+
+    const token = generateToken(newUser);
+
+    return res.json({
+      success: true,
+      message: "Registration successful",
+      token,
+      user: {
+        _id: newUser._id,
+        userName: newUser.userName,
+        userEmail: newUser.userEmail,
+        userPhone: newUser.userPhone,
+        userType: newUser.userType,
+      },
+    });
+  } catch (err) {
+    console.log("Verify Register OTP Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const resendRegisterOtp = async (req, res) => {
+  const { userPhone } = req.body;
+
+  try {
+    // ================= VALIDATION =================
+
+    if (!userPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    // ================= CHECK OTP STORE =================
+
+    const storedData = otpStore[userPhone];
+
+    if (!storedData) {
+      return res.status(400).json({
+        success: false,
+        message: "No registration request found",
+      });
+    }
+
+    // ================= GENERATE NEW OTP =================
+
+    const newOtp = generateAndStoreOtp(userPhone, storedData.userData);
+
+    // ================= SMS MESSAGE =================
+
+    const message = `Your new ADINN Campaign Code is ${newOtp}. It is valid for 5 minutes. Please keep it private.`;
+
+    // ================= SEND SMS =================
+
+    if (IS_PRODUCTION) {
+      const smsSent = await sendSms(userPhone, message,NETTYFISH_TEMPLATE_ID_RESEND);
+
+      if (!smsSent) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to resend OTP",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "OTP resent successfully",
+      });
+    } else {
+      // console.log("==================================");
+      // console.log("RESEND OTP:", {
+      //   userPhone,
+      //   otp: newOtp,
+      // });
+      // console.log("==================================");
+
+      return res.json({
+        success: true,
+        message: "OTP resent successfully",
+        testOtp: newOtp,
+      });
+    }
+  } catch (err) {
+    console.log("Resend OTP Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const loginSendOtp = async (req, res) => {
+  const { userPhone } = req.body;
+
+  try {
+    if (!userPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    // ================= FIND USER =================
+
+    const user = await User.findOne({
+      userPhone,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // ================= GENERATE OTP =================
+
+    const otp = generateAndStoreOtp(userPhone, {
+      login: true,
+    });
+
+    const message = `Your ADINN Campaign Code is ${otp}. Use it to access your campaign dashboard. Valid for 5 minutes. Do not share this code.`;
+    // ================= SEND SMS =================
+
+    if (IS_PRODUCTION) {
+      const smsSent = await sendSms(
+        userPhone,
+        message,
+        NETTYFISH_TEMPLATE_ID_LOGIN,
+      );
+
+      if (!smsSent) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to send login OTP",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Login OTP sent successfully",
+      });
+    } else {
+      // console.log("==================================");
+      // console.log("LOGIN OTP:", {
+      //   userPhone,
+      //   otp,
+      // });
+      // console.log("==================================");
+
+      return res.json({
+        success: true,
+        message: "Login OTP sent successfully",
+        testOtp: otp,
+      });
+    }
+  } catch (err) {
+    console.log("Login Send OTP Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const loginVerifyOtp = async (req, res) => {
+  const { userPhone, otp } = req.body;
+
+  try {
+    if (!userPhone || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone and OTP required",
+      });
+    }
+
+    // ================= VALIDATE OTP =================
+
+    const otpError = validateOtp(userPhone, otp);
+
+    if (otpError) {
+      return res.status(400).json({
+        success: false,
+        message: otpError,
+      });
+    }
+
+    // ================= FIND USER =================
+
+    const user = await User.findOne({
+      userPhone,
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // ================= DELETE OTP =================
+
+    delete otpStore[userPhone];
+
+    // ================= TOKEN =================
+
+    const token = generateToken(user);
+    return res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        _id: user._id,
+        userName: user.userName,
+        userEmail: user.userEmail,
+        userPhone: user.userPhone,
+        userType: user.userType,
+      },
+    });
+  } catch (err) {
+    console.log("Login Verify OTP Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+const resendLoginOtp = async (req, res) => {
+  const { userPhone } = req.body;
+
+  try {
+    // ================= VALIDATION =================
+
+    if (!userPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    // ================= CHECK OTP STORE =================
+
+    const storedData = otpStore[userPhone];
+
+    if (!storedData) {
+      return res.status(400).json({
+        success: false,
+        message: "No login request found. Please login again",
+      });
+    }
+
+    // ================= GENERATE NEW OTP =================
+
+    const newOtp = generateAndStoreOtp(userPhone, storedData.userData);
+
+    // ================= SMS MESSAGE =================
+
+    const message = `Your new ADINN Campaign Code is ${newOtp}. It is valid for 5 minutes. Please keep it private.`;
+
+    // ================= SEND SMS =================
+
+    if (IS_PRODUCTION) {
+      const smsSent = await sendSms(userPhone, message,NETTYFISH_TEMPLATE_ID_RESEND);
+
+      if (!smsSent) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to resend login OTP",
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Login OTP resent successfully",
+      });
+    } else {
+     
+
+      return res.json({
+        success: true,
+        message: "Login OTP resent successfully",
+        testOtp: newOtp,
+      });
+    }
+  } catch (err) {
+    console.log("Resend Login OTP Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+module.exports = {
+  registerSendOtp,
+  verifyRegisterOtp,
+  resendRegisterOtp,
+  loginSendOtp,
+  loginVerifyOtp,
+  resendLoginOtp,
+};

@@ -55,7 +55,7 @@ const apartmentSchema = new mongoose.Schema(
     jioLocation: { type: String, trim: true, default: "" },
     // photo: { type: String, trim: true, },
     // apartmentSummary: { type: String, trim: true },
-    // contactPersonName: { type: String, trim: true },
+    contactPersonName: { type: String, trim: true },
     contactPersonPhone: { type: String, required: true },
     // email: { type: String, },
 

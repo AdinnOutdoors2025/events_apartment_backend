@@ -123,7 +123,7 @@ const hasDataChanged = (existing, incoming, bankDetails) => {
   // Scalar fields
   const scalarFields = [
     "apartmentName", "city","state", "location", "jioLocation",
-    "permissionStatus", "rating", "contactPersonPhone",
+    "permissionStatus", "rating","contactPersonName", "contactPersonPhone",
     "fromTGValues", "toTGValues", "residencyCount",
     "approxPeopleCount", "perDayRent",
   ];
@@ -202,6 +202,7 @@ const uploadExcel = async (req, res) => {
   
        
         const contactPersonPhone = item.contactPersonPhone?.toString().trim();
+        const contactPersonName  = item.contactPersonName?.toString().trim() || "";
        
         const residencyCount     = Number(item.residencyCount);
         const approxPeopleCount  = Number(item.approxPeopleCount || 0);
@@ -226,7 +227,7 @@ const uploadExcel = async (req, res) => {
         if (
           !apartmentName  || !state ||
           !city || !location || 
-          !contactPersonPhone || 
+          !contactPersonPhone || !contactPersonName ||
           isNaN(residencyCount) || isNaN(perDayRent)
         ) {
           skippedData.push({ row: item, message: "Missing required fields" });
@@ -241,6 +242,7 @@ const uploadExcel = async (req, res) => {
           jioLocation,
           permissionStatus,
           rating,
+          contactPersonName,
           contactPersonPhone,
           fromTGValues,
           toTGValues,
@@ -260,7 +262,8 @@ const uploadExcel = async (req, res) => {
             city:          { $regex: new RegExp(`^${escapeRegex(city)}$`,          "i") },
             state:         { $regex: new RegExp(`^${escapeRegex(state)}$`,         "i") },
             location:      { $regex: new RegExp(`^${escapeRegex(location)}$`,      "i") },
-            contactPersonPhone
+            contactPersonPhone,
+            contactPersonName
           });
           if (existingApartment) {
             matchedBy = "name+city+state+location";
@@ -290,6 +293,7 @@ const uploadExcel = async (req, res) => {
                   permissionStatus,
                   rating,
                   contactPersonPhone,
+                  contactPersonName,
                   fromTGValues,
                   toTGValues,
                   residencyCount,
@@ -880,6 +884,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       jioLocation,
       photo,
       contactPersonPhone,
+      contactPersonName,
       permissionStatus,
       rating,
       residencyCount,
@@ -887,7 +892,6 @@ const createOrUpdateParticularApartment = async (req, res) => {
       fromTGValues,
       toTGValues,
       perDayRent,
-      updatedBy,
 
       // ✅ flat individual bank fields from req.body
       accountHolderName,
@@ -930,6 +934,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       jioLocation,
       photo,
       contactPersonPhone,
+      contactPersonName,
       permissionStatus,
       rating,
       residencyCount,
@@ -937,7 +942,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       fromTGValues,
       toTGValues,
       perDayRent,
-      updatedBy,
+      updatedBy: req.user.name,
       isActive: isActive ?? true,
     };
 

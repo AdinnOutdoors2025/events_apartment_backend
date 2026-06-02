@@ -1424,7 +1424,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
             fromStatusText: getStatusText(orderData.orderStatus),
             toStatus: 7,
             toStatusText: getStatusText(7),
-            changedBy: "System",
+            changedBy:  req.user?.name || "Admin",
             changedAt: new Date(),
             remarks: `Order confirmation email sent successfully to ${orderData?.customerDetails?.email}`,
             additionalNotes: `Mail sent at: ${new Date().toISOString()}`,

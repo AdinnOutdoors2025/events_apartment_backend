@@ -14,6 +14,7 @@ const apartmentOrderRoutes = require("./routes/Admin/EventRoutes/eventOrderRoute
 const elementQuotationRoutes = require("./routes/Admin/EventRoutes/eventElementQuotationRoutes")
 const userRoutes = require("./routes/Admin/UserRoutes/userRoutes")
 const gstDetailRoutes = require('./routes/Admin/GstDetailRoutes/gstDetailRoutes');
+const elementsMaster = require('./routes/Admin/ElementsRoutes/ElementsMasterRoutes')
 
 
 const userClientRoutes = require("./routes/client/UserRoutes/UserRoutes")
@@ -32,6 +33,7 @@ app.use('/admin', apartmentEventRoutes);
 app.use('/admin', apartmentOrderRoutes);
 app.use('/admin', elementQuotationRoutes);
 app.use('/gstdetails', gstDetailRoutes);
+app.use('/admin', elementsMaster);
 app.use('/admin', userRoutes);
 
 

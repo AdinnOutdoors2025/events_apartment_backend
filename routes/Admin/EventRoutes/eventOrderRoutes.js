@@ -10,6 +10,7 @@ const {
   updateOrderStatusOnly,
   getOrderDetails,
   sendOrderMail,
+  assignBookingUser
 } = require("../../../controllers/Admin/EventController/eventOrderController");
 const protect = require("../../../middleware/authMiddleware");
 
@@ -35,13 +36,8 @@ router.put(
 );
 router.get("/order-details", protect, getOrderDetails);
 router.get("/send-order-mail",protect,sendOrderMail);
+router.post("/assign-booking-user", protect, assignBookingUser);
 
-router.get("/profile", protect, (req, res) => {
-  res.json({
-    success: true,
-    message: "Protected profile data",
-    userId: req.user,
-  });
-});
+
 
 module.exports = router;

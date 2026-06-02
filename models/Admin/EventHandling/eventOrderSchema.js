@@ -176,6 +176,45 @@ const DailyScheduleSchema = new mongoose.Schema(
   },
   { _id: false },
 );
+
+// assignmentSchema
+const assignmentSchema = new mongoose.Schema(
+  {
+    assignedToType: {
+      type: Number, // 1=Admin, 2=Staff Admin
+      enum: [1, 2],
+    },
+    assignedUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StaffAdminUser",
+      default: null,
+    },
+
+    assignedUserName: {
+      type: String,
+      default: "",
+    },
+
+    assignedById: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "StaffAdminUser",
+      default: null,
+    },
+
+    assignedByName: {
+      type: String,
+      default: "",
+    },
+
+    assignedAt: {
+      type: String,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  }
+);
 // ─── Main Schema ─────────────────────────────────────────────────────
 const OrderBookingSchema = new mongoose.Schema(
   {
@@ -196,7 +235,7 @@ const OrderBookingSchema = new mongoose.Schema(
       ref: "EventBook",
       required: true,
     },
-
+     assignment: assignmentSchema,
     // Snapshot Details
     apartmentDetails: {
       type: Object,

@@ -1,4 +1,4 @@
-const User = require("../../../models/Admin/UserManagement/userManagement");
+const User = require("../../../models/Admin/StaffAdminManagement/staffAdminManagement");
 const Admin = require("../../../models/Admin/adminUser");
 const bcrypt = require("bcryptjs");
 const { successResponse, errorResponse } = require('../../../utils/response');
@@ -115,12 +115,12 @@ function validateOtp(key, otp) {
 }
 
 const registerSendOtp = async (req, res) => {
-  const { userName, userEmail, userPhone  } = req.body;
+  const { userName, userEmail, userPhone,categoryType  } = req.body;
 
   try {
     // ================= VALIDATION =================
 
-    if (!userName || !userPhone) {
+    if (!userName || !userPhone || !categoryType) {
       return res.status(400).json({
         success: false,
         message: "All fields are required",
@@ -190,7 +190,7 @@ const registerSendOtp = async (req, res) => {
 };
 
 const verifyRegisterOtp = async (req, res) => {
-  const { userPhone,userEmail, otp } = req.body;
+  const { userPhone,userEmail, otp,categoryType } = req.body;
 
   try {
     // ================= VALIDATION =================
@@ -232,6 +232,7 @@ const verifyRegisterOtp = async (req, res) => {
       userName,
       userEmail,
       userPhone,
+      categoryType,
       userType: 2, // Staff Admin
     });
 
@@ -254,6 +255,7 @@ const verifyRegisterOtp = async (req, res) => {
         userName: newUser.userName,
         userEmail: newUser.userEmail,
         userPhone: newUser.userPhone,
+        categoryType: newUser.categoryType,
         userType: newUser.userType,
       },
     });
@@ -544,7 +546,77 @@ const resendLoginOtp = async (req, res) => {
     });
   }
 };
+// const listUsers = async (req, res) => {
+//   try {
+//     // ================= FETCH ALL USERS =================
+//     const users = await User.find({}).select('-__v');
+    
+//     // ================= CHECK IF USERS EXIST =================
+//     if (!users || users.length === 0) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "No users found"
+//       });
+//     }
+    
+//     // ================= RETURN ALL USERS WITH DETAILS =================
+//     return res.status(200).json({
+//       success: true,
+//       message: "Users retrieved successfully",
+//       data: users
+//     });
+    
+//   } catch (err) {
+//     console.error("List Users Error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Server error while fetching users",
+//       error: err.message
+//     });
+//   }
+// };
+const listUsers = async (req, res) => {
+  try {
+    const [users, admins] = await Promise.all([
+      User.find({}).select("-__v").lean(),
+      Admin.find({}).select("-__v -password").lean(),
+    ]);
 
+    const formattedUsers = users.map((user) => ({
+      ...user,
+      userCategory: "StaffAdmin",
+    }));
+
+    const formattedAdmins = admins.map((admin) => ({
+      ...admin,
+      userCategory: "Admin",
+    }));
+
+    const allUsers = [...formattedAdmins, ...formattedUsers];
+
+    if (allUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No users found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Users retrieved successfully",
+      count: allUsers.length,
+      data: allUsers,
+    });
+  } catch (err) {
+    console.error("List Users Error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching users",
+      error: err.message,
+    });
+  }
+};
 module.exports = {
   registerSendOtp,
   verifyRegisterOtp,
@@ -552,4 +624,5 @@ module.exports = {
   loginSendOtp,
   loginVerifyOtp,
   resendLoginOtp,
+  listUsers,
 };

@@ -1,5 +1,5 @@
 const User = require("../../models/Admin/adminUser");
-const AdminUser = require("../../models/Admin/UserManagement/userManagement")
+const AdminUser = require("../../models/Admin/StaffAdminManagement/staffAdminManagement")
 const bcrypt = require("bcryptjs");
 const generateToken = require("../../utils/generateToken");
 const { successResponse, errorResponse } = require('../../utils/response');

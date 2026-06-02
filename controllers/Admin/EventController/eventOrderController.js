@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const orderBooking = require("../../../models/Admin/EventHandling/eventOrderSchema");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
 const EventBook = require("../../../models/Admin/EventHandling/eventRateSchema");
+const StaffAdminUser = require("../../../models/Admin/StaffAdminManagement/staffAdminManagement");
+const Admin = require("../../../models/Admin/adminUser");
 require("dotenv").config();
 // const asyncHandler = require("express-async-handler");
 const axios = require("axios");
@@ -550,54 +552,7 @@ const getStatusText = (status) => {
       return "Unknown";
   }
 };
-// Helper function to get status counts with proper names
-// const getOrderStatusCounts = async (filter = {}) => {
-//   const statusCounts = await orderBooking.aggregate([
-//     { $match: filter },
-//     {
-//       $group: {
-//         _id: "$orderStatus",
-//         count: { $sum: 1 },
-//       },
-//     },
-//     { $sort: { _id: 1 } },
-//   ]);
 
-//   // Initialize counts for all statuses (1-6)
-//   const counts = {
-//     Enquiry: 0,
-//     "Need Analysis": 0,
-//     "Proposal & Price Quote": 0,
-//     "Negotiation & Review": 0,
-//     "Close Won": 0,
-//     "Closed Loss": 0,
-//   };
-
-//   statusCounts.forEach((item) => {
-//     switch (item._id) {
-//       case 1:
-//         counts.Enquiry = item.count;
-//         break;
-//       case 2:
-//         counts["Need Analysis"] = item.count;
-//         break;
-//       case 3:
-//         counts["Proposal & Price Quote"] = item.count;
-//         break;
-//       case 4:
-//         counts["Negotiation & Review"] = item.count;
-//         break;
-//       case 5:
-//         counts["Close Won"] = item.count;
-//         break;
-//       case 6:
-//         counts["Closed Loss"] = item.count;
-//         break;
-//     }
-//   });
-
-//   return counts;
-// };
 const getOrderStatusCounts = async (filter = {}) => {
   const statusCounts = await orderBooking.aggregate([
     { $match: filter },
@@ -695,9 +650,19 @@ const listAllBookings = asyncHandler(async (req, res) => {
       .json({ success: false, message: filterResult.error });
   }
   const filter = filterResult.filter;
-
+  // =====================================================
+  // ROLE BASED FILTER
+  // Admin (userType = 1) -> Show All Bookings
+  // Staff (userType = 2) -> Show Only Assigned Bookings
+  // =====================================================
+  if (req.user?.userType === 2) {
+    filter["assignment.assignedUserId"] = new mongoose.Types.ObjectId(
+      req.user.id,
+    );
+  }
   // Get status counts
   const statusCounts = await getOrderStatusCounts(filter);
+
   if (filterResult.noMatch) {
     return res.status(200).json({
       success: true,
@@ -732,6 +697,15 @@ const listAllBookings = asyncHandler(async (req, res) => {
     apartmentName: item.apartmentId?.apartmentName || "",
     eventId: item.eventId?._id || null,
     eventName: item.eventId?.eventName || "",
+    assignment: item.assignment
+      ? {
+          assignedUserId: item.assignment.assignedUserId || null,
+          assignedUserName: item.assignment.assignedUserName || "",
+          assignedById: item.assignment.assignedById || null,
+          assignedByName: item.assignment.assignedByName || "",
+          assignedAt: item.assignment.assignedAt || "",
+        }
+      : null,
   }));
 
   return res.status(200).json({
@@ -1424,7 +1398,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
             fromStatusText: getStatusText(orderData.orderStatus),
             toStatus: 7,
             toStatusText: getStatusText(7),
-            changedBy:  req.user?.name || "Admin",
+            changedBy: req.user?.name || "Admin",
             changedAt: new Date(),
             remarks: `Order confirmation email sent successfully to ${orderData?.customerDetails?.email}`,
             additionalNotes: `Mail sent at: ${new Date().toISOString()}`,
@@ -1460,6 +1434,262 @@ const sendOrderMail = asyncHandler(async (req, res) => {
   }
 });
 
+// const assignBookingUser = async (req, res) => {
+//   try {
+//     const { orderId, userId, assignedToType } = req.body;
+
+//     // Only Admin can assign
+//     if (req.user.userType !== 1) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Only Admin can assign bookings",
+//       });
+//     }
+
+//     if (!orderId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "orderId is required",
+//       });
+//     }
+
+//     if (!userId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "userId is required",
+//       });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(orderId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid orderId",
+//       });
+//     }
+
+//     if (!mongoose.Types.ObjectId.isValid(userId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid userId",
+//       });
+//     }
+
+//     const booking = await orderBooking.findById(orderId);
+
+//     if (!booking) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Booking not found",
+//       });
+//     }
+//     // Check Already Assigned
+//     if (booking.assignment?.assignedUserId) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `This booking is already assigned to ${booking.assignment.assignedUserName}`,
+//       });
+//     }
+//     let assignedUser = null;
+//     if (assignedToType === 1) {
+//       assignedUser = await Admin.findById(userId);
+//       console.log("Staff User for Assignment1:", staffUser);
+//     } else if (assignedToType === 2) {
+//       assignedUser = await StaffAdminUser.findById(userId);
+//       console.log("Staff User for Assignment2:", staffUser);
+//     }
+//     console.log("Staff User for Assignment3:", assignedUser);
+
+//     if (!assignedUser) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Staff user not found",
+//       });
+//     }
+//     const now = new Date();
+
+//     const assignedAt = `${String(now.getDate()).padStart(2, "0")}-${String(
+//       now.getMonth() + 1,
+//     ).padStart(2, "0")}-${now.getFullYear()} ${String(now.getHours()).padStart(
+//       2,
+//       "0",
+//     )}:${String(now.getMinutes()).padStart(
+//       2,
+//       "0",
+//     )}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+//     booking.assignment = {
+//       assignedToType: Number(assignedToType),
+//       assignedUserId: assignedUser._id,
+//       assignedUserName:
+//         assignedUser.userName ||
+//         assignedUser.name ||
+//         assignedUser.adminName ||
+//         "",
+//       assignedById: req.user?.id,
+//       assignedByName:
+//         req.user?.userName || req.user?.name || req.user?.adminName || "",
+//       assignedAt,
+//     };
+
+//     await booking.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Booking assigned successfully",
+//       data: booking,
+//     });
+//   } catch (error) {
+//     console.error("Assign Booking Error:", error);
+
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+const assignBookingUser = async (req, res) => {
+  try {
+    const { orderId, userId, assignedToType } = req.body;
+
+    // Only Admin can assign
+    if (req.user.userType !== 1) {
+      return res.status(403).json({
+        success: false,
+        message: "Only Admin can assign bookings",
+      });
+    }
+
+    // Validation
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: "orderId is required",
+      });
+    }
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "userId is required",
+      });
+    }
+
+    if (!assignedToType) {
+      return res.status(400).json({
+        success: false,
+        message: "assignedToType is required",
+      });
+    }
+
+    if (![1, 2].includes(Number(assignedToType))) {
+      return res.status(400).json({
+        success: false,
+        message: "assignedToType must be 1 (Admin) or 2 (Staff Admin)",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(orderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid orderId",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid userId",
+      });
+    }
+
+    // Find Booking
+    const booking = await orderBooking.findById(orderId);
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: "Booking not found",
+      });
+    }
+
+    // Prevent Reassignment
+    if (booking.assignment?.assignedUserId) {
+      return res.status(400).json({
+        success: false,
+        message: `This booking is already assigned to ${booking.assignment.assignedUserName}`,
+      });
+    }
+
+    // Find User Based On Type
+    let assignedUser = null;
+
+    if (Number(assignedToType) === 1) {
+      assignedUser = await Admin.findById(userId);
+      console.log("Admin User:", assignedUser);
+    } else if (Number(assignedToType) === 2) {
+      assignedUser = await StaffAdminUser.findById(userId);
+      console.log("Staff Admin User:", assignedUser);
+    }
+
+    if (!assignedUser) {
+      return res.status(404).json({
+        success: false,
+        message: "Assigned user not found",
+      });
+    }
+
+    // Format Date Time
+    const now = new Date();
+
+    const assignedAt = `${String(now.getDate()).padStart(2, "0")}-${String(
+      now.getMonth() + 1
+    ).padStart(2, "0")}-${now.getFullYear()} ${String(
+      now.getHours()
+    ).padStart(2, "0")}:${String(now.getMinutes()).padStart(
+      2,
+      "0"
+    )}:${String(now.getSeconds()).padStart(2, "0")}`;
+
+    // User Name Handling
+    const assignedUserName =
+      assignedUser.userName ||
+      assignedUser.name ||
+      assignedUser.adminName ||
+      "";
+
+    const assignedByName =
+      req.user?.userName ||
+      req.user?.name ||
+      req.user?.adminName ||
+      "";
+
+    // Save Assignment
+    booking.assignment = {
+      assignedToType: Number(assignedToType), // 1=Admin, 2=Staff Admin
+      assignedUserId: assignedUser._id,
+      assignedUserName,
+      assignedById: req.user?.id,
+      assignedByName,
+      assignedAt,
+    };
+
+    await booking.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Booking assigned successfully",
+      data: booking,
+    });
+  } catch (error) {
+    console.error("Assign Booking Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
+
 module.exports = {
   createBooking,
   listAllBookings,
@@ -1467,4 +1697,5 @@ module.exports = {
   getOrderDetails,
   updateOrderStatusOnly,
   sendOrderMail,
+  assignBookingUser,
 };

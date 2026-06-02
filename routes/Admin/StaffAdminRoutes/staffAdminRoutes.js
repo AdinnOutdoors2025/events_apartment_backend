@@ -5,7 +5,8 @@ const {  registerSendOtp,
   resendRegisterOtp,
   loginSendOtp,
   loginVerifyOtp,
-  resendLoginOtp, } = require("../../../controllers/Admin/UserController/userManagementController");
+  resendLoginOtp,
+listUsers } = require("../../../controllers/Admin/StaffAdminController/staffAdminManagementController");
 const protect = require("../../../middleware/authMiddleware");
 const adminOnly = require("../../../middleware/AdminOnlyAccess")
 
@@ -15,6 +16,7 @@ router.post("/staff-resend-otp",protect,adminOnly, resendRegisterOtp);    // Res
 router.post("/staff-login", loginSendOtp);             // Step 3: Verify OTP → returns JWT token
 router.post("/staff-login-verify", loginVerifyOtp);             // Step 3: Verify OTP → returns JWT token
 router.post("/staff-resend-login-otp", resendLoginOtp); 
+router.post("/staff-list-users", listUsers); 
 
 
 

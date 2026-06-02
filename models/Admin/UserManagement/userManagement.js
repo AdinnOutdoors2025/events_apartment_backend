@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
 
       userType: {
         type: Number,
-        default: 3, // 1 - Admin, 2 - Staff Admin, 3 - Client
+        default: 2, // 1 - Admin, 2 - Staff Admin, 3 - Client
       },
     },
     {

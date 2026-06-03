@@ -753,9 +753,9 @@ const listApartments = async (req, res) => {
       }
       return {
         ...apt,
-        perDayRent: apt.perDayRent
-          ? Number(apt.perDayRent).toLocaleString("en-IN")
-          : "0",
+        // perDayRent: apt.perDayRent
+        //   ? Number(apt.perDayRent).toLocaleString("en-IN")
+        //   : "0",
         sessionStatus: status,
         isActive: apt.isActive ? "Active" : "Inactive",
       };

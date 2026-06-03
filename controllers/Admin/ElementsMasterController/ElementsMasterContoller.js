@@ -5,16 +5,53 @@ const ElementsMaster = require('../../../models/Admin/ElementsMasterSchema/eleme
 const ItemMaster = require('../../../models/Admin/ElementsMasterSchema/itemsMasterSchema')
 const { successResponse, errorResponse } = require("../../../utils/response");
 
-const createElement = async (req, res) => {
+const createCategoryElement = async (req, res) => {
   try {
-    const { category_name, description, status } = req.body;
+    const {  id,category_name, description, status } = req.body;
 
     if (!category_name) {
         return errorResponse(res,"Category name is required")
       
     }
+ // ================= UPDATE =================
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return errorResponse(res, "Invalid element id");
+      }
 
-    
+      const element = await ElementsMaster.findById(id);
+
+      if (!element) {
+        return errorResponse(res, "Element not found");
+      }
+
+      const existingCategory = await ElementsMaster.findOne({
+        _id: { $ne: id },
+        category_name: {
+          $regex: new RegExp(`^${category_name.trim()}$`, "i"),
+        },
+      });
+
+      if (existingCategory) {
+        return errorResponse(
+          res,
+          "Category name already exists"
+        );
+      }
+
+      element.category_name = category_name.trim();
+      element.description = description || "";
+      element.status = status ?? element.status;
+
+      await element.save();
+
+      return successResponse(
+        res,
+        "Element updated successfully",
+        element
+      );
+    }
+     // ================= CREATE =================
     const existingCategory = await ElementsMaster.findOne({
       category_name: {
         $regex: new RegExp(`^${category_name.trim()}$`, "i"),
@@ -42,10 +79,24 @@ const createElement = async (req, res) => {
     return errorResponse(res,"error",error.message)
   }
 };
+const listCategoryElements = async (req, res) => {
+  try {
+    const elements = await ElementsMaster.find({})
+      .sort({ createdAt: -1 });
 
-const createItem = async (req, res) => {
+    return successResponse(
+      res,
+      "Elements fetched successfully",
+      elements
+    );
+  } catch (error) {
+    return errorResponse(res, "Error", error.message);
+  }
+};
+const elementsCreateItem = async (req, res) => {
   try {
     const {
+      id,
       item_name,
       item_type,
       category_id,
@@ -86,8 +137,49 @@ const createItem = async (req, res) => {
         );
       }
     }
+// ================= UPDATE =================
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return errorResponse(res, "Invalid item id");
+      }
 
-    
+      const item = await ItemMaster.findById(id);
+
+      if (!item) {
+        return errorResponse(res, "Item not found");
+      }
+
+      const existingItem = await ItemMaster.findOne({
+        _id: { $ne: id },
+        item_name: {
+          $regex: new RegExp(`^${item_name.trim()}$`, "i"),
+        },
+      });
+
+      if (existingItem) {
+        return errorResponse(
+          res,
+          "Item name already exists"
+        );
+      }
+
+      item.item_name = item_name.trim();
+      item.item_type = item_type;
+      item.category_id = category_id || null;
+      item.amount = amount;
+      item.amount_unit = amount_unit;
+      item.item_status = item_status ?? item.item_status;
+      item.item_notes = item_notes || "";
+
+      await item.save();
+
+      return successResponse(
+        res,
+        "Item updated successfully",
+        item
+      );
+    }
+    // ================= CREATE =================
     const existingItem = await ItemMaster.findOne({
       item_name: {
         $regex: new RegExp(`^${item_name.trim()}$`, "i"),
@@ -128,9 +220,25 @@ const createItem = async (req, res) => {
     );
   }
 };
+const elementsListItems = async (req, res) => {
+  try {
+    const items = await ItemMaster.find({})
+      .populate("category_id")
+      .sort({ createdAt: -1 });
 
+    return successResponse(
+      res,
+      "Items fetched successfully",
+      items
+    );
+  } catch (error) {
+    return errorResponse(res, "Error", error.message);
+  }
+};
 
 module.exports = {
-    createElement,
-    createItem
+    createCategoryElement,
+    listCategoryElements,
+    elementsCreateItem,
+    elementsListItems
 }

@@ -23,10 +23,7 @@ const ElementsMasterSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-module.exports = mongoose.model(
-  "ElementsMaster",
-  ElementsMasterSchema
-);
+module.exports = mongoose.model("ElementsCategoryMaster", ElementsMasterSchema);

@@ -35,7 +35,7 @@ app.use('/admin', elementQuotationRoutes);
 app.use('/gstdetails', gstDetailRoutes);
 app.use('/admin', staffAdminRoutes);
 app.use('/admin', elementsMaster);
-app.use('/admin', userRoutes);
+// app.use('/admin', userRoutes);
 
 
 // User route

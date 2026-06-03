@@ -16,7 +16,7 @@ const ItemsMasterSchema = new mongoose.Schema(
 
     category_id: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "ElementsMaster",
+      ref: "ElementsCategoryMaster",
       default: null,
     },
 
@@ -29,7 +29,7 @@ const ItemsMasterSchema = new mongoose.Schema(
     amount_unit: {
       type: Number,
       required: true,
-      enum: [1, 2,3, 4], // 1 = Day, 2 = Hour , 3 = sqr.ft , 4 = feet
+      enum: [1, 2, 3, 4], // 1 = Day, 2 = Hour , 3 = sqr.ft , 4 = feet
     },
 
     item_status: {
@@ -46,10 +46,7 @@ const ItemsMasterSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-module.exports = mongoose.model(
-  "ItemsMaster",
-  ItemsMasterSchema
-);
+module.exports = mongoose.model("ElementsItemsMaster", ItemsMasterSchema);

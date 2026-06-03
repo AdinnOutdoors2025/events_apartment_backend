@@ -3,6 +3,7 @@ const path = require("path");
 const mongoose = require("mongoose");
 const ElementsMaster = require('../../../models/Admin/ElementsMasterSchema/elementsMasterSchema')
 const ItemMaster = require('../../../models/Admin/ElementsMasterSchema/itemsMasterSchema')
+const GiftMaster = require('../../../models/Admin/ElementsMasterSchema/elementsGiftSchema')
 const { successResponse, errorResponse } = require("../../../utils/response");
 
 const createCategoryElement = async (req, res) => {
@@ -235,10 +236,161 @@ const elementsListItems = async (req, res) => {
     return errorResponse(res, "Error", error.message);
   }
 };
+const saveGift = async (req, res) => {
+  try {
+    const {
+      id,
+      giftType,
+      giftName,
+      priceType,
+      price,
+      unit,
+      notes,
+      status,
+    } = req.body;
 
+    // Gift Type Validation
+    if (![1, 2].includes(Number(giftType))) {
+      return res.status(400).json({
+        success: false,
+        message: "giftType must be 1 or 2",
+      });
+    }
+
+    // Price Type Validation
+    if (
+      Number(giftType) === 1 &&
+      ![1, 2].includes(Number(priceType))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "For giftType 1, priceType must be 1 or 2",
+      });
+    }
+
+    if (
+      Number(giftType) === 2 &&
+      ![3, 4, 5].includes(Number(priceType))
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "For giftType 2, priceType must be 3, 4 or 5",
+      });
+    }
+
+    // Common Validation
+    if (!giftName?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "giftName is required",
+      });
+    }
+
+    if (!price || Number(price) <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid price is required",
+      });
+    }
+
+    // priceType = 2 Validation
+    if (Number(priceType) === 2) {
+      if (!unit || Number(unit) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "unit is required",
+        });
+      }
+
+      
+    }
+
+    const payload = {
+      giftType,
+      giftName,
+      priceType,
+      price,
+      unit: Number(priceType) === 2 ? unit : null,
+      notes,
+      status,
+    };
+
+    // UPDATE
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid id",
+        });
+      }
+
+      const gift = await GiftMaster.findByIdAndUpdate(
+        id,
+        payload,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
+      if (!gift) {
+        return res.status(404).json({
+          success: false,
+          message: "Gift not found",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Gift updated successfully",
+        data: gift,
+      });
+    }
+
+    // CREATE
+    const gift = await GiftMaster.create(payload);
+
+    return res.status(201).json({
+      success: true,
+      message: "Gift created successfully",
+      data: gift,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+const listGifts = async (req, res) => {
+  try {
+    const gifts = await GiftMaster.find({})
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      count: gifts.length,
+      data: gifts,
+    });
+  } catch (error) {
+    console.error("List Gifts Error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
+  }
+};
 module.exports = {
     createCategoryElement,
     listCategoryElements,
     elementsCreateItem,
-    elementsListItems
+    elementsListItems,
+    saveGift,
+    listGifts
 }

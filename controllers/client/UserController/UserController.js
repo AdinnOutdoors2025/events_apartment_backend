@@ -228,7 +228,7 @@ const verifyRegisterOtp = async (req, res) => {
       });
     }
 
-    const { userName,customerType  } = storedData.userData;
+    const { userName,userEmail,customerType  } = storedData.userData;
 
     // ================= CREATE USER =================
 

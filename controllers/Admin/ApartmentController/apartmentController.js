@@ -68,7 +68,7 @@ const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware
 //     String(eb.AccountNumber ?? "") !== String(ib.AccountNumber ?? "") ||
 //     String(eb.IfscCode ?? "") !== String(ib.IfscCode ?? "") ||
 //     String(eb.PhoneNumber ?? "") !== String(ib.PhoneNumber ?? "") ||
-//     String(eb.UpiId ?? "") !== String(ib.UpiId ?? "");
+//     String(eb.UpiID ?? "") !== String(ib.UpiID ?? "");
 
 //   // const ee = existing.existingEventsHistory?.[0] || {};
 //   // const ie = existingEventsHistory?.[0] || {};
@@ -104,8 +104,8 @@ const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware
 //     BankName: getValue("BankName", "AccountNumber"),
 //     AccountNumber: getValue("AccountNumber", "IfscCode"),
 //     IfscCode: getValue("IfscCode", "PhoneNumber"),
-//     PhoneNumber: getValue("PhoneNumber", "UpiId"),
-//     UpiId: getValue("UpiId"),
+//     PhoneNumber: getValue("PhoneNumber", "UpiID"),
+//     UpiID: getValue("UpiID"),
 //   }];
 // };
 
@@ -115,7 +115,7 @@ const parseBankDetails = (item) => ({
   AccountNumber:     item.AccountNumber?.toString().trim()     || "",
   IfscCode:          item.IfscCode?.toString().trim()          || "",
   PhoneNumber:       item.PhoneNumber?.toString().trim()       || "",
-  UpiId:             item.UpiId?.toString().trim()             || "",
+  UpiID:             item.UpiID?.toString().trim()             || "",
 });
  
 // ── HELPER: detect if anything changed between existing doc and incoming row ──
@@ -134,7 +134,7 @@ const hasDataChanged = (existing, incoming, bankDetails) => {
   // bankDetails sub-fields
   const bankFields = [
     "AccountHolderName", "BankName", "AccountNumber",
-    "IfscCode", "PhoneNumber", "UpiId",
+    "IfscCode", "PhoneNumber", "UpiID",
   ];
   for (const field of bankFields) {
     if (String(existing.bankDetails?.[field] ?? "") !== String(bankDetails[field] ?? "")) return true;
@@ -307,7 +307,7 @@ const uploadExcel = async (req, res) => {
                   "bankDetails.AccountNumber":     bankDetails.AccountNumber,
                   "bankDetails.IfscCode":          bankDetails.IfscCode,
                   "bankDetails.PhoneNumber":       bankDetails.PhoneNumber,
-                  "bankDetails.UpiId":             bankDetails.UpiId,
+                  "bankDetails.UpiID":             bankDetails.UpiID,
                   // existingEventsHistory,
                   updatedBy:            req.user.name,
                   lastUpdatedBySession: session._id,
@@ -902,7 +902,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       AccountNumber,
       IfscCode,
       PhoneNumber,
-      UpiId,
+      UpiID,
       isActive
     } = req.body;
 
@@ -923,7 +923,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
       AccountNumber:     AccountNumber     ?? "",
       IfscCode:          IfscCode          ?? "",
       PhoneNumber:       PhoneNumber       ?? "",
-      UpiId:             UpiId             ?? "",
+      UpiID:             UpiID             ?? "",
     };
 
     // =====================================================
@@ -1009,7 +1009,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
             "bankDetails.AccountNumber":     bankDetails.AccountNumber,
             "bankDetails.IfscCode":          bankDetails.IfscCode,
             "bankDetails.PhoneNumber":       bankDetails.PhoneNumber,
-            "bankDetails.UpiId":             bankDetails.UpiId,
+            "bankDetails.UpiID":             bankDetails.UpiID,
           },
         },
         { new: true, runValidators: true }

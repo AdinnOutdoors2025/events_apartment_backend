@@ -63,6 +63,9 @@ const createBooking = asyncHandler(async (req, res) => {
     orderNoteFiles,
     sqfet,
     dailySchedule,
+    items = [],
+    gifts = [],
+    order_notes,
   } = req.body;
 
   // ─────────────────────────────────────────────
@@ -1642,12 +1645,13 @@ const assignBookingUser = async (req, res) => {
     const now = new Date();
 
     const assignedAt = `${String(now.getDate()).padStart(2, "0")}-${String(
-      now.getMonth() + 1
-    ).padStart(2, "0")}-${now.getFullYear()} ${String(
-      now.getHours()
-    ).padStart(2, "0")}:${String(now.getMinutes()).padStart(
+      now.getMonth() + 1,
+    ).padStart(2, "0")}-${now.getFullYear()} ${String(now.getHours()).padStart(
       2,
-      "0"
+      "0",
+    )}:${String(now.getMinutes()).padStart(
+      2,
+      "0",
     )}:${String(now.getSeconds()).padStart(2, "0")}`;
 
     // User Name Handling
@@ -1658,10 +1662,7 @@ const assignBookingUser = async (req, res) => {
       "";
 
     const assignedByName =
-      req.user?.userName ||
-      req.user?.name ||
-      req.user?.adminName ||
-      "";
+      req.user?.userName || req.user?.name || req.user?.adminName || "";
 
     // Save Assignment
     booking.assignment = {

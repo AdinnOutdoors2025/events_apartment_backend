@@ -1,11 +1,139 @@
 const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema");
 const { successResponse, errorResponse } = require("../../../utils/response");
+// const saveOrUpdateUserProfile = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const {
+//       id,
+//       brandOwnerName,
+//       companyBrandName,
+//       email,
+//       gstNumber,
+//       industryCategory,
+//       productServiceDescription,
+//       targetCustomer,
+//       averageProductPrice,
+//       campaignGoal,
+//       profileCompleted,
+//     } = req.body;
+
+//     // ─────────────────────────────────────────────────────
+//     // PROCESS LOGO FILE
+//     // ─────────────────────────────────────────────────────
+//     const uploadedLogoFile = req.files?.logoDocument?.[0];
+
+//     const resolvedLogoDocument = uploadedLogoFile
+//       ? req.processFile(uploadedLogoFile) // 👈 uses folder from route
+//       : undefined;
+
+//     let profile;
+
+//     // UPDATE
+//     if (id) {
+//       const updateData = {};
+
+//       if (brandOwnerName !== undefined)
+//         updateData.brandOwnerName = brandOwnerName;
+
+//       if (companyBrandName !== undefined)
+//         updateData.companyBrandName = companyBrandName;
+
+//       if (email !== undefined) updateData.email = email;
+
+//       if (gstNumber !== undefined) updateData.gstNumber = gstNumber;
+
+//       if (industryCategory !== undefined)
+//         updateData.industryCategory = industryCategory;
+
+//       if (productServiceDescription !== undefined)
+//         updateData.productServiceDescription = productServiceDescription;
+
+//       if (targetCustomer !== undefined)
+//         updateData.targetCustomer = targetCustomer;
+
+//       if (averageProductPrice !== undefined)
+//         updateData.averageProductPrice = averageProductPrice;
+
+//       if (campaignGoal !== undefined) updateData.campaignGoal = campaignGoal;
+
+//       if (profileCompleted !== undefined)
+//         updateData.profileCompleted = Number(profileCompleted);
+
+//       if (resolvedLogoDocument) updateData.logoDocument = resolvedLogoDocument;
+
+//       profile = await UserProfile.findOneAndUpdate(
+//         {
+//           _id: id,
+//           userId,
+//         },
+//         {
+//           $set: updateData,
+//         },
+//         {
+//           new: true,
+//           runValidators: true,
+//         },
+//       );
+
+//       if (!profile) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Profile not found",
+//         });
+//       }
+//     } else {
+//       // CREATE
+//       const existingProfile = await UserProfile.findOne({
+//         userId,
+//       });
+
+//       if (existingProfile) {
+//         return res.status(400).json({
+//           success: false,
+//           message: "Profile already exists",
+//           data: existingProfile,
+//         });
+//       }
+
+//       profile = await UserProfile.create({
+//         userId,
+//         brandOwnerName,
+//         companyBrandName,
+//         email,
+//         gstNumber,
+//         industryCategory,
+//         productServiceDescription,
+//         logoDocument: resolvedLogoDocument,
+//         targetCustomer,
+//         averageProductPrice,
+//         campaignGoal,
+//         profileCompleted:
+//           profileCompleted !== undefined ? Number(profileCompleted) : 0,
+//       });
+//     }
+
+//     return successResponse(
+//       res,
+//       id ? "Profile updated successfully" : "Profile created successfully",
+//       profile,
+//     );
+//   } catch (error) {
+//     console.error(error);
+
+//     return errorResponse(res, "Failed to save profile", error.message);
+//   }
+// };
+// Get All Profiles
 const saveOrUpdateUserProfile = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const authenticatedUserId = req.user.id; // Logged-in user
+    const { userId } = req.body; // Target user ID to update
+
+    // If userId is provided in request body, use that, otherwise use authenticated user's ID
+    const targetUserId = userId || authenticatedUserId;
 
     const {
-      id,
       brandOwnerName,
       companyBrandName,
       email,
@@ -24,13 +152,18 @@ const saveOrUpdateUserProfile = async (req, res) => {
     const uploadedLogoFile = req.files?.logoDocument?.[0];
 
     const resolvedLogoDocument = uploadedLogoFile
-      ? req.processFile(uploadedLogoFile) // 👈 uses folder from route
+      ? req.processFile(uploadedLogoFile)
       : undefined;
 
     let profile;
 
-    // UPDATE
-    if (id) {
+    // Check if profile exists for this user
+    const existingProfile = await UserProfile.findOne({ 
+      userId: targetUserId 
+    });
+
+    if (existingProfile) {
+      // UPDATE - using targetUserId
       const updateData = {};
 
       if (brandOwnerName !== undefined)
@@ -63,10 +196,7 @@ const saveOrUpdateUserProfile = async (req, res) => {
       if (resolvedLogoDocument) updateData.logoDocument = resolvedLogoDocument;
 
       profile = await UserProfile.findOneAndUpdate(
-        {
-          _id: id,
-          userId,
-        },
+        { userId: targetUserId }, // 👈 Update based on userId from request body
         {
           $set: updateData,
         },
@@ -84,20 +214,8 @@ const saveOrUpdateUserProfile = async (req, res) => {
       }
     } else {
       // CREATE
-      const existingProfile = await UserProfile.findOne({
-        userId,
-      });
-
-      if (existingProfile) {
-        return res.status(400).json({
-          success: false,
-          message: "Profile already exists",
-          data: existingProfile,
-        });
-      }
-
       profile = await UserProfile.create({
-        userId,
+        userId: targetUserId,
         brandOwnerName,
         companyBrandName,
         email,
@@ -115,7 +233,7 @@ const saveOrUpdateUserProfile = async (req, res) => {
 
     return successResponse(
       res,
-      id ? "Profile updated successfully" : "Profile created successfully",
+      existingProfile ? "Profile updated successfully" : "Profile created successfully",
       profile,
     );
   } catch (error) {
@@ -124,7 +242,7 @@ const saveOrUpdateUserProfile = async (req, res) => {
     return errorResponse(res, "Failed to save profile", error.message);
   }
 };
-// Get All Profiles
+
 const getAllProfiles = async (req, res) => {
   const profiles = await UserProfile.find()
 

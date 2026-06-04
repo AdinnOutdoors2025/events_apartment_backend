@@ -279,63 +279,6 @@ const listGifts = async (req, res) => {
   }
 };
 
-// const listItemsGroupedByCategory = async (req, res) => {
-//   try {
-//     const items = await ItemMaster.find({})
-//       .populate("category_id")
-//       .sort({ createdAt: -1 });
-
-//     if (!items || items.length === 0) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "No items found",
-//       });
-//     }
-
-//     const groupedData = {};
-
-//     items.forEach((item) => {
-//       const categoryKey = item.category_id
-//         ? item.category_id._id.toString()
-//         : "NO_CATEGORY";
-
-//       if (!groupedData[categoryKey]) {
-//         groupedData[categoryKey] = {
-//           category_id: item.category_id || null,
-//           category_name: item.category_id
-//             ? item.category_id.category_name
-//             : "Uncategorized",
-//           itemsData: [],
-//         };
-//       }
-
-//       groupedData[categoryKey].itemsData.push({
-//         _id: item._id,
-//         item_name: item.item_name,
-//         item_type: item.item_type,
-//         amount: item.amount,
-//         amount_unit: item.amount_unit,
-//         item_status: item.item_status,
-//         item_notes: item.item_notes,
-//         createdAt: item.createdAt,
-//         updatedAt: item.updatedAt,
-//       });
-//     });
-
-//     const responseData = Object.values(groupedData);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "Items fetched successfully",
-//       count: responseData.length, // Total Groups/Categories
-//       data: responseData,
-//     });
-//   } catch (error) {
-//     console.error("List Items Error:", error);
-
-//     return errorResponse(res, error.message, 500);
-//   }
-// };
 const listItemsGroupedByCategory = async (req, res) => {
   try {
     const [items, gifts] = await Promise.all([

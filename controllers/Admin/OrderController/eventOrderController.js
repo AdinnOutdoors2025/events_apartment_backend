@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const orderBooking = require("../../../models/Admin/OrderSchema/eventOrderSchema");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
 const EventBook = require("../../../models/Admin/EventHandling/eventRateSchema");
+const ItemMaster = require("../../../models/Admin/OrderSchema/ElementsMasterSchema/itemsMasterSchema");
+const GiftMaster = require("../../../models/Admin/OrderSchema/ElementsMasterSchema/elementsGiftSchema");
 const StaffAdminUser = require("../../../models/Admin/StaffAdminManagement/staffAdminManagement");
 const Admin = require("../../../models/Admin/adminUser");
 require("dotenv").config();
@@ -44,6 +46,583 @@ function getFileCategory(mimeType) {
   return "other";
 }
 
+// const createBooking = asyncHandler(async (req, res) => {
+//   const {
+//     id,
+//     apartmentId,
+//     eventId,
+//     fromDate,
+//     toDate,
+//     daysOfEvent,
+//     // daysOfApartment,
+//     promoterRequired,
+//     promoterCount,
+//     promoters,
+//     customerDetails,
+//     discountPercentage,
+//     discountType,
+//     orderNoteText,
+//     orderNoteFiles,
+//     sqfet,
+//     dailySchedule,
+//     items = [],
+//     gifts = [],
+//     order_notes,
+//   } = req.body;
+
+//     // ─────────────────────────────────────────────
+//   // VALIDATE ITEMS & GIFTS (from saveElements logic)
+//   // ─────────────────────────────────────────────
+  
+//   // At least one section must have entries
+//   if (
+//     (!Array.isArray(items) || items.length === 0) &&
+//     (!Array.isArray(gifts) || gifts.length === 0)
+//   ) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Provide at least one item or one gift",
+//     });
+//   }
+
+//   // Validate items array entries
+//   for (let i = 0; i < items.length; i++) {
+//     const { item_id, quantity } = items[i];
+//     if (!item_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `items[${i}]: item_id is required`,
+//       });
+//     }
+//     if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `items[${i}]: quantity must be a positive integer`,
+//       });
+//     }
+//   }
+
+//   // Validate gifts array entries
+//   for (let i = 0; i < gifts.length; i++) {
+//     const { gift_id, quantity } = gifts[i];
+//     if (!gift_id) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `gifts[${i}]: gift_id is required`,
+//       });
+//     }
+//     if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `gifts[${i}]: quantity must be a positive integer`,
+//       });
+//     }
+//   }
+
+//   // Fetch all Items from DB
+//   let dbItemMap = {};
+//   let items_total = 0;
+//   let orderItems = [];
+
+//   if (items.length > 0) {
+//     const itemIds = [...new Set(items.map((i) => i.item_id))];
+//     const dbItems = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
+//     dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
+
+//     // Verify every requested item was found
+//     for (let i = 0; i < items.length; i++) {
+//       if (!dbItemMap[items[i].item_id]) {
+//         return res.status(404).json({
+//           success: false,
+//           message: `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
+//         });
+//       }
+//     }
+
+//     // Build order items + accumulate items_total
+//     orderItems = items.map(({ item_id, quantity }) => {
+//       const doc = dbItemMap[item_id];
+//       const parsedCount = Number(quantity);
+//       const item_amount = doc.amount * parsedCount;
+//       items_total += item_amount;
+
+//       return {
+//         item_id: doc._id,
+//         item_name: doc.item_name,
+//         item_type: doc.item_type,
+//         quantity: parsedCount,
+//         unit_amount: doc.amount,
+//         amount_unit: doc.amount_unit,
+//         item_amount,
+//       };
+//     });
+//   }
+
+//   // Fetch all Gifts from DB
+//   let dbGiftMap = {};
+//   let gifts_total = 0;
+//   let orderGifts = [];
+
+//   if (gifts.length > 0) {
+//     const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
+//     const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
+//     dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
+
+//     // Verify every requested gift was found
+//     for (let i = 0; i < gifts.length; i++) {
+//       if (!dbGiftMap[gifts[i].gift_id]) {
+//         return res.status(404).json({
+//           success: false,
+//           message: `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
+//         });
+//       }
+//     }
+
+//     // Build order gifts + accumulate gifts_total
+//     orderGifts = gifts.map(({ gift_id, quantity }) => {
+//       const doc = dbGiftMap[gift_id];
+//       const parsedCount = Number(quantity);
+//       const gift_amount = doc.price * parsedCount;
+//       gifts_total += gift_amount;
+
+//       return {
+//         gift_id: doc._id,
+//         gift_name: doc.giftName,
+//         gift_type: doc.giftType,
+//         quantity: parsedCount,
+//         unit_price: doc.price,
+//         price_type: doc.priceType,
+//         gift_amount,
+//       };
+//     });
+//   }
+
+//   // Calculate items+gifts total
+//   const itemsAndGiftsTotal = items_total + gifts_total;
+//   // ─────────────────────────────────────────────
+//   // FIND EXISTING BOOKING BY _id (if provided)
+//   // ─────────────────────────────────────────────
+
+//   let existingCustomerBooking = null;
+
+//   if (id) {
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid booking id",
+//       });
+//     }
+
+//     existingCustomerBooking = await orderBooking.findById(id);
+
+//     if (!existingCustomerBooking) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Booking not found",
+//       });
+//     }
+//   }
+//   // ─────────────────────────────────────────────
+//   // VALIDATE DAILY SCHEDULE
+//   // ─────────────────────────────────────────────
+
+//   if (
+//     !dailySchedule ||
+//     !Array.isArray(dailySchedule) ||
+//     dailySchedule.length === 0
+//   ) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "dailySchedule is required with at least one day schedule",
+//     });
+//   }
+
+//   // Validate each day's schedule
+//   for (const schedule of dailySchedule) {
+//     if (!schedule.days) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Each schedule must have a days",
+//       });
+//     }
+
+//     if (!schedule.fromTime) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `fromTime is required for day ${schedule.days}`,
+//       });
+//     }
+
+//     if (!schedule.toTime) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `toTime is required for day ${schedule.days}`,
+//       });
+//     }
+
+//     // Validate time format (HH:MM AM/PM)
+//     const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
+//     if (
+//       !timeRegex.test(schedule.fromTime) ||
+//       !timeRegex.test(schedule.toTime)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
+//       });
+//     }
+
+//     // Check that daysOfEvent matches the number of schedules
+//     if (daysOfEvent && schedule.days > daysOfEvent) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
+//       });
+//     }
+//   }
+
+//   // Check if the number of schedules matches daysOfEvent
+//   if (daysOfEvent && dailySchedule.length !== daysOfEvent) {
+//     return res.status(400).json({
+//       success: false,
+//       message: `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
+//     });
+//   }
+
+//   // Check for duplicate day numbers
+//   const dayNumbers = dailySchedule.map((s) => s.days);
+//   const hasDuplicates = new Set(dayNumbers).size !== dayNumbers.length;
+//   if (hasDuplicates) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Duplicate day numbers found in dailySchedule",
+//     });
+//   }
+
+//   // Check that day numbers are sequential starting from 1
+//   const sortedDays = [...dayNumbers].sort((a, b) => a - b);
+//   for (let i = 0; i < sortedDays.length; i++) {
+//     if (sortedDays[i] !== i + 1) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
+//       });
+//     }
+//   }
+//   // ─────────────────────────────────────────────
+//   // ORDER NOTE
+//   // ─────────────────────────────────────────────
+
+//   const uploadedFiles = req.files?.orderNoteFiles || [];
+
+//   const orderNote = {
+//     text: req.body.orderNoteText || "",
+
+//     files: uploadedFiles.map((file) => ({
+//       originalName: file.originalname,
+//       fileName: file.filename,
+//       filePath: file.path,
+//       mimeType: file.mimetype,
+//       size: file.size,
+//       fileType: getFileCategory(file.mimetype),
+//     })),
+//   };
+
+//   // ─────────────────────────────────────────────
+//   // VALIDATE APARTMENT ID
+//   // ─────────────────────────────────────────────
+
+//   if (!apartmentId || !mongoose.Types.ObjectId.isValid(apartmentId)) {
+//     return res.status(400).json({
+//       success: false,
+//       message: !apartmentId ? "apartmentId is required" : "Invalid apartmentId",
+//     });
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // VALIDATE EVENT ID
+//   // ─────────────────────────────────────────────
+
+//   if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+//     return res.status(400).json({
+//       success: false,
+//       message: !eventId ? "eventId is required" : "Invalid eventId",
+//     });
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // VALIDATE PHONE NUMBER
+//   // ─────────────────────────────────────────────
+
+//   const contactPersonPhoneNumber = customerDetails?.contactPersonPhoneNumber;
+//   if (!contactPersonPhoneNumber) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "customerDetails.contactPersonPhoneNumber is required",
+//     });
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // VALIDATE DATES
+//   // ─────────────────────────────────────────────
+
+//   if (!fromDate || !toDate) {
+//     return res.status(400).json({
+//       success: false,
+//       message: !fromDate ? "fromDate is required" : "toDate is required",
+//     });
+//   }
+
+//   const parsedFromDate = new Date(fromDate);
+//   const parsedToDate = new Date(toDate);
+
+//   if (isNaN(parsedFromDate.getTime())) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Invalid fromDate",
+//     });
+//   }
+
+//   if (isNaN(parsedToDate.getTime())) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "Invalid toDate",
+//     });
+//   }
+
+//   if (parsedToDate < parsedFromDate) {
+//     return res.status(400).json({
+//       success: false,
+//       message: "toDate must be on or after fromDate",
+//     });
+//   }
+
+//   // Calculate total days
+//   const totalDays =
+//     Math.ceil((parsedToDate - parsedFromDate) / (1000 * 60 * 60 * 24)) + 1;
+
+//    // Validate daysOfEvent matches total days if not provided
+//   let eventDays = daysOfEvent;
+//   if (!eventDays) {
+//     eventDays = totalDays;
+//   }
+//   // ─────────────────────────────────────────────
+//   // FETCH APARTMENT & EVENT
+//   // ─────────────────────────────────────────────
+
+//   const [apartment, event] = await Promise.all([
+//     Apartment.findById(apartmentId).lean(),
+
+//     EventBook.findById(eventId).lean(),
+//   ]);
+
+//   if (!apartment) {
+//     return res.status(404).json({
+//       success: false,
+//       message: "Apartment not found",
+//     });
+//   }
+
+//   if (!event) {
+//     return res.status(404).json({
+//       success: false,
+//       message: "Event not found",
+//     });
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // STORE SNAPSHOT DETAILS
+//   // ─────────────────────────────────────────────
+
+//   const apartmentDetails = {
+//     _id: apartment._id,
+//     apartmentName: apartment.apartmentName,
+//     apartmentAddress: apartment.apartmentAddress,
+//     city: apartment.city,
+//     location: apartment.location,
+//     perDayRent: apartment.perDayRent,
+//     contactPersonName: apartment.contactPersonName,
+//     contactPersonPhone: apartment.contactPersonPhone,
+//   };
+
+//   const eventDetails = {
+//     _id: event._id,
+//     eventName: event.eventName,
+//     amount: event.amount,
+//     description: event.description,
+//   };
+
+//   // ─────────────────────────────────────────────
+//   // FIND EXISTING CUSTOMER BOOKING
+//   // ─────────────────────────────────────────────
+
+//   // const existingCustomerBooking = await orderBooking.findOne({
+//   //   apartmentId,
+//   //   eventId,
+//   //   "customerDetails.contactPersonPhoneNumber": contactPersonPhoneNumber,
+//   // });
+
+//   // ─────────────────────────────────────────────
+//   // CHECK OVERLAPPING BOOKINGS
+//   // ─────────────────────────────────────────────
+
+//   const overlappingBooking = await orderBooking.findOne({
+//     _id: {
+//       $ne: existingCustomerBooking?._id,
+//     },
+//     apartmentId,
+//     // eventId,
+//     fromDate: {
+//       $lte: parsedToDate,
+//     },
+//     toDate: {
+//       $gte: parsedFromDate,
+//     },
+//   });
+
+//   if (overlappingBooking) {
+//     return res.status(409).json({
+//       success: false,
+//       message: `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
+//     });
+//   }
+//   const apartmentAmount = Math.floor(
+//     (apartment.perDayRent || 0) * (daysOfEvent || 0),
+//   );
+//   const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
+//   const eventAmount = Math.floor((event.amount || 0) * (daysOfEvent || 0));
+//   let promoterTotal = 0;
+//   const promotersWithAmount = (promoters || []).map((p) => {
+//     const promoterAmount = Math.floor(
+//       (p.promoterPerDayCharge || 0) * (daysOfEvent || 0),
+//     );
+//     promoterTotal += promoterAmount;
+//     return {
+//       ...p,
+//       promoterAmount,
+//     };
+//   });
+
+//   const subTotal = Math.floor(
+//     apartmentAmount + eventAmount + promoterTotal + sqfetAmount+ itemsAndGiftsTotal,
+//   );
+
+//   let discountAmount = 0;
+
+//   // 1 = Percentage
+//   if (discountType === 1) {
+//     discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
+//   }
+//   // 2 = Flat
+//   else if (discountType === 2) {
+//     discountAmount = Math.floor(discountPercentage || 0);
+//   }
+
+//   const taxableAmount = Math.floor(subTotal - discountAmount);
+//   const gstAmount = Math.floor((taxableAmount * 18) / 100);
+//   const totalAmount = Math.floor(taxableAmount + gstAmount);
+//   // ─────────────────────────────────────────────
+//   // UPDATE EXISTING BOOKING
+//   // ─────────────────────────────────────────────
+
+//   if (existingCustomerBooking) {
+//     existingCustomerBooking.fromDate = parsedFromDate;
+//     existingCustomerBooking.toDate = parsedToDate;
+//     existingCustomerBooking.daysOfEvent = daysOfEvent;
+//     // existingCustomerBooking.daysOfApartment = daysOfApartment;
+//     existingCustomerBooking.sqfet = sqfet;
+//     existingCustomerBooking.promoterRequired = promoterRequired;
+//     existingCustomerBooking.promoterCount = promoterCount;
+//     existingCustomerBooking.promoters = promotersWithAmount;
+//     existingCustomerBooking.customerDetails = customerDetails;
+//     existingCustomerBooking.discountPercentage = discountPercentage;
+//     existingCustomerBooking.discountType = discountType;
+//     existingCustomerBooking.apartmentAmount = apartmentAmount;
+//     existingCustomerBooking.sqfetAmount = sqfetAmount;
+//     existingCustomerBooking.eventAmount = eventAmount;
+//     existingCustomerBooking.promoterTotal = promoterTotal;
+//     existingCustomerBooking.subTotal = subTotal;
+//     existingCustomerBooking.discountAmount = discountAmount;
+//     existingCustomerBooking.taxableAmount = taxableAmount;
+//     existingCustomerBooking.gstAmount = gstAmount;
+//     existingCustomerBooking.totalAmount = totalAmount;
+//     existingCustomerBooking.apartmentDetails = apartmentDetails;
+//     existingCustomerBooking.eventDetails = eventDetails;
+//     existingCustomerBooking.orderNote = orderNote;
+//     existingCustomerBooking.dailySchedule = dailySchedule;
+
+//     // Add items and gifts to existing booking
+//     existingCustomerBooking.items = orderItems;
+//     existingCustomerBooking.gifts = orderGifts;
+//     existingCustomerBooking.items_total = items_total;
+//     existingCustomerBooking.gifts_total = gifts_total;
+//     existingCustomerBooking.total_amount = itemsAndGiftsTotal;
+//     existingCustomerBooking.updatedBy = req.user?.name;
+
+//     await existingCustomerBooking.save();
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Booking updated successfully",
+//     });
+//   }
+
+//   // ─────────────────────────────────────────────
+//   // GENERATE ORDER ID
+//   // ─────────────────────────────────────────────
+
+//   const orderId = await generateAdminOrderId();
+
+//   // ─────────────────────────────────────────────
+//   // CREATE BOOKING
+//   // ─────────────────────────────────────────────
+
+//   const booking = await orderBooking.create({
+//     orderId,
+//     apartmentId,
+//     eventId,
+//     apartmentDetails,
+//     eventDetails,
+//     fromDate: parsedFromDate,
+//     toDate: parsedToDate,
+//     daysOfEvent,
+//     // daysOfApartment,
+//     sqfet,
+//     promoterRequired,
+//     promoterCount,
+//     promoters: promotersWithAmount,
+//     customerDetails,
+//     discountPercentage,
+//     discountType,
+//     apartmentAmount,
+//     sqfetAmount,
+//     eventAmount,
+//     promoterTotal,
+//     subTotal,
+//     discountAmount,
+//     taxableAmount,
+//     gstAmount,
+//     totalAmount,
+//     orderNote,
+//     dailySchedule,
+//       // Add items and gifts
+//     items: orderItems,
+//     gifts: orderGifts,
+//     items_total: items_total,
+//     gifts_total: gifts_total,
+//     total_amount: itemsAndGiftsTotal,
+//     orderStatus: 1,
+//     createdBy: req.user?.name,
+//     updatedBy: req.user?.name,
+//   });
+//   return res.status(201).json({
+//     success: true,
+//     message: "Booking created successfully",
+//   });
+// });
+
+// ─── LIST BOOKINGS ──────────────────────────────────────────────────
+
 const createBooking = asyncHandler(async (req, res) => {
   const {
     id,
@@ -52,21 +631,140 @@ const createBooking = asyncHandler(async (req, res) => {
     fromDate,
     toDate,
     daysOfEvent,
-    // daysOfApartment,
     promoterRequired,
     promoterCount,
     promoters,
     customerDetails,
     discountPercentage,
     discountType,
-    orderNoteText,
-    orderNoteFiles,
     sqfet,
     dailySchedule,
     items = [],
     gifts = [],
     order_notes,
+    orderNoteText,
   } = req.body;
+
+  // ─────────────────────────────────────────────
+  // VALIDATE ITEMS & GIFTS
+  // ─────────────────────────────────────────────
+  
+  // Note: items and gifts are optional now
+  let items_total = 0;
+  let gifts_total = 0;
+  let itemsAndGiftsTotal = 0;
+  let orderItems = [];
+  let orderGifts = [];
+
+  // Process items if provided
+  if (items && items.length > 0) {
+    // Validate items array entries
+    for (let i = 0; i < items.length; i++) {
+      const { item_id, quantity } = items[i];
+      if (!item_id) {
+        return res.status(400).json({
+          success: false,
+          message: `items[${i}]: item_id is required`,
+        });
+      }
+      if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+        return res.status(400).json({
+          success: false,
+          message: `items[${i}]: quantity must be a positive integer`,
+        });
+      }
+    }
+
+    // Fetch all Items from DB
+    const itemIds = [...new Set(items.map((i) => i.item_id))];
+    const dbItems = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
+    const dbItemMap = {};
+    dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
+
+    // Verify every requested item was found
+    for (let i = 0; i < items.length; i++) {
+      if (!dbItemMap[items[i].item_id]) {
+        return res.status(404).json({
+          success: false,
+          message: `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
+        });
+      }
+    }
+
+    // Build order items + accumulate items_total
+    orderItems = items.map(({ item_id, quantity }) => {
+      const doc = dbItemMap[item_id];
+      const parsedCount = Number(quantity);
+      const item_amount = doc.amount * parsedCount;
+      items_total += item_amount;
+
+      return {
+        item_id: doc._id,
+        item_name: doc.item_name,
+        item_type: doc.item_type,
+        quantity: parsedCount,
+        unit_amount: doc.amount,
+        amount_unit: doc.amount_unit,
+        item_amount,
+      };
+    });
+  }
+
+  // Process gifts if provided
+  if (gifts && gifts.length > 0) {
+    // Validate gifts array entries
+    for (let i = 0; i < gifts.length; i++) {
+      const { gift_id, quantity } = gifts[i];
+      if (!gift_id) {
+        return res.status(400).json({
+          success: false,
+          message: `gifts[${i}]: gift_id is required`,
+        });
+      }
+      if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+        return res.status(400).json({
+          success: false,
+          message: `gifts[${i}]: quantity must be a positive integer`,
+        });
+      }
+    }
+
+    // Fetch all Gifts from DB
+    const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
+    const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
+    const dbGiftMap = {};
+    dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
+
+    // Verify every requested gift was found
+    for (let i = 0; i < gifts.length; i++) {
+      if (!dbGiftMap[gifts[i].gift_id]) {
+        return res.status(404).json({
+          success: false,
+          message: `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
+        });
+      }
+    }
+
+    // Build order gifts + accumulate gifts_total
+    orderGifts = gifts.map(({ gift_id, quantity }) => {
+      const doc = dbGiftMap[gift_id];
+      const parsedCount = Number(quantity);
+      const gift_amount = doc.price * parsedCount;
+      gifts_total += gift_amount;
+
+      return {
+        gift_id: doc._id,
+        gift_name: doc.giftName,
+        gift_type: doc.giftType,
+        quantity: parsedCount,
+        unit_price: doc.price,
+        price_type: doc.priceType,
+        gift_amount,
+      };
+    });
+  }
+
+  itemsAndGiftsTotal = items_total + gifts_total;
 
   // ─────────────────────────────────────────────
   // FIND EXISTING BOOKING BY _id (if provided)
@@ -91,6 +789,7 @@ const createBooking = asyncHandler(async (req, res) => {
       });
     }
   }
+
   // ─────────────────────────────────────────────
   // VALIDATE DAILY SCHEDULE
   // ─────────────────────────────────────────────
@@ -178,15 +877,15 @@ const createBooking = asyncHandler(async (req, res) => {
       });
     }
   }
+
   // ─────────────────────────────────────────────
   // ORDER NOTE
   // ─────────────────────────────────────────────
 
   const uploadedFiles = req.files?.orderNoteFiles || [];
-
+  
   const orderNote = {
-    text: req.body.orderNoteText || "",
-
+    text: orderNoteText || order_notes || "",
     files: uploadedFiles.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
@@ -196,6 +895,11 @@ const createBooking = asyncHandler(async (req, res) => {
       fileType: getFileCategory(file.mimetype),
     })),
   };
+
+  // If no files uploaded but order_notes text exists
+  if (!uploadedFiles.length && (orderNoteText || order_notes)) {
+    orderNote.files = [];
+  }
 
   // ─────────────────────────────────────────────
   // VALIDATE APARTMENT ID
@@ -270,18 +974,18 @@ const createBooking = asyncHandler(async (req, res) => {
   const totalDays =
     Math.ceil((parsedToDate - parsedFromDate) / (1000 * 60 * 60 * 24)) + 1;
 
-  // Validate daysOfEvent matches total days if not provided
-  if (!daysOfEvent) {
-    // If daysOfEvent not provided, use total days
-    daysOfEvent = totalDays;
+  // Use provided daysOfEvent or calculate from dates
+  let eventDays = daysOfEvent;
+  if (!eventDays) {
+    eventDays = totalDays;
   }
+
   // ─────────────────────────────────────────────
   // FETCH APARTMENT & EVENT
   // ─────────────────────────────────────────────
 
   const [apartment, event] = await Promise.all([
     Apartment.findById(apartmentId).lean(),
-
     EventBook.findById(eventId).lean(),
   ]);
 
@@ -322,31 +1026,14 @@ const createBooking = asyncHandler(async (req, res) => {
   };
 
   // ─────────────────────────────────────────────
-  // FIND EXISTING CUSTOMER BOOKING
-  // ─────────────────────────────────────────────
-
-  // const existingCustomerBooking = await orderBooking.findOne({
-  //   apartmentId,
-  //   eventId,
-  //   "customerDetails.contactPersonPhoneNumber": contactPersonPhoneNumber,
-  // });
-
-  // ─────────────────────────────────────────────
-  // CHECK OVERLAPPING BOOKINGS
+  // CHECK OVERLAPPING BOOKINGS (excluding current booking)
   // ─────────────────────────────────────────────
 
   const overlappingBooking = await orderBooking.findOne({
-    _id: {
-      $ne: existingCustomerBooking?._id,
-    },
+    _id: { $ne: existingCustomerBooking?._id },
     apartmentId,
-    // eventId,
-    fromDate: {
-      $lte: parsedToDate,
-    },
-    toDate: {
-      $gte: parsedFromDate,
-    },
+    fromDate: { $lte: parsedToDate },
+    toDate: { $gte: parsedFromDate },
   });
 
   if (overlappingBooking) {
@@ -355,15 +1042,21 @@ const createBooking = asyncHandler(async (req, res) => {
       message: `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
     });
   }
+
+  // ─────────────────────────────────────────────
+  // CALCULATE AMOUNTS
+  // ─────────────────────────────────────────────
+
   const apartmentAmount = Math.floor(
-    (apartment.perDayRent || 0) * (daysOfEvent || 0),
+    (apartment.perDayRent || 0) * (eventDays || 0),
   );
   const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
-  const eventAmount = Math.floor((event.amount || 0) * (daysOfEvent || 0));
+  const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
+  
   let promoterTotal = 0;
   const promotersWithAmount = (promoters || []).map((p) => {
     const promoterAmount = Math.floor(
-      (p.promoterPerDayCharge || 0) * (daysOfEvent || 0),
+      (p.promoterPerDayCharge || 0) * (eventDays || 0),
     );
     promoterTotal += promoterAmount;
     return {
@@ -372,24 +1065,24 @@ const createBooking = asyncHandler(async (req, res) => {
     };
   });
 
+  // Calculate subTotal including items and gifts
   const subTotal = Math.floor(
-    apartmentAmount + eventAmount + promoterTotal + sqfetAmount,
+    apartmentAmount + eventAmount + promoterTotal + sqfetAmount + itemsAndGiftsTotal,
   );
 
   let discountAmount = 0;
 
-  // 1 = Percentage
+  // discountType: 1 = Percentage, 2 = Flat
   if (discountType === 1) {
     discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
-  }
-  // 2 = Flat
-  else if (discountType === 2) {
+  } else if (discountType === 2) {
     discountAmount = Math.floor(discountPercentage || 0);
   }
 
   const taxableAmount = Math.floor(subTotal - discountAmount);
   const gstAmount = Math.floor((taxableAmount * 18) / 100);
-  const totalAmount = Math.floor(taxableAmount + gstAmount);
+  const finalTotalAmount = Math.floor(taxableAmount + gstAmount);
+
   // ─────────────────────────────────────────────
   // UPDATE EXISTING BOOKING
   // ─────────────────────────────────────────────
@@ -397,8 +1090,7 @@ const createBooking = asyncHandler(async (req, res) => {
   if (existingCustomerBooking) {
     existingCustomerBooking.fromDate = parsedFromDate;
     existingCustomerBooking.toDate = parsedToDate;
-    existingCustomerBooking.daysOfEvent = daysOfEvent;
-    // existingCustomerBooking.daysOfApartment = daysOfApartment;
+    existingCustomerBooking.daysOfEvent = eventDays;
     existingCustomerBooking.sqfet = sqfet;
     existingCustomerBooking.promoterRequired = promoterRequired;
     existingCustomerBooking.promoterCount = promoterCount;
@@ -414,11 +1106,19 @@ const createBooking = asyncHandler(async (req, res) => {
     existingCustomerBooking.discountAmount = discountAmount;
     existingCustomerBooking.taxableAmount = taxableAmount;
     existingCustomerBooking.gstAmount = gstAmount;
-    existingCustomerBooking.totalAmount = totalAmount;
+    existingCustomerBooking.totalAmount = finalTotalAmount;
     existingCustomerBooking.apartmentDetails = apartmentDetails;
     existingCustomerBooking.eventDetails = eventDetails;
     existingCustomerBooking.orderNote = orderNote;
     existingCustomerBooking.dailySchedule = dailySchedule;
+    
+    // Add items and gifts to existing booking
+    if (orderItems.length > 0) existingCustomerBooking.items = orderItems;
+    if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
+    existingCustomerBooking.items_total = items_total;
+    existingCustomerBooking.gifts_total = gifts_total;
+    existingCustomerBooking.total_amount = itemsAndGiftsTotal;
+    
     existingCustomerBooking.updatedBy = req.user?.name;
 
     await existingCustomerBooking.save();
@@ -426,6 +1126,28 @@ const createBooking = asyncHandler(async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Booking updated successfully",
+      data: {
+        _id: existingCustomerBooking._id,
+        orderId: existingCustomerBooking.orderId,
+        bookingDetails: {
+          fromDate: existingCustomerBooking.fromDate,
+          toDate: existingCustomerBooking.toDate,
+          daysOfEvent: existingCustomerBooking.daysOfEvent,
+          subTotal: subTotal,
+          discountAmount: discountAmount,
+          taxableAmount: taxableAmount,
+          gstAmount: gstAmount,
+          totalAmount: finalTotalAmount,
+        },
+        itemsDetails: {
+          items_total: items_total,
+          items: orderItems,
+        },
+        giftsDetails: {
+          gifts_total: gifts_total,
+          gifts: orderGifts,
+        },
+      },
     });
   }
 
@@ -436,7 +1158,7 @@ const createBooking = asyncHandler(async (req, res) => {
   const orderId = await generateAdminOrderId();
 
   // ─────────────────────────────────────────────
-  // CREATE BOOKING
+  // CREATE NEW BOOKING
   // ─────────────────────────────────────────────
 
   const booking = await orderBooking.create({
@@ -447,8 +1169,7 @@ const createBooking = asyncHandler(async (req, res) => {
     eventDetails,
     fromDate: parsedFromDate,
     toDate: parsedToDate,
-    daysOfEvent,
-    // daysOfApartment,
+    daysOfEvent: eventDays,
     sqfet,
     promoterRequired,
     promoterCount,
@@ -464,20 +1185,46 @@ const createBooking = asyncHandler(async (req, res) => {
     discountAmount,
     taxableAmount,
     gstAmount,
-    totalAmount,
+    totalAmount: finalTotalAmount,
     orderNote,
     dailySchedule,
+    items: orderItems,
+    gifts: orderGifts,
+    items_total: items_total,
+    gifts_total: gifts_total,
+    total_amount: itemsAndGiftsTotal,
     orderStatus: 1,
     createdBy: req.user?.name,
     updatedBy: req.user?.name,
   });
+
   return res.status(201).json({
     success: true,
     message: "Booking created successfully",
+    data: {
+      _id: booking._id,
+      orderId: booking.orderId,
+      bookingDetails: {
+        fromDate: booking.fromDate,
+        toDate: booking.toDate,
+        daysOfEvent: booking.daysOfEvent,
+        subTotal: subTotal,
+        discountAmount: discountAmount,
+        taxableAmount: taxableAmount,
+        gstAmount: gstAmount,
+        totalAmount: finalTotalAmount,
+      },
+      itemsDetails: {
+        items_total: items_total,
+        items: orderItems,
+      },
+      giftsDetails: {
+        gifts_total: gifts_total,
+        gifts: orderGifts,
+      },
+    },
   });
 });
-
-// ─── LIST BOOKINGS ──────────────────────────────────────────────────
 const parseDate = (dateString) => {
   if (!dateString) return null;
   const parts = dateString.split("-");

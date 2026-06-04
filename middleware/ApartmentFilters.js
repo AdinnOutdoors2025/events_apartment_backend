@@ -2,8 +2,8 @@
 
 //   const {
 //     search,
-//     city,
-//     location,
+//     City,
+//     Location,
 //     minRent,
 //     maxRent,
 //     minTG,
@@ -34,13 +34,13 @@
 //         },
 //       },
 //       {
-//         city: {
+//         City: {
 //           $regex: searchValue,
 //           $options: "i",
 //         },
 //       },
 //       {
-//         location: {
+//         Location: {
 //           $regex: searchValue,
 //           $options: "i",
 //         },
@@ -111,7 +111,7 @@
 //   // LOCATION ARRAY FILTER
 //   if ( locationFilter && Array.isArray(locationFilter) && locationFilter.length > 0) {
 
-//     filter.location = {
+//     filter.Location = {
 //       $in: locationFilter.map(
 //         (loc) =>
 //           new RegExp(
@@ -124,7 +124,7 @@
 //   // CITY ARRAY FILTER
 //   if (cityFilter && Array.isArray(cityFilter) && cityFilter.length > 0) {
 
-//     filter.city = {
+//     filter.City = {
 //       $in: cityFilter.map(
 //         (cit) =>
 //           new RegExp(
@@ -136,18 +136,18 @@
 //   }
 
 //   // SINGLE LOCATION FILTER
-//   if (location && !locationFilter) {
+//   if (Location && !locationFilter) {
 
-//     filter.location = {
-//       $regex: location,
+//     filter.Location = {
+//       $regex: Location,
 //       $options: "i",
 //     };
 //   }
 //   // SINGLE CITY FILTER
-//   if ( city &&!cityFilter) {
+//   if ( City &&!cityFilter) {
 
-//     filter.city = {
-//       $regex: city,
+//     filter.City = {
+//       $regex: City,
 //       $options: "i",
 //     };
 //   }
@@ -195,9 +195,10 @@
 const buildApartmentFilters = (body, userType) => {
   const {
     search,
-    city,
-    state,
-    location,
+    City,
+    State,
+    Location,
+    ApartmentGroupName,
     minRent,
     maxRent,
     minTG,
@@ -205,6 +206,7 @@ const buildApartmentFilters = (body, userType) => {
     locationFilter,
     cityFilter,
     stateFilter,
+    apartmentGroupNameFilter
   } = body;
 
   let filter = {};
@@ -220,9 +222,10 @@ const buildApartmentFilters = (body, userType) => {
     const orFilters = [
       { apartmentName: { $regex: searchValue, $options: "i" } },
       { apartmentAddress: { $regex: searchValue, $options: "i" } },
-      { city: { $regex: searchValue, $options: "i" } },
-      { state: { $regex: searchValue, $options: "i" } },
-      { location: { $regex: searchValue, $options: "i" } },
+      { City: { $regex: searchValue, $options: "i" } },
+      { ApartmentGroupName: { $regex: searchValue, $options: "i" } },
+      { State: { $regex: searchValue, $options: "i" } },
+      { Location: { $regex: searchValue, $options: "i" } },
       { contactPersonName: { $regex: searchValue, $options: "i" } },
       { contactPersonPhone: { $regex: searchValue, $options: "i" } },
       { email: { $regex: searchValue, $options: "i" } },
@@ -246,37 +249,47 @@ const buildApartmentFilters = (body, userType) => {
 
   // LOCATION ARRAY FILTER
   if (locationFilter && Array.isArray(locationFilter) && locationFilter.length > 0) {
-    filter.location = {
+    filter.Location = {
       $in: locationFilter.map((loc) => new RegExp(`^${loc}$`, "i")),
     };
   }
 
   // STATE ARRAY FILTER
   if (stateFilter && Array.isArray(stateFilter) && stateFilter.length > 0) {
-    filter.state = {
+    filter.State = {
       $in: stateFilter.map((st) => new RegExp(`^${st}$`, "i")),
     };
   }
 
   // CITY ARRAY FILTER
   if (cityFilter && Array.isArray(cityFilter) && cityFilter.length > 0) {
-    filter.city = {
+    filter.City = {
       $in: cityFilter.map((cit) => new RegExp(`^${cit}$`, "i")),
+    };
+  }
+  // CITY ARRAY FILTER
+  if (apartmentGroupNameFilter && Array.isArray(apartmentGroupNameFilter) && apartmentGroupNameFilter.length > 0) {
+    filter.ApartmentGroupName = {
+      $in: apartmentGroupNameFilter.map((cit) => new RegExp(`^${cit}$`, "i")),
     };
   }
 
   // SINGLE LOCATION FILTER
-  if (location && !locationFilter) {
-    filter.location = { $regex: location, $options: "i" };
+  if (Location && !locationFilter) {
+    filter.Location = { $regex: Location, $options: "i" };
   }
 
   // SINGLE CITY FILTER
-  if (city && !cityFilter) {
-    filter.city = { $regex: city, $options: "i" };
+  if (City && !cityFilter) {
+    filter.City = { $regex: City, $options: "i" };
+  }
+  // SINGLE CITY FILTER
+  if (ApartmentGroupName && !apartmentGroupNameFilter) {
+    filter.ApartmentGroupName = { $regex: ApartmentGroupName, $options: "i" };
   }
   // SINGLE STATE FILTER
-  if (state && !stateFilter) {
-    filter.state = { $regex: state, $options: "i" };
+  if (State && !stateFilter) {
+    filter.State = { $regex: State, $options: "i" };
   }
 
   // RENT FILTER

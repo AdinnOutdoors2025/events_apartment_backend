@@ -261,9 +261,9 @@ const uploadExcel = async (req, res) => {
         if (!existingApartment) {
           existingApartment = await Apartment.findOne({
             ApartmentName: { $regex: new RegExp(`^${escapeRegex(ApartmentName)}$`, "i") },
-            City:          { $regex: new RegExp(`^${escapeRegex(City)}$`,          "i") },
-            State:         { $regex: new RegExp(`^${escapeRegex(State)}$`,         "i") },
-            Location:      { $regex: new RegExp(`^${escapeRegex(Location)}$`,      "i") },
+            // City:          { $regex: new RegExp(`^${escapeRegex(City)}$`,          "i") },
+            // State:         { $regex: new RegExp(`^${escapeRegex(State)}$`,         "i") },
+            // Location:      { $regex: new RegExp(`^${escapeRegex(Location)}$`,      "i") },
             ContactPersonPhone,
           });
           if (existingApartment) {
@@ -793,6 +793,9 @@ const listApartments = async (req, res) => {
     const uniqueStates = [
       ...new Set(sessionApartments.map((a) => a.State).filter(Boolean)),
     ];
+    const uniqueApartmentGroupName = [
+      ...new Set(sessionApartments.map((a) => a.ApartmentGroupName).filter(Boolean)),
+    ];
 
     // SESSION DETAILS
     let latestSession = null;
@@ -819,6 +822,7 @@ const listApartments = async (req, res) => {
       locationFilter: uniqueLocations,
       cityFilter: uniqueCities,
       stateFilter: uniqueStates,
+      apartmentGroupNameFilter: uniqueApartmentGroupName,
       priceRange,
       apartments: apartmentsWithStatus,
     });

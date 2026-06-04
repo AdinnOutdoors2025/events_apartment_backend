@@ -10,11 +10,11 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/Admin/authRoutes");
 const apartmentRoutes = require('./routes/Admin/ApartmentRoutes/apartmentRoutes');
 const apartmentEventRoutes = require("./routes/Admin/EventRoutes/eventRoutes")
-const apartmentOrderRoutes = require("./routes/Admin/EventRoutes/eventOrderRoutes")
+const apartmentOrderRoutes = require("./routes/Admin/OrderRoutes/eventOrderRoutes")
 const elementQuotationRoutes = require("./routes/Admin/EventRoutes/eventElementQuotationRoutes")
 const staffAdminRoutes = require("./routes/Admin/StaffAdminRoutes/staffAdminRoutes")
 const gstDetailRoutes = require('./routes/Admin/GstDetailRoutes/gstDetailRoutes');
-const elementsMaster = require('./routes/Admin/ElementsRoutes/ElementsMasterRoutes')
+const elementsMaster = require('./routes/Admin/OrderRoutes/ElementsRoutes/ElementsMasterRoutes')
 
 
 const userClientRoutes = require("./routes/client/UserRoutes/UserRoutes")

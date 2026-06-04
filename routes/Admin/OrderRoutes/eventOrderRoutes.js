@@ -11,7 +11,7 @@ const {
   getOrderDetails,
   sendOrderMail,
   assignBookingUser
-} = require("../../../controllers/Admin/EventController/eventOrderController");
+} = require("../../../controllers/Admin/OrderController/eventOrderController");
 const protect = require("../../../middleware/authMiddleware");
 
 router.post(

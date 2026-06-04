@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
-const orderSchema = require("../../../models/Admin/EventHandling/eventOrderSchema")
+const orderSchema = require("../../../models/Admin/OrderSchema/eventOrderSchema")
 const UploadSession = require("../../../models/Admin/ApartmentSchema/uploadSession");
 const readExcelFile = require("../../../utils/excelHelper");
 const ApartmentFilters = require("../../../middleware/ApartmentFilters");
@@ -51,9 +51,9 @@ const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware
 
 // const hasDataChanged = (existing, incoming, bankDetails,) => {
 //   const scalarFields = [
-//     "apartmentName", "city", "location",
-//     "jioLocation", "permissionStatus", "rating",  "contactPersonPhone",
-//     "fromTGValues","toTGValues", "residencyCount", "approxPeopleCount", "perDayRent",
+//     "ApartmentName", "City", "Location",
+//     "GeoLocation", "PermissionStatus", "Rating",  "ContactPersonPhone",
+//     "FromTGValues","ToTGValues", "ResidencyCount", "ApproxPeopleCount", "PerDayRent",
 //   ];
 
 //   const scalarChanged = scalarFields.some(
@@ -64,11 +64,11 @@ const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware
 //   const ib = bankDetails?.[0] || {};
 //   const bankChanged =
 //     String(eb.accountName ?? "") !== String(ib.accountName ?? "") ||
-//     String(eb.bankName ?? "") !== String(ib.bankName ?? "") ||
-//     String(eb.accountNumber ?? "") !== String(ib.accountNumber ?? "") ||
-//     String(eb.ifscCode ?? "") !== String(ib.ifscCode ?? "") ||
-//     String(eb.phoneNumber ?? "") !== String(ib.phoneNumber ?? "") ||
-//     String(eb.upiId ?? "") !== String(ib.upiId ?? "");
+//     String(eb.BankName ?? "") !== String(ib.BankName ?? "") ||
+//     String(eb.AccountNumber ?? "") !== String(ib.AccountNumber ?? "") ||
+//     String(eb.IfscCode ?? "") !== String(ib.IfscCode ?? "") ||
+//     String(eb.PhoneNumber ?? "") !== String(ib.PhoneNumber ?? "") ||
+//     String(eb.UpiId ?? "") !== String(ib.UpiId ?? "");
 
 //   // const ee = existing.existingEventsHistory?.[0] || {};
 //   // const ie = existingEventsHistory?.[0] || {};
@@ -100,32 +100,32 @@ const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware
 //   };
 
 //   return [{
-//     accountName: getValue("accountName", "bankName"),
-//     bankName: getValue("bankName", "accountNumber"),
-//     accountNumber: getValue("accountNumber", "ifscCode"),
-//     ifscCode: getValue("ifscCode", "phoneNumber"),
-//     phoneNumber: getValue("phoneNumber", "upiId"),
-//     upiId: getValue("upiId"),
+//     accountName: getValue("accountName", "BankName"),
+//     BankName: getValue("BankName", "AccountNumber"),
+//     AccountNumber: getValue("AccountNumber", "IfscCode"),
+//     IfscCode: getValue("IfscCode", "PhoneNumber"),
+//     PhoneNumber: getValue("PhoneNumber", "UpiId"),
+//     UpiId: getValue("UpiId"),
 //   }];
 // };
 
 const parseBankDetails = (item) => ({
-  accountHolderName: item.accountHolderName?.toString().trim() || "",
-  bankName:          item.bankName?.toString().trim()          || "",
-  accountNumber:     item.accountNumber?.toString().trim()     || "",
-  ifscCode:          item.ifscCode?.toString().trim()          || "",
-  phoneNumber:       item.phoneNumber?.toString().trim()       || "",
-  upiId:             item.upiId?.toString().trim()             || "",
+  AccountHolderName: item.AccountHolderName?.toString().trim() || "",
+  BankName:          item.BankName?.toString().trim()          || "",
+  AccountNumber:     item.AccountNumber?.toString().trim()     || "",
+  IfscCode:          item.IfscCode?.toString().trim()          || "",
+  PhoneNumber:       item.PhoneNumber?.toString().trim()       || "",
+  UpiId:             item.UpiId?.toString().trim()             || "",
 });
  
 // ── HELPER: detect if anything changed between existing doc and incoming row ──
 const hasDataChanged = (existing, incoming, bankDetails) => {
   // Scalar fields
   const scalarFields = [
-    "apartmentName", "city","state", "location", "jioLocation",
-    "permissionStatus", "rating","contactPersonName", "contactPersonPhone",
-    "fromTGValues", "toTGValues", "residencyCount",
-    "approxPeopleCount", "perDayRent",
+    "ApartmentName","ApartmentGroupName", "City","State", "Location", "GeoLocation",
+    "PermissionStatus", "Rating","ContactPersonName", "ContactPersonPhone",
+    "FromTGValues", "ToTGValues", "ResidencyCount",
+    "ApproxPeopleCount", "PerDayRent",
   ];
   for (const field of scalarFields) {
     if (String(existing[field] ?? "") !== String(incoming[field] ?? "")) return true;
@@ -133,8 +133,8 @@ const hasDataChanged = (existing, incoming, bankDetails) => {
  
   // bankDetails sub-fields
   const bankFields = [
-    "accountHolderName", "bankName", "accountNumber",
-    "ifscCode", "phoneNumber", "upiId",
+    "AccountHolderName", "BankName", "AccountNumber",
+    "IfscCode", "PhoneNumber", "UpiId",
   ];
   for (const field of bankFields) {
     if (String(existing.bankDetails?.[field] ?? "") !== String(bankDetails[field] ?? "")) return true;
@@ -192,30 +192,31 @@ const uploadExcel = async (req, res) => {
       try {
 
         // ── PARSE FIELDS ──────────────────────────────────────────────────────
-        const apartmentName      = item.apartmentName?.toString().trim();
-        const city               = item.city?.toString().trim();
-        const state               = item.state?.toString().trim();
-        const location           = item.location?.toString().trim();
-        const jioLocation        = item.jioLocation?.toString().trim()      || "";
-        const permissionStatus   = item.permissionStatus?.toString().trim() || "";
-        const rating             = item.rating?.toString().trim()            || "";
+        const ApartmentName      = item.ApartmentName?.toString().trim();
+        const ApartmentGroupName      = item.ApartmentGroupName?.toString().trim();
+        const City               = item.City?.toString().trim();
+        const State               = item.State?.toString().trim();
+        const Location           = item.Location?.toString().trim();
+        const GeoLocation        = item.GeoLocation?.toString().trim()      || "";
+        const PermissionStatus   = item.PermissionStatus?.toString().trim() || "";
+        const Rating             = item.Rating?.toString().trim()            || "";
   
        
-        const contactPersonPhone = item.contactPersonPhone?.toString().trim();
-        const contactPersonName  = item.contactPersonName?.toString().trim() || "";
+        const ContactPersonPhone = item.ContactPersonPhone?.toString().trim();
+        const ContactPersonName  = item.ContactPersonName?.toString().trim() || "";
        
-        const residencyCount     = Number(item.residencyCount);
-        const approxPeopleCount  = Number(item.approxPeopleCount || 0);
-        const perDayRent         = Number(item.perDayRent);
+        const ResidencyCount     = Number(item.ResidencyCount);
+        const ApproxPeopleCount  = Number(item.ApproxPeopleCount || 0);
+        const PerDayRent         = Number(item.PerDayRent);
 
         // ✅ Safely parse startingTGValues — handles "50000 - 3999", "50000", "", null
-        const fromTGValues = (() => {
-          const raw    = item.fromTGValues?.toString().trim() || "0";
+        const FromTGValues = (() => {
+          const raw    = item.FromTGValues?.toString().trim() || "0";
           const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
           return isNaN(parsed) ? 0 : parsed;
         })();
-        const toTGValues = (() => {
-          const raw    = item.toTGValues?.toString().trim() || "0";
+        const ToTGValues = (() => {
+          const raw    = item.ToTGValues?.toString().trim() || "0";
           const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
           return isNaN(parsed) ? 0 : parsed;
         })();
@@ -225,30 +226,31 @@ const uploadExcel = async (req, res) => {
 
         // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
         if (
-          !apartmentName  || 
-          !city || !location || 
-          !contactPersonPhone || 
-          isNaN(residencyCount) || isNaN(perDayRent)
+          !ApartmentName  || 
+          !City || !Location || 
+          !ContactPersonPhone || 
+          isNaN(ResidencyCount) || isNaN(PerDayRent)
         ) {
           skippedData.push({ row: item, message: "Missing required fields" });
           continue;
         }
 
         const incomingData = {
-          apartmentName,
-          city,
-          state,
-          location,
-          jioLocation,
-          permissionStatus,
-          rating,
-          contactPersonName,
-          contactPersonPhone,
-          fromTGValues,
-          toTGValues,
-          residencyCount,
-          approxPeopleCount,
-          perDayRent,
+          ApartmentName,
+          ApartmentGroupName,
+          City,
+          State,
+          Location,
+          GeoLocation,
+          PermissionStatus,
+          Rating,
+          ContactPersonName,
+          ContactPersonPhone,
+          FromTGValues,
+          ToTGValues,
+          ResidencyCount,
+          ApproxPeopleCount,
+          PerDayRent,
         };
 
 
@@ -258,14 +260,14 @@ const uploadExcel = async (req, res) => {
         
         if (!existingApartment) {
           existingApartment = await Apartment.findOne({
-            apartmentName: { $regex: new RegExp(`^${escapeRegex(apartmentName)}$`, "i") },
-            city:          { $regex: new RegExp(`^${escapeRegex(city)}$`,          "i") },
-            state:         { $regex: new RegExp(`^${escapeRegex(state)}$`,         "i") },
-            location:      { $regex: new RegExp(`^${escapeRegex(location)}$`,      "i") },
-            contactPersonPhone,
+            ApartmentName: { $regex: new RegExp(`^${escapeRegex(ApartmentName)}$`, "i") },
+            City:          { $regex: new RegExp(`^${escapeRegex(City)}$`,          "i") },
+            State:         { $regex: new RegExp(`^${escapeRegex(State)}$`,         "i") },
+            Location:      { $regex: new RegExp(`^${escapeRegex(Location)}$`,      "i") },
+            ContactPersonPhone,
           });
           if (existingApartment) {
-            matchedBy = "name+city+state+location";
+            matchedBy = "name+City+State+Location";
           }
         }
 
@@ -284,27 +286,28 @@ const uploadExcel = async (req, res) => {
               { _id: existingApartment._id },
               {
                 $set: {
-                  apartmentName,
-                  city,
-                  state,
-                  location,
-                  jioLocation,
-                  permissionStatus,
-                  rating,
-                  contactPersonPhone,
-                  contactPersonName,
-                  fromTGValues,
-                  toTGValues,
-                  residencyCount,
-                  approxPeopleCount,
-                  perDayRent,
+                  ApartmentName,
+                  ApartmentGroupName,
+                  City,
+                  State,
+                  Location,
+                  GeoLocation,
+                  PermissionStatus,
+                  Rating,
+                  ContactPersonPhone,
+                  ContactPersonName,
+                  FromTGValues,
+                  ToTGValues,
+                  ResidencyCount,
+                  ApproxPeopleCount,
+                  PerDayRent,
                   // bankDetails,
-                  "bankDetails.accountHolderName": bankDetails.accountHolderName,
-                  "bankDetails.bankName":          bankDetails.bankName,
-                  "bankDetails.accountNumber":     bankDetails.accountNumber,
-                  "bankDetails.ifscCode":          bankDetails.ifscCode,
-                  "bankDetails.phoneNumber":       bankDetails.phoneNumber,
-                  "bankDetails.upiId":             bankDetails.upiId,
+                  "bankDetails.AccountHolderName": bankDetails.AccountHolderName,
+                  "bankDetails.BankName":          bankDetails.BankName,
+                  "bankDetails.AccountNumber":     bankDetails.AccountNumber,
+                  "bankDetails.IfscCode":          bankDetails.IfscCode,
+                  "bankDetails.PhoneNumber":       bankDetails.PhoneNumber,
+                  "bankDetails.UpiId":             bankDetails.UpiId,
                   // existingEventsHistory,
                   updatedBy:            req.user.name,
                   lastUpdatedBySession: session._id,
@@ -467,16 +470,16 @@ const getUploadSessions = async (req, res) => {
 const getMinMaxValues = (apartments = []) => {
   // TG VALUES
   const tgValues = apartments
-    .map((apt) => Number(apt.fromTGValues || 0))
+    .map((apt) => Number(apt.FromTGValues || 0))
     .filter((val) => !isNaN(val));
 
   const tgValuesmax = apartments
-    .map((apt) => Number(apt.toTGValues || 0))
+    .map((apt) => Number(apt.ToTGValues || 0))
     .filter((val) => !isNaN(val));
 
   // RENT VALUES
   const rentValues = apartments
-    .map((apt) => Number(apt.perDayRent || 0))
+    .map((apt) => Number(apt.PerDayRent || 0))
     .filter((val) => !isNaN(val));
 
   return {
@@ -575,7 +578,7 @@ const getMinMaxValues = (apartments = []) => {
 
 //     // ── PRICE RANGE: fetched WITHOUT price filters so values never change ──
 //     const allApartmentsForRange = await Apartment.find(priceRangeFilter)
-//       .select("fromTGValues toTGValues perDayRent")
+//       .select("FromTGValues ToTGValues PerDayRent")
 //       .lean();
 //     const priceRange = getMinMaxValues(allApartmentsForRange);
 //     // ──────────────────────────────────────────────────────────────────────
@@ -602,8 +605,8 @@ const getMinMaxValues = (apartments = []) => {
 //       }
 //       return {
 //         ...apt,
-//         perDayRent: apt.perDayRent
-//           ? Number(apt.perDayRent).toLocaleString("en-IN")
+//         PerDayRent: apt.PerDayRent
+//           ? Number(apt.PerDayRent).toLocaleString("en-IN")
 //           : "0",
 //         sessionStatus: status,
 //         isActive: apt.isActive ? "Active" : "Inactive",
@@ -626,10 +629,10 @@ const getMinMaxValues = (apartments = []) => {
 //     const sessionApartments = await Apartment.find(sessionFilter).lean();
 
 //     const uniqueLocations = [
-//       ...new Set(sessionApartments.map((a) => a.location).filter(Boolean)),
+//       ...new Set(sessionApartments.map((a) => a.Location).filter(Boolean)),
 //     ];
 //     const uniqueCities = [
-//       ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+//       ...new Set(sessionApartments.map((a) => a.City).filter(Boolean)),
 //     ];
 
 //     // SESSION DETAILS
@@ -727,7 +730,7 @@ const listApartments = async (req, res) => {
 
     // ── PRICE RANGE: fetched WITHOUT price filters, but WITH isActive scope for userType 3 ──
     const allApartmentsForRange = await Apartment.find(priceRangeFilter)
-      .select("fromTGValues toTGValues perDayRent")
+      .select("FromTGValues ToTGValues PerDayRent")
       .lean();
     const priceRange = getMinMaxValues(allApartmentsForRange);
 
@@ -753,8 +756,8 @@ const listApartments = async (req, res) => {
       }
       return {
         ...apt,
-        // perDayRent: apt.perDayRent
-        //   ? Number(apt.perDayRent).toLocaleString("en-IN")
+        // PerDayRent: apt.PerDayRent
+        //   ? Number(apt.PerDayRent).toLocaleString("en-IN")
         //   : "0",
         sessionStatus: status,
         isActive: apt.isActive ? "Active" : "Inactive",
@@ -782,13 +785,13 @@ const listApartments = async (req, res) => {
     const sessionApartments = await Apartment.find(sessionFilter).lean();
 
     const uniqueLocations = [
-      ...new Set(sessionApartments.map((a) => a.location).filter(Boolean)),
+      ...new Set(sessionApartments.map((a) => a.Location).filter(Boolean)),
     ];
     const uniqueCities = [
-      ...new Set(sessionApartments.map((a) => a.city).filter(Boolean)),
+      ...new Set(sessionApartments.map((a) => a.City).filter(Boolean)),
     ];
     const uniqueStates = [
-      ...new Set(sessionApartments.map((a) => a.state).filter(Boolean)),
+      ...new Set(sessionApartments.map((a) => a.State).filter(Boolean)),
     ];
 
     // SESSION DETAILS
@@ -876,36 +879,37 @@ const createOrUpdateParticularApartment = async (req, res) => {
   try {
     const {
       apartmentId,
-      apartmentName,
-      city,
-      state,
-      location,
-      jioLocation,
+      ApartmentName,
+      ApartmentGroupName,
+      City,
+      State,
+      Location,
+      GeoLocation,
       photo,
-      contactPersonPhone,
-      contactPersonName,
-      permissionStatus,
-      rating,
-      residencyCount,
-      approxPeopleCount,
-      fromTGValues,
-      toTGValues,
-      perDayRent,
+      ContactPersonPhone,
+      ContactPersonName,
+      PermissionStatus,
+      Rating,
+      ResidencyCount,
+      ApproxPeopleCount,
+      FromTGValues,
+      ToTGValues,
+      PerDayRent,
 
       // ✅ flat individual bank fields from req.body
-      accountHolderName,
-      bankName,
-      accountNumber,
-      ifscCode,
-      phoneNumber,
-      upiId,
+      AccountHolderName,
+      BankName,
+      AccountNumber,
+      IfscCode,
+      PhoneNumber,
+      UpiId,
       isActive
     } = req.body;
 
     // =====================================================
     // VALIDATION
     // =====================================================
-    if (!apartmentName || !city || !state || !location || !contactPersonPhone) {
+    if (!ApartmentName || !City || !State || !Location || !ContactPersonPhone) {
       return res.status(400).json({
         success: false,
         message: "Required fields are missing",
@@ -914,33 +918,34 @@ const createOrUpdateParticularApartment = async (req, res) => {
 
     // ✅ Build bankDetails object from flat fields
     const bankDetails = {
-      accountHolderName: accountHolderName ?? "",
-      bankName:          bankName          ?? "",
-      accountNumber:     accountNumber     ?? "",
-      ifscCode:          ifscCode          ?? "",
-      phoneNumber:       phoneNumber       ?? "",
-      upiId:             upiId             ?? "",
+      AccountHolderName: AccountHolderName ?? "",
+      BankName:          BankName          ?? "",
+      AccountNumber:     AccountNumber     ?? "",
+      IfscCode:          IfscCode          ?? "",
+      PhoneNumber:       PhoneNumber       ?? "",
+      UpiId:             UpiId             ?? "",
     };
 
     // =====================================================
     // COMMON DATA
     // =====================================================
     const apartmentData = {
-      apartmentName,
-      city,
-      state,
-      location,
-      jioLocation,
+      ApartmentName,
+      ApartmentGroupName,
+      City,
+      State,
+      Location,
+      GeoLocation,
       photo,
-      contactPersonPhone,
-      contactPersonName,
-      permissionStatus,
-      rating,
-      residencyCount,
-      approxPeopleCount,
-      fromTGValues,
-      toTGValues,
-      perDayRent,
+      ContactPersonPhone,
+      ContactPersonName,
+      PermissionStatus,
+      Rating,
+      ResidencyCount,
+      ApproxPeopleCount,
+      FromTGValues,
+      ToTGValues,
+      PerDayRent,
       updatedBy: req.user.name,
       isActive: isActive ?? true,
     };
@@ -999,12 +1004,12 @@ const createOrUpdateParticularApartment = async (req, res) => {
         {
           $set: {
             ...apartmentData,
-            "bankDetails.accountHolderName": bankDetails.accountHolderName,
-            "bankDetails.bankName":          bankDetails.bankName,
-            "bankDetails.accountNumber":     bankDetails.accountNumber,
-            "bankDetails.ifscCode":          bankDetails.ifscCode,
-            "bankDetails.phoneNumber":       bankDetails.phoneNumber,
-            "bankDetails.upiId":             bankDetails.upiId,
+            "bankDetails.AccountHolderName": bankDetails.AccountHolderName,
+            "bankDetails.BankName":          bankDetails.BankName,
+            "bankDetails.AccountNumber":     bankDetails.AccountNumber,
+            "bankDetails.IfscCode":          bankDetails.IfscCode,
+            "bankDetails.PhoneNumber":       bankDetails.PhoneNumber,
+            "bankDetails.UpiId":             bankDetails.UpiId,
           },
         },
         { new: true, runValidators: true }

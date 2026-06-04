@@ -193,7 +193,8 @@ const registerSendOtp = async (req, res) => {
 };
 
 const verifyRegisterOtp = async (req, res) => {
-  const { userPhone,userEmail, otp } = req.body;
+  const { userPhone,userEmail, otp,customerType } = req.body;
+  // const { userPhone, otp } = req.body;
 
   try {
     // ================= VALIDATION =================
@@ -227,7 +228,7 @@ const verifyRegisterOtp = async (req, res) => {
       });
     }
 
-    const { userName, userEmail,customerType  } = storedData.userData;
+    const { userName,userEmail,customerType  } = storedData.userData;
 
     // ================= CREATE USER =================
 

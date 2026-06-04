@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const orderBooking = require("../../../models/Admin/EventHandling/eventOrderSchema");
+const orderBooking = require("../../../models/Admin/OrderSchema/eventOrderSchema");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
 const EventBook = require("../../../models/Admin/EventHandling/eventRateSchema");
 const StaffAdminUser = require("../../../models/Admin/StaffAdminManagement/staffAdminManagement");
@@ -844,7 +844,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       const {
         getFileUrl,
         STORAGE_TYPE,
-      } = require("../../../middleware/orderNoteFileUpload");
+      } = require("../../../../middleware/orderNoteFileUpload");
 
       resolvedDocument = {
         originalName: uploadedFile.originalname,
@@ -897,7 +897,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       const {
         getFileUrl,
         STORAGE_TYPE,
-      } = require("../../../middleware/orderNoteFileUpload");
+      } = require("../../../../middleware/orderNoteFileUpload");
 
       // Validate that it's an audio file
       if (!uploadedFile.mimetype.startsWith("audio/")) {
@@ -988,7 +988,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       const {
         getFileUrl,
         STORAGE_TYPE,
-      } = require("../../../middleware/orderNoteFileUpload");
+      } = require("../../../../middleware/orderNoteFileUpload");
 
       resolvedPoDocument = {
         originalName: uploadedPoFile.originalname,

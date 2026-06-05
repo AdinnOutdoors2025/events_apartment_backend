@@ -73,7 +73,7 @@ function getFileCategory(mimeType) {
 //     // ─────────────────────────────────────────────
 //   // VALIDATE ITEMS & GIFTS (from saveElements logic)
 //   // ─────────────────────────────────────────────
-  
+
 //   // At least one section must have entries
 //   if (
 //     (!Array.isArray(items) || items.length === 0) &&
@@ -648,7 +648,7 @@ const createBooking = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
   // VALIDATE ITEMS & GIFTS
   // ─────────────────────────────────────────────
-  
+
   // Note: items and gifts are optional now
   let items_total = 0;
   let gifts_total = 0;
@@ -667,7 +667,11 @@ const createBooking = asyncHandler(async (req, res) => {
           message: `items[${i}]: item_id is required`,
         });
       }
-      if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+      if (
+        !quantity ||
+        !Number.isInteger(Number(quantity)) ||
+        Number(quantity) < 1
+      ) {
         return res.status(400).json({
           success: false,
           message: `items[${i}]: quantity must be a positive integer`,
@@ -677,9 +681,14 @@ const createBooking = asyncHandler(async (req, res) => {
 
     // Fetch all Items from DB
     const itemIds = [...new Set(items.map((i) => i.item_id))];
-    const dbItems = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
+    const dbItems = await ItemMaster.find({
+      _id: { $in: itemIds },
+      item_status: 1,
+    });
     const dbItemMap = {};
-    dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
+    dbItems.forEach((doc) => {
+      dbItemMap[doc._id.toString()] = doc;
+    });
 
     // Verify every requested item was found
     for (let i = 0; i < items.length; i++) {
@@ -721,7 +730,11 @@ const createBooking = asyncHandler(async (req, res) => {
           message: `gifts[${i}]: gift_id is required`,
         });
       }
-      if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+      if (
+        !quantity ||
+        !Number.isInteger(Number(quantity)) ||
+        Number(quantity) < 1
+      ) {
         return res.status(400).json({
           success: false,
           message: `gifts[${i}]: quantity must be a positive integer`,
@@ -733,7 +746,9 @@ const createBooking = asyncHandler(async (req, res) => {
     const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
     const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
     const dbGiftMap = {};
-    dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
+    dbGifts.forEach((doc) => {
+      dbGiftMap[doc._id.toString()] = doc;
+    });
 
     // Verify every requested gift was found
     for (let i = 0; i < gifts.length; i++) {
@@ -883,7 +898,7 @@ const createBooking = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
 
   const uploadedFiles = req.files?.orderNoteFiles || [];
-  
+
   const orderNote = {
     text: orderNoteText || order_notes || "",
     files: uploadedFiles.map((file) => ({
@@ -1009,13 +1024,13 @@ const createBooking = asyncHandler(async (req, res) => {
 
   const apartmentDetails = {
     _id: apartment._id,
-    apartmentName: apartment.apartmentName,
-    apartmentAddress: apartment.apartmentAddress,
-    city: apartment.city,
-    location: apartment.location,
-    perDayRent: apartment.perDayRent,
-    contactPersonName: apartment.contactPersonName,
-    contactPersonPhone: apartment.contactPersonPhone,
+    apartmentName: apartment.ApartmentName,
+    apartmentAddress: apartment.ApartmentAddress,
+    city: apartment.City,
+    location: apartment.Location,
+    perDayRent: apartment.PerDayRent,
+    contactPersonName: apartment.ContactPersonName,
+    contactPersonPhone: apartment.ContactPersonPhone,
   };
 
   const eventDetails = {
@@ -1047,16 +1062,21 @@ const createBooking = asyncHandler(async (req, res) => {
   // CALCULATE AMOUNTS
   // ─────────────────────────────────────────────
 
+  // const apartmentAmount = Math.floor(
+  //   (apartment.perDayRent || 0) * (eventDays || 0),
+  // );
+
+  // const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
   const apartmentAmount = Math.floor(
-    (apartment.perDayRent || 0) * (eventDays || 0),
+    (apartment.PerDayRent || 0) * (sqfet || 1) * (eventDays || 0),
   );
-  const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
+
   const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
-  
+
   let promoterTotal = 0;
   const promotersWithAmount = (promoters || []).map((p) => {
     const promoterAmount = Math.floor(
-      (p.promoterPerDayCharge || 0) * (eventDays || 0),
+      (p.promoterPerDayCharge || 0) * (p.promoterDays  || 0),
     );
     promoterTotal += promoterAmount;
     return {
@@ -1067,7 +1087,7 @@ const createBooking = asyncHandler(async (req, res) => {
 
   // Calculate subTotal including items and gifts
   const subTotal = Math.floor(
-    apartmentAmount + eventAmount + promoterTotal + sqfetAmount + itemsAndGiftsTotal,
+    apartmentAmount + eventAmount + promoterTotal + itemsAndGiftsTotal,
   );
 
   let discountAmount = 0;
@@ -1099,7 +1119,7 @@ const createBooking = asyncHandler(async (req, res) => {
     existingCustomerBooking.discountPercentage = discountPercentage;
     existingCustomerBooking.discountType = discountType;
     existingCustomerBooking.apartmentAmount = apartmentAmount;
-    existingCustomerBooking.sqfetAmount = sqfetAmount;
+    // existingCustomerBooking.sqfetAmount = sqfetAmount;
     existingCustomerBooking.eventAmount = eventAmount;
     existingCustomerBooking.promoterTotal = promoterTotal;
     existingCustomerBooking.subTotal = subTotal;
@@ -1111,14 +1131,14 @@ const createBooking = asyncHandler(async (req, res) => {
     existingCustomerBooking.eventDetails = eventDetails;
     existingCustomerBooking.orderNote = orderNote;
     existingCustomerBooking.dailySchedule = dailySchedule;
-    
+
     // Add items and gifts to existing booking
     if (orderItems.length > 0) existingCustomerBooking.items = orderItems;
     if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
     existingCustomerBooking.items_total = items_total;
     existingCustomerBooking.gifts_total = gifts_total;
     existingCustomerBooking.total_amount = itemsAndGiftsTotal;
-    
+
     existingCustomerBooking.updatedBy = req.user?.name;
 
     await existingCustomerBooking.save();
@@ -1178,7 +1198,7 @@ const createBooking = asyncHandler(async (req, res) => {
     discountPercentage,
     discountType,
     apartmentAmount,
-    sqfetAmount,
+    // sqfetAmount,
     eventAmount,
     promoterTotal,
     subTotal,
@@ -1440,24 +1460,64 @@ const listAllBookings = asyncHandler(async (req, res) => {
       .lean(),
   ]);
 
-  const formattedBookings = bookings.map((item) => ({
-    ...item,
-    orderStatusText: getStatusText(item.orderStatus),
-    apartmentId: item.apartmentId?._id || null,
-    apartmentName: item.apartmentId?.apartmentName || "",
-    eventId: item.eventId?._id || null,
-    eventName: item.eventId?.eventName || "",
-    assignment: item.assignment
-      ? {
-          assignedUserId: item.assignment.assignedUserId || null,
-          assignedUserName: item.assignment.assignedUserName || "",
-          assignedById: item.assignment.assignedById || null,
-          assignedByName: item.assignment.assignedByName || "",
-          assignedAt: item.assignment.assignedAt || "",
-        }
-      : null,
-  }));
-
+  // const formattedBookings = bookings.map((item) => ({
+  //   ...item,
+  //   orderStatusText: getStatusText(item.orderStatus),
+  //   apartmentId: item.apartmentId?._id || null,
+  //   apartmentName: item.apartmentId?.apartmentName || "",
+  //   eventId: item.eventId?._id || null,
+  //   eventName: item.eventId?.eventName || "",
+  //   assignment: item.assignment
+  //     ? {
+  //         assignedUserId: item.assignment.assignedUserId || null,
+  //         assignedUserName: item.assignment.assignedUserName || "",
+  //         assignedById: item.assignment.assignedById || null,
+  //         assignedByName: item.assignment.assignedByName || "",
+  //         assignedAt: item.assignment.assignedAt || "",
+  //       }
+  //     : null,
+  // }));
+// FIXED: Properly remove unwanted fields using destructuring
+  const formattedBookings = bookings.map((item) => {
+    // Destructure to exclude unwanted fields
+    const {
+      items,
+      gifts,
+      items_total,
+      gifts_total,
+      total_amount,
+      dailySchedule,
+      promoters,
+      eventDetails,
+      apartmentAmount,
+      eventAmount,
+      promoterTotal,
+      subTotal,
+      discountAmount,
+      taxableAmount,
+      gstAmount,
+      totalAmount,
+      ...rest
+    } = item;
+    
+    return {
+      ...rest,
+      orderStatusText: getStatusText(item.orderStatus),
+      apartmentId: item.apartmentId?._id || null,
+      apartmentName: item.apartmentId?.apartmentName || "",
+      eventId: item.eventId?._id || null,
+      eventName: item.eventId?.eventName || "",
+      assignment: item.assignment
+        ? {
+            assignedUserId: item.assignment.assignedUserId || null,
+            assignedUserName: item.assignment.assignedUserName || "",
+            assignedById: item.assignment.assignedById || null,
+            assignedByName: item.assignment.assignedByName || "",
+            assignedAt: item.assignment.assignedAt || "",
+          }
+        : null,
+    };
+  });
   return res.status(200).json({
     success: true,
     message: "Bookings fetched successfully",
@@ -1472,30 +1532,122 @@ const listAllBookings = asyncHandler(async (req, res) => {
   });
 });
 // ─── apartment GET BOOKINGS ──────────────────────────────────────────────────
+// const apartmentEventGet = async (req, res) => {
+//   try {
+//     const { apartmentId } = req.query;
+//     if (!apartmentId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "apartmentId is required" });
+//     }
+//     const apartment = await Apartment.findById(apartmentId)
+
+//     const events = await EventBook.find({ status: 1 });
+//     if (!apartment) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Apartment not found" });
+//     }
+//     return res.status(200).json({
+//       success: true,
+//       message: "Apartment fetched successfully",
+//       data: { apartment, events },
+//     });
+//   } catch (error) {
+//     console.log("GET APARTMENT ERROR:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//       error: error.message,
+//     });
+//   }
+// };
 const apartmentEventGet = async (req, res) => {
   try {
     const { apartmentId } = req.query;
+
     if (!apartmentId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "apartmentId is required" });
+      return res.status(400).json({
+        success: false,
+        message: "apartmentId is required",
+      });
     }
-    const apartment = await Apartment.findById(apartmentId)
-      .populate("createdBySession")
-      .populate("lastUpdatedBySession");
-    const events = await EventBook.find({ status: 1 });
+
+    const [apartment, events, items, gifts] = await Promise.all([
+      Apartment.findById(apartmentId),
+      EventBook.find({ status: 1 }).sort({ createdAt: -1 }),
+      ItemMaster.find({}).populate("category_id").sort({ createdAt: -1 }),
+      GiftMaster.find({}).sort({ createdAt: -1 }).lean(),
+    ]);
+
     if (!apartment) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Apartment not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Apartment not found",
+      });
     }
+    // ================= SQ FEET CHARGES =================
+    const sqFeetAmount = [
+      {
+        size: "10x10",
+        charge: apartment.PerDayRent,
+      },
+      {
+        size: "10x20",
+        charge: apartment.PerDayRent * 2,
+      },
+      {
+        size: "10x30",
+        charge: apartment.PerDayRent * 3,
+      },
+    ];
+
+    const groupedData = {};
+
+    items.forEach((item) => {
+      const categoryKey = item.category_id
+        ? item.category_id._id.toString()
+        : "NO_CATEGORY";
+
+      if (!groupedData[categoryKey]) {
+        groupedData[categoryKey] = {
+          category_id: item.category_id || null,
+          category_name: item.category_id
+            ? item.category_id.category_name
+            : "Uncategorized",
+          itemsData: [],
+        };
+      }
+
+      groupedData[categoryKey].itemsData.push({
+        _id: item._id,
+        item_name: item.item_name,
+        item_type: item.item_type,
+        amount: item.amount,
+        amount_unit: item.amount_unit,
+        item_status: item.item_status,
+        item_notes: item.item_notes,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+    });
+
     return res.status(200).json({
       success: true,
-      message: "Apartment fetched successfully",
-      data: { apartment, events },
+      message: "Apartment, Events, Items and Gifts fetched successfully",
+      data: {
+        apartment: {
+          ...apartment.toObject(),
+          sqFeetAmount,
+        },
+        events,
+        elementsDetails: Object.values(groupedData),
+        giftsDetails: gifts,
+      },
     });
   } catch (error) {
-    console.log("GET APARTMENT ERROR:", error);
+    console.log("LIST ITEMS GROUP ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -2077,11 +2229,11 @@ const sendOrderMail = asyncHandler(async (req, res) => {
       promoterCount: orderData?.promoterCount || 0,
 
       // Promoters array with all fields
-      promoters: orderData?.promoters || [], // This will include promoterGender, promoterPerDayCharge, promoterLanguage, promoterLookAndAppearance
+      promoters: orderData?.promoters || [], // This will include promoterGender, promoterPerDayCharge, promoterLanguage, promoterLookAndAppearance,promoterDays
 
       // Amount Summary (flattened)
       apartmentAmount: orderData?.apartmentAmount || 0,
-      sqfetAmount: orderData?.sqfetAmount || 0,
+      // sqfetAmount: orderData?.sqfetAmount || 0,
       eventAmount: orderData?.eventAmount || 0,
       promoterTotal: orderData?.promoterTotal || 0,
       subTotal: orderData?.subTotal || 0,

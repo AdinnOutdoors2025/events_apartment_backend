@@ -332,168 +332,168 @@ const listItemsGroupedByCategory = async (req, res) => {
     return errorResponse(res, error.message, 500);
   }
 };
-// overAll elemets Save in Order Creation
-const saveElements = async (req, res) => {
-  try {
-    const { items = [], gifts = [], order_notes } = req.body;
+// // overAll elemets Save in Order Creation
+// const saveElements = async (req, res) => {
+//   try {
+//     const { items = [], gifts = [], order_notes } = req.body;
  
-    // ── 1. At least one section must have entries ───────────────────────────
-    if (
-      (!Array.isArray(items) || items.length === 0) &&
-      (!Array.isArray(gifts) || gifts.length === 0)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Provide at least one item or one gift",
-      });
-    }
+//     // ── 1. At least one section must have entries ───────────────────────────
+//     if (
+//       (!Array.isArray(items) || items.length === 0) &&
+//       (!Array.isArray(gifts) || gifts.length === 0)
+//     ) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Provide at least one item or one gift",
+//       });
+//     }
  
-    // ── 2. Validate items array entries ─────────────────────────────────────
-    for (let i = 0; i < items.length; i++) {
-      const { item_id, quantity } = items[i];
-      if (!item_id) {
-        return res.status(400).json({
-          success: false,
-          message: `items[${i}]: item_id is required`,
-        });
-      }
-      if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
-        return res.status(400).json({
-          success: false,
-          message: `items[${i}]: quantity must be a positive integer`,
-        });
-      }
-    }
+//     // ── 2. Validate items array entries ─────────────────────────────────────
+//     for (let i = 0; i < items.length; i++) {
+//       const { item_id, quantity } = items[i];
+//       if (!item_id) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `items[${i}]: item_id is required`,
+//         });
+//       }
+//       if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `items[${i}]: quantity must be a positive integer`,
+//         });
+//       }
+//     }
  
-    // ── 3. Validate gifts array entries ─────────────────────────────────────
-    for (let i = 0; i < gifts.length; i++) {
-      const { gift_id, quantity } = gifts[i];
-      if (!gift_id) {
-        return res.status(400).json({
-          success: false,
-          message: `gifts[${i}]: gift_id is required`,
-        });
-      }
-      if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
-        return res.status(400).json({
-          success: false,
-          message: `gifts[${i}]: quantity must be a positive integer`,
-        });
-      }
-    }
+//     // ── 3. Validate gifts array entries ─────────────────────────────────────
+//     for (let i = 0; i < gifts.length; i++) {
+//       const { gift_id, quantity } = gifts[i];
+//       if (!gift_id) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `gifts[${i}]: gift_id is required`,
+//         });
+//       }
+//       if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+//         return res.status(400).json({
+//           success: false,
+//           message: `gifts[${i}]: quantity must be a positive integer`,
+//         });
+//       }
+//     }
  
-    // ── 4. Fetch all Items from DB in one query ──────────────────────────────
-    let dbItemMap = {};
-    if (items.length > 0) {
-      const itemIds  = [...new Set(items.map((i) => i.item_id))];
-      const dbItems  = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
-      dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
+//     // ── 4. Fetch all Items from DB in one query ──────────────────────────────
+//     let dbItemMap = {};
+//     if (items.length > 0) {
+//       const itemIds  = [...new Set(items.map((i) => i.item_id))];
+//       const dbItems  = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
+//       dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
  
-      // Verify every requested item was found
-      for (let i = 0; i < items.length; i++) {
-        if (!dbItemMap[items[i].item_id]) {
-          return res.status(404).json({
-            success: false,
-            message: `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
-          });
-        }
-      }
-    }
+//       // Verify every requested item was found
+//       for (let i = 0; i < items.length; i++) {
+//         if (!dbItemMap[items[i].item_id]) {
+//           return res.status(404).json({
+//             success: false,
+//             message: `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
+//           });
+//         }
+//       }
+//     }
  
-    // ── 5. Fetch all Gifts from DB in one query ──────────────────────────────
-    let dbGiftMap = {};
-    if (gifts.length > 0) {
-      const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
-      const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
-      dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
+//     // ── 5. Fetch all Gifts from DB in one query ──────────────────────────────
+//     let dbGiftMap = {};
+//     if (gifts.length > 0) {
+//       const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
+//       const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
+//       dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
  
-      // Verify every requested gift was found
-      for (let i = 0; i < gifts.length; i++) {
-        if (!dbGiftMap[gifts[i].gift_id]) {
-          return res.status(404).json({
-            success: false,
-            message: `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
-          });
-        }
-      }
-    }
+//       // Verify every requested gift was found
+//       for (let i = 0; i < gifts.length; i++) {
+//         if (!dbGiftMap[gifts[i].gift_id]) {
+//           return res.status(404).json({
+//             success: false,
+//             message: `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
+//           });
+//         }
+//       }
+//     }
  
-    // ── 6. Build order items + accumulate items_total ────────────────────────
-    let items_total = 0;
-    const orderItems = items.map(({ item_id, quantity }) => {
-      const doc        = dbItemMap[item_id];
-      const parsedCount = Number(quantity);
-      const item_amount = doc.amount * parsedCount; // amount from DB only
-      items_total += item_amount;
+//     // ── 6. Build order items + accumulate items_total ────────────────────────
+//     let items_total = 0;
+//     const orderItems = items.map(({ item_id, quantity }) => {
+//       const doc        = dbItemMap[item_id];
+//       const parsedCount = Number(quantity);
+//       const item_amount = doc.amount * parsedCount; // amount from DB only
+//       items_total += item_amount;
  
-      return {
-        item_id:     doc._id,
-        item_name:   doc.item_name,    // DB snapshot
-        item_type:   doc.item_type,    // DB snapshot
-        quantity:       parsedCount,
-        unit_amount: doc.amount,       // DB snapshot
-        amount_unit: doc.amount_unit,  // DB snapshot
-        item_amount,                   // unit_amount × quantity
-      };
-    });
+//       return {
+//         item_id:     doc._id,
+//         item_name:   doc.item_name,    // DB snapshot
+//         item_type:   doc.item_type,    // DB snapshot
+//         quantity:       parsedCount,
+//         unit_amount: doc.amount,       // DB snapshot
+//         amount_unit: doc.amount_unit,  // DB snapshot
+//         item_amount,                   // unit_amount × quantity
+//       };
+//     });
  
-    // ── 7. Build order gifts + accumulate gifts_total ────────────────────────
-    let gifts_total = 0;
-    const orderGifts = gifts.map(({ gift_id, quantity }) => {
-      const doc         = dbGiftMap[gift_id];
-      const parsedCount = Number(quantity);
-      const gift_amount = doc.price * parsedCount; // price from DB only
-      gifts_total += gift_amount;
+//     // ── 7. Build order gifts + accumulate gifts_total ────────────────────────
+//     let gifts_total = 0;
+//     const orderGifts = gifts.map(({ gift_id, quantity }) => {
+//       const doc         = dbGiftMap[gift_id];
+//       const parsedCount = Number(quantity);
+//       const gift_amount = doc.price * parsedCount; // price from DB only
+//       gifts_total += gift_amount;
  
-      return {
-        gift_id:    doc._id,
-        gift_name:  doc.giftName,    // DB snapshot
-        gift_type:  doc.giftType,    // DB snapshot
-        quantity:      parsedCount,
-        unit_price: doc.price,       // DB snapshot
-        price_type: doc.priceType,   // DB snapshot
-        gift_amount,                 // unit_price × quantity
-      };
-    });
+//       return {
+//         gift_id:    doc._id,
+//         gift_name:  doc.giftName,    // DB snapshot
+//         gift_type:  doc.giftType,    // DB snapshot
+//         quantity:      parsedCount,
+//         unit_price: doc.price,       // DB snapshot
+//         price_type: doc.priceType,   // DB snapshot
+//         gift_amount,                 // unit_price × quantity
+//       };
+//     });
  
-    // ── 8. Final total ───────────────────────────────────────────────────────
-    const total_amount = items_total + gifts_total;
+//     // ── 8. Final total ───────────────────────────────────────────────────────
+//     const total_amount = items_total + gifts_total;
  
-    // ── 9. Persist ───────────────────────────────────────────────────────────
-    const newOrder = await OrderElements.create({
-      items:        orderItems,
-      gifts:        orderGifts,
-      items_total,
-      gifts_total,
-      total_amount,
-      order_notes:  order_notes || "",
-    });
+//     // ── 9. Persist ───────────────────────────────────────────────────────────
+//     const newOrder = await OrderElements.create({
+//       items:        orderItems,
+//       gifts:        orderGifts,
+//       items_total,
+//       gifts_total,
+//       total_amount,
+//       order_notes:  order_notes || "",
+//     });
  
-    // ── 10. Respond ──────────────────────────────────────────────────────────
-    return res.status(201).json({
-      success: true,
-      message: "Order saved successfully",
-      data: {
-        _id:          newOrder._id,
-        items:        newOrder.items,
-        gifts:        newOrder.gifts,
-        items_total:  newOrder.items_total,
-        gifts_total:  newOrder.gifts_total,
-        total_amount: newOrder.total_amount,
-        order_status: newOrder.order_status,
-        order_notes:  newOrder.order_notes,
-        createdAt:    newOrder.createdAt,
-        updatedAt:    newOrder.updatedAt,
-      },
-    });
-  } catch (error) {
-    console.error("Save Order Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
-};
+//     // ── 10. Respond ──────────────────────────────────────────────────────────
+//     return res.status(201).json({
+//       success: true,
+//       message: "Order saved successfully",
+//       data: {
+//         _id:          newOrder._id,
+//         items:        newOrder.items,
+//         gifts:        newOrder.gifts,
+//         items_total:  newOrder.items_total,
+//         gifts_total:  newOrder.gifts_total,
+//         total_amount: newOrder.total_amount,
+//         order_status: newOrder.order_status,
+//         order_notes:  newOrder.order_notes,
+//         createdAt:    newOrder.createdAt,
+//         updatedAt:    newOrder.updatedAt,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Save Order Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: error.message || "Internal server error",
+//     });
+//   }
+// };
 
 module.exports = {
   createCategoryElement,
@@ -503,5 +503,5 @@ module.exports = {
   saveGift,
   listGifts,
   listItemsGroupedByCategory,
-  saveElements,
+  // saveElements,
 };

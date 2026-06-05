@@ -90,8 +90,13 @@ const PromoterSchema = new mongoose.Schema(
       type: String,
       enum: ["Male", "Female", "Other"],
     },
+    promoterDays: {
+      type: Number,
+      default: 0
+    },
     promoterPerDayCharge: {
       type: Number,
+      default: 0
     },
     promoterLanguage: [
       {
@@ -216,7 +221,6 @@ const assignmentSchema = new mongoose.Schema(
   },
 );
 
-
 // ─── Sub-schema: Element Items ──────────────────────────────────────────────
 const OrderItemSchema = new mongoose.Schema(
   {
@@ -257,7 +261,7 @@ const OrderItemSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ─── Sub-schema: Gifts ──────────────────────────────────────────────────────
@@ -300,7 +304,7 @@ const OrderGiftSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 // ─── Main Schema ─────────────────────────────────────────────────────
 const OrderBookingSchema = new mongoose.Schema(
@@ -323,8 +327,8 @@ const OrderBookingSchema = new mongoose.Schema(
       default: [],
     },
 
-    items_total:  { type: Number, default: 0, min: 0 }, // sum of all item_amount
-    gifts_total:  { type: Number, default: 0, min: 0 }, // sum of all gift_amount
+    items_total: { type: Number, default: 0, min: 0 }, // sum of all item_amount
+    gifts_total: { type: Number, default: 0, min: 0 }, // sum of all gift_amount
     total_amount: { type: Number, required: true, min: 0 }, // items_total + gifts_total
 
     order_status: {
@@ -378,7 +382,8 @@ const OrderBookingSchema = new mongoose.Schema(
     customerDetails: { type: CustomerDetailsSchema, default: {} },
 
     // Financial Information
-    discountType: {
+    // 1 Percentage,2 Amount
+    discountType: { 
       type: Number,
       enum: [1, 2],
       default: 1,
@@ -389,7 +394,7 @@ const OrderBookingSchema = new mongoose.Schema(
     // Calculated Amounts
     sqfet: { type: Number, default: 0 },
     apartmentAmount: { type: Number, default: 0 },
-    sqfetAmount: { type: Number, default: 0 },
+    // sqfetAmount: { type: Number, default: 0 },
     eventAmount: { type: Number, default: 0 },
     promoterTotal: { type: Number, default: 0 },
     subTotal: { type: Number, default: 0 },

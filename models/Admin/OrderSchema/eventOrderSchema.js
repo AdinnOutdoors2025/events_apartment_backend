@@ -31,7 +31,8 @@ const OrderHistorySchema = new mongoose.Schema(
     changedBy: { type: String, required: true },
     changedAt: { type: Date, default: Date.now },
     remarks: { type: String, trim: true },
-    additionalNotes: { type: String, trim: true },
+    // additionalNotes: { type: String, trim: true },
+    additionalNotes: { type: [String], default: [] },
     // negotiationAmount: { type: Number, default: null },
 
     closeLossReason: { type: String, trim: true },
@@ -48,26 +49,45 @@ const OrderHistorySchema = new mongoose.Schema(
       uploadedAt: { type: Date, default: Date.now },
     },
 
+    // statusDocument: {
+    //   // Generic document for any status change (optional)
+    //   originalName: { type: String },
+    //   fileName: { type: String },
+    //   filePath: { type: String },
+    //   mimeType: { type: String },
+    //   size: { type: Number },
+    //   fileType: {
+    //     type: String,
+    //     enum: ["image", "audio", "pdf", "excel", "word", "other"],
+    //   },
+    //   uploadedAt: { type: Date, default: Date.now },
+    // },
+    // OrderHistorySchema - change statusDocument from object to array
     statusDocument: {
-      // Generic document for any status change (optional)
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["image", "audio", "pdf", "excel", "word", "other"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
+      type: [
+        {
+          originalName: { type: String },
+          fileName: { type: String },
+          filePath: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          fileType: {
+            type: String,
+            enum: ["image", "audio", "pdf", "excel", "word", "other"],
+          },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
     },
-    voiceDocument: {
+   voiceDocument: {
+  type: [
+    {
       originalName: { type: String },
       fileName: { type: String },
       filePath: { type: String },
       mimeType: { type: String },
       size: { type: Number },
-      // duration: { type: Number }, // Optional: duration in seconds
       fileType: {
         type: String,
         enum: ["audio"],
@@ -75,6 +95,9 @@ const OrderHistorySchema = new mongoose.Schema(
       },
       uploadedAt: { type: Date, default: Date.now },
     },
+  ],
+  default: [],
+},
   },
   { _id: false },
 );
@@ -92,11 +115,11 @@ const PromoterSchema = new mongoose.Schema(
     },
     promoterDays: {
       type: Number,
-      default: 0
+      default: 0,
     },
     promoterPerDayCharge: {
       type: Number,
-      default: 0
+      default: 0,
     },
     promoterLanguage: [
       {
@@ -140,10 +163,11 @@ const CustomerDetailsSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    additionalNotes: {
-      type: String,
-      trim: true,
-    },
+    // additionalNotes: {
+    //   type: String,
+    //   trim: true,
+    // },
+    additionalNotes: { type: [String], default: [] },
     _customerId: {
       type: mongoose.Schema.Types.ObjectId,
       default: () => new mongoose.Types.ObjectId(),
@@ -336,11 +360,6 @@ const OrderBookingSchema = new mongoose.Schema(
       enum: [0, 1, 2], // 0=cancelled, 1=active, 2=completed
       default: 1,
     },
-    order_notes: {
-      type: String,
-      default: "",
-      trim: true,
-    },
     orderId: { type: String, unique: true },
     apartmentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -383,7 +402,7 @@ const OrderBookingSchema = new mongoose.Schema(
 
     // Financial Information
     // 1 Percentage,2 Amount
-    discountType: { 
+    discountType: {
       type: Number,
       enum: [1, 2],
       default: 1,
@@ -410,7 +429,8 @@ const OrderBookingSchema = new mongoose.Schema(
       default: 1,
     },
 
-    additionalNotes: { type: String, trim: true, default: "" },
+    // additionalNotes: { type: String, trim: true, default: "" },
+    additionalNotes: { type: [String], default: [] },
     closeLossReason: { type: String, trim: true, default: "" },
     poDocument: { type: PODocumentSchema, default: null },
 

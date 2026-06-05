@@ -641,8 +641,8 @@ const createBooking = asyncHandler(async (req, res) => {
     dailySchedule,
     items = [],
     gifts = [],
-    order_notes,
-    orderNoteText,
+     orderNoteText,
+    orderNoteFiles,
   } = req.body;
 
   // ─────────────────────────────────────────────
@@ -900,7 +900,7 @@ const createBooking = asyncHandler(async (req, res) => {
   const uploadedFiles = req.files?.orderNoteFiles || [];
 
   const orderNote = {
-    text: orderNoteText || order_notes || "",
+    text: orderNoteText || "",
     files: uploadedFiles.map((file) => ({
       originalName: file.originalname,
       fileName: file.filename,
@@ -912,7 +912,7 @@ const createBooking = asyncHandler(async (req, res) => {
   };
 
   // If no files uploaded but order_notes text exists
-  if (!uploadedFiles.length && (orderNoteText || order_notes)) {
+  if (!uploadedFiles.length && (orderNoteText)) {
     orderNote.files = [];
   }
 
@@ -1656,22 +1656,21 @@ const apartmentEventGet = async (req, res) => {
   }
 };
 // ─── Status Update ──────────────────────────────────────────────────
+
 const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   const { orderId } = req.query;
   const {
     status,
     additionalNotes,
-    // negotiationAmount,
     closeLossReason,
-    poDocument, // For Close Won only
-    statusDocument, // Generic document for any status change (optional)
+    poDocument,
+    statusDocument,
     voiceDocument,
   } = req.body;
 
   // ─────────────────────────────────────────────
   // VALIDATIONS
   // ─────────────────────────────────────────────
-
   if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
     return res.status(400).json({
       success: false,
@@ -1704,49 +1703,42 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   }
 
   const currentStatus = order.orderStatus;
-  // const newStatus = Number(status);
-
-  // CHECK IF STATUS IS ALREADY SAME
-  // if (currentStatus === newStatus) {
-  //   return res.status(400).json({
-  //     success: false,
-  //     message: `Order is already in ${getStatusText(currentStatus)} status`,
-  //   });
-  // }
 
   // ─────────────────────────────────────────────
-  // VALIDATE STATUS TRANSITION - FULLY FLEXIBLE
+  // HELPER: Safely convert any value to array
   // ─────────────────────────────────────────────
-  // Allow ANY status to move to ANY other status
-  // Just check that it's a different status
-  const validTransitions = {
-    1: [2, 3, 4, 5, 6], // Enquiry → Any status
-    2: [1, 3, 4, 5, 6], // Need Analysis → Any status (including back to 1)
-    3: [1, 2, 4, 5, 6], // Proposal & Price Quote → Any status
-    4: [1, 2, 3, 5, 6], // Negotiation & Review → Any status
-    5: [1, 2, 3, 4, 6], // Close Won → Any status (reopen)
-    6: [1, 2, 3, 4, 5], // Closed Loss → Any status (reopen)
+  const toNotesArray = (value) => {
+    if (Array.isArray(value)) return value;
+    if (value && typeof value === "string" && value.trim() !== "")
+      return [value.trim()];
+    return [];
   };
 
-  // if (!validTransitions[currentStatus]?.includes(newStatus)) {
-  //   return res.status(400).json({
-  //     success: false,
-  //     message: `Invalid status transition from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}.`,
-  //   });
-  // }
+  // ─────────────────────────────────────────────
+  // NORMALIZE additionalNotes TO ARRAY
+  // ─────────────────────────────────────────────
+  let normalizedNotes = [];
+  if (additionalNotes) {
+    if (Array.isArray(additionalNotes)) {
+      normalizedNotes = additionalNotes.filter(
+        (n) => n && String(n).trim() !== ""
+      );
+    } else if (
+      typeof additionalNotes === "string" &&
+      additionalNotes.trim() !== ""
+    ) {
+      normalizedNotes = [additionalNotes.trim()];
+    }
+  }
 
   // ─────────────────────────────────────────────
-  // HELPER FUNCTION: Process uploaded document
+  // HELPER: Process uploaded document
   // ─────────────────────────────────────────────
   const processUploadedDocument = (uploadedFile, documentData) => {
     let resolvedDocument = null;
 
     if (uploadedFile) {
-      // File was uploaded (local or Spaces)
-      const {
-        getFileUrl,
-        STORAGE_TYPE,
-      } = require("../../../../middleware/orderNoteFileUpload");
+      const { getFileUrl } = require("../../../middleware/orderNoteFileUpload");
 
       resolvedDocument = {
         originalName: uploadedFile.originalname,
@@ -1758,7 +1750,6 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
         uploadedAt: new Date(),
       };
     } else if (documentData) {
-      // Fallback: document passed as JSON in req.body (no file upload)
       resolvedDocument = documentData;
     }
 
@@ -1766,7 +1757,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   };
 
   // ─────────────────────────────────────────────
-  // PROCESS STATUS DOCUMENT (Optional - for any status change)
+  // PROCESS STATUS DOCUMENT (Optional)
   // ─────────────────────────────────────────────
   let resolvedStatusDocument = null;
   const uploadedStatusFile = req.files?.statusDocument?.[0];
@@ -1774,10 +1765,9 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   if (uploadedStatusFile || statusDocument) {
     resolvedStatusDocument = processUploadedDocument(
       uploadedStatusFile,
-      statusDocument,
+      statusDocument
     );
 
-    // Validate document structure if provided
     if (resolvedStatusDocument) {
       if (
         !resolvedStatusDocument.originalName ||
@@ -1792,16 +1782,16 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       }
     }
   }
+
+  // ─────────────────────────────────────────────
+  // HELPER: Process voice note
+  // ─────────────────────────────────────────────
   const processVoiceNote = (uploadedFile, voiceNoteData) => {
     let resolvedVoiceNote = null;
 
     if (uploadedFile) {
-      const {
-        getFileUrl,
-        STORAGE_TYPE,
-      } = require("../../../../middleware/orderNoteFileUpload");
+      const { getFileUrl } = require("../../../middleware/orderNoteFileUpload");
 
-      // Validate that it's an audio file
       if (!uploadedFile.mimetype.startsWith("audio/")) {
         throw new Error("Uploaded file is not an audio file");
       }
@@ -1813,13 +1803,12 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
         mimeType: uploadedFile.mimetype,
         size: uploadedFile.size,
         fileType: "audio",
-        duration: null, // You can add duration extraction logic here
+        duration: null,
         uploadedAt: new Date(),
       };
     } else if (voiceNoteData) {
       resolvedVoiceNote = voiceNoteData;
 
-      // Validate voice note data
       if (
         resolvedVoiceNote &&
         !resolvedVoiceNote.mimeType?.startsWith("audio/")
@@ -1832,7 +1821,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   };
 
   // ─────────────────────────────────────────────
-  // PROCESS VOICE NOTE (Optional - for any status change)
+  // PROCESS VOICE NOTE (Optional)
   // ─────────────────────────────────────────────
   let resolvedVoiceNote = null;
   const uploadedVoiceFile = req.files?.voiceDocument?.[0];
@@ -1841,7 +1830,6 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     if (uploadedVoiceFile || voiceDocument) {
       resolvedVoiceNote = processVoiceNote(uploadedVoiceFile, voiceDocument);
 
-      // Validate voice note structure if provided
       if (resolvedVoiceNote) {
         if (
           !resolvedVoiceNote.originalName ||
@@ -1863,34 +1851,105 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       message: error.message,
     });
   }
-  // ─────────────────────────────────────────────
-  // STATUS SPECIFIC VALIDATIONS & PROCESSING
-  // ─────────────────────────────────────────────
 
+  // ─────────────────────────────────────────────
+  // ENSURE orderHistory EXISTS
+  // ─────────────────────────────────────────────
+  if (!order.orderHistory) order.orderHistory = [];
+
+  // ─────────────────────────────────────────────
+  // CHECK IF SAME TRANSITION ENTRY ALREADY EXISTS
+  // If same fromStatus → toStatus: push notes & documents into it
+  // ─────────────────────────────────────────────
+  const existingEntryIndex = order.orderHistory.findIndex(
+    (h) => h.fromStatus === currentStatus && h.toStatus === newStatus
+  );
+
+  if (existingEntryIndex !== -1) {
+    const existingEntry = order.orderHistory[existingEntryIndex];
+
+    // Push new notes into existing entry
+    if (normalizedNotes.length > 0) {
+      existingEntry.additionalNotes = [
+        ...toNotesArray(existingEntry.additionalNotes),
+        ...normalizedNotes,
+      ];
+    }
+
+    // Push new statusDocument into existing entry's statusDocument array
+    if (resolvedStatusDocument) {
+      if (!Array.isArray(existingEntry.statusDocument)) {
+        // Migrate old single object to array if needed
+        existingEntry.statusDocument = existingEntry.statusDocument
+          ? [existingEntry.statusDocument]
+          : [];
+      }
+      existingEntry.statusDocument.push(resolvedStatusDocument);
+    }
+
+    // Push new voiceDocument into existing entry (keep latest)
+    if (resolvedVoiceNote) {
+       if (!Array.isArray(existingEntry.voiceDocument)) {
+        // Migrate old single object to array if needed
+        existingEntry.voiceDocument = existingEntry.voiceDocument
+          ? [existingEntry.voiceDocument]
+          : [];
+      }
+      existingEntry.voiceDocument.push(resolvedVoiceNote); 
+    }
+
+    // Update order-level additionalNotes safely
+    if (normalizedNotes.length > 0) {
+      order.additionalNotes = [
+        ...toNotesArray(order.additionalNotes),
+        ...normalizedNotes,
+      ];
+    }
+
+    order.markModified("orderHistory");
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Updated existing history entry for ${getStatusText(currentStatus)} → ${getStatusText(newStatus)}`,
+      data: {
+        orderId: order._id,
+        orderNo: order.orderId,
+        previousStatus: getStatusText(currentStatus),
+        currentStatus: getStatusText(newStatus),
+        hasAdditionalNotes: normalizedNotes.length > 0,
+        hasDocument: !!resolvedStatusDocument,
+        hasVoiceNote: !!resolvedVoiceNote,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // NEW HISTORY ENTRY
+  // ─────────────────────────────────────────────
   let historyEntry = {
     fromStatus: currentStatus,
-    fromStatusText: getStatusText(currentStatus), // Add this line
+    fromStatusText: getStatusText(currentStatus),
     toStatus: newStatus,
     toStatusText: getStatusText(newStatus),
     changedBy: req.user?.name || "Admin",
     changedAt: new Date(),
-    additionalNotes: additionalNotes || "",
-    statusDocument: resolvedStatusDocument,
+    additionalNotes: normalizedNotes,
+    // statusDocument is now array
+    statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [],
     voiceDocument: resolvedVoiceNote,
   };
 
-  // Handle status-specific validations based on TARGET status
-  // For any transition TO status 5 (Close Won)
+  // ─────────────────────────────────────────────
+  // STATUS 5: Close Won — poDocument mandatory
+  // ─────────────────────────────────────────────
   if (newStatus === 5) {
-    // Process PO Document (mandatory for Close Won)
     let resolvedPoDocument = null;
     const uploadedPoFile = req.files?.poDocument?.[0];
 
     if (uploadedPoFile) {
-      const {
-        getFileUrl,
-        STORAGE_TYPE,
-      } = require("../../../../middleware/orderNoteFileUpload");
+      const { getFileUrl } = require("../../../middleware/orderNoteFileUpload");
 
       resolvedPoDocument = {
         originalName: uploadedPoFile.originalname,
@@ -1906,7 +1965,6 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       resolvedPoDocument = poDocument;
     }
 
-    // Validate PO Document (mandatory for Close Won)
     if (!resolvedPoDocument) {
       return res.status(400).json({
         success: false,
@@ -1929,7 +1987,9 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     order.poDocument = resolvedPoDocument;
   }
 
-  // For any transition TO status 6 (Closed Loss)
+  // ─────────────────────────────────────────────
+  // STATUS 6: Closed Loss — closeLossReason mandatory
+  // ─────────────────────────────────────────────
   else if (newStatus === 6) {
     if (!closeLossReason || closeLossReason.trim() === "") {
       return res.status(400).json({
@@ -1942,84 +2002,26 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     order.closeLossReason = closeLossReason;
   }
 
-  // For any transition TO status 4 (Negotiation & Review)
-  // else if (newStatus === 4) {
-  //   // Handle negotiation amount if provided
-  //   if (negotiationAmount !== undefined && negotiationAmount !== null) {
-  //     const totalAmount = Number(order.totalAmount || 0);
-  //     const negotiationAmt = Number(negotiationAmount);
-  //     const finalAmount = totalAmount - negotiationAmt;
-
-  //     if (finalAmount < 0) {
-  //       return res.status(400).json({
-  //         success: false,
-  //         message: "Negotiation amount cannot be greater than total amount",
-  //       });
-  //     }
-
-  //     historyEntry.negotiationAmount = negotiationAmt;
-  //     historyEntry.finalAmount = finalAmount;
-
-  //     order.negotiationAmount = negotiationAmt;
-  //     order.finalAmount = finalAmount;
-  //   }
-  // }
-
   // ─────────────────────────────────────────────
-  // HANDLE REOPENING LOGIC (Moving from terminal to active)
+  // HANDLE REOPENING LOGIC
   // ─────────────────────────────────────────────
-
-  // If moving from Closed Won (5) or Closed Loss (6) to any other status
   if (
     (currentStatus === 5 || currentStatus === 6) &&
     newStatus !== currentStatus
   ) {
-    // Clear terminal-specific fields when reopening
-    if (currentStatus === 5) {
-      // Optionally clear poDocument or keep for history
-      // order.poDocument = null; // Uncomment if you want to clear
-    }
-    if (currentStatus === 6) {
-      // Optionally clear closeLossReason
-      // order.closeLossReason = ""; // Uncomment if you want to clear
-    }
-
-    // Add a remark in history about reopening
     historyEntry.remarks = `Order reopened from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}`;
   }
 
   // ─────────────────────────────────────────────
-  // COMMON UPDATES FOR ALL STATUS CHANGES
+  // COMMON UPDATES
   // ─────────────────────────────────────────────
 
-  // Update additionalNotes if provided
-  if (additionalNotes) {
-    order.additionalNotes = additionalNotes;
-  }
-
-  // Store status document if provided (for any status change)
-  if (resolvedStatusDocument) {
-    if (!order.statusDocuments) order.statusDocuments = [];
-    order.statusDocuments.push({
-      fromStatus: currentStatus,
-      toStatus: newStatus,
-      document: resolvedStatusDocument,
-      notes: additionalNotes || "",
-      uploadedAt: new Date(),
-      uploadedBy: req.user?.name || "Admin",
-    });
-  }
-
-  if (resolvedVoiceNote) {
-    if (!order.voiceNotes) order.voiceNotes = [];
-    order.voiceNotes.push({
-      fromStatus: currentStatus,
-      toStatus: newStatus,
-      voiceNote: resolvedVoiceNote,
-      notes: additionalNotes || "",
-      uploadedAt: new Date(),
-      uploadedBy: req.user?.name || "Admin",
-    });
+  // Update order-level additionalNotes safely
+  if (normalizedNotes.length > 0) {
+    order.additionalNotes = [
+      ...toNotesArray(order.additionalNotes),
+      ...normalizedNotes,
+    ];
   }
 
   // ─────────────────────────────────────────────
@@ -2027,11 +2029,6 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
   order.orderStatus = newStatus;
   order.updatedBy = req.user?.name;
-
-  // ADD TO ORDER HISTORY
-  if (!order.orderHistory) {
-    order.orderHistory = [];
-  }
   order.orderHistory.push(historyEntry);
 
   await order.save();
@@ -2047,14 +2044,13 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       orderNo: order.orderId,
       previousStatus: getStatusText(currentStatus),
       currentStatus: getStatusText(newStatus),
-      hasAdditionalNotes: !!additionalNotes,
+      hasAdditionalNotes: normalizedNotes.length > 0,
       hasDocument: !!resolvedStatusDocument,
       hasVoiceNote: !!resolvedVoiceNote,
       updatedAt: new Date(),
     },
   });
 });
-
 // ─── GET SINGLE ORDER DETAILS ──────────────────────────────────
 const getOrderDetails = asyncHandler(async (req, res) => {
   const { orderId } = req.query;

@@ -80,24 +80,24 @@ const OrderHistorySchema = new mongoose.Schema(
       ],
       default: [],
     },
-   voiceDocument: {
-  type: [
-    {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["audio"],
-        default: "audio",
-      },
-      uploadedAt: { type: Date, default: Date.now },
+    voiceDocument: {
+      type: [
+        {
+          originalName: { type: String },
+          fileName: { type: String },
+          filePath: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          fileType: {
+            type: String,
+            enum: ["audio"],
+            default: "audio",
+          },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
     },
-  ],
-  default: [],
-},
   },
   { _id: false },
 );

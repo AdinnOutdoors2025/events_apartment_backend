@@ -39,9 +39,7 @@ exports.saveEventRate = async (req, res) => {
         return errorResponse(res, "Event Rate not found", 404);
       }
 
-      return successResponse(res, "Event Rate updated successfully", {
-        data: saveData,
-      });
+      return successResponse(res, "Event Rate updated successfully", saveData);
     }
 
     // ─────────────────────────────────────
@@ -54,8 +52,7 @@ exports.saveEventRate = async (req, res) => {
     });
 
     return successResponse(res, "Event Rate saved successfully", {
-      data: saveData,
-
+      saveData,
       updatedBy: req.user?.name || "Admin",
     });
   } catch (error) {
@@ -78,7 +75,7 @@ exports.listEventRate = async (req, res) => {
 
     return successResponse(res, "Event Rate list fetched successfully", {
       totalCount: eventList.length,
-      data: eventList,
+       eventList,
     });
   } catch (error) {
     console.log(error);

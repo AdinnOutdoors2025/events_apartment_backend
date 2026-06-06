@@ -5,7 +5,10 @@ const ElementsMaster = require("../../../../models/Admin/OrderSchema/ElementsMas
 const ItemMaster = require("../../../../models/Admin/OrderSchema/ElementsMasterSchema/itemsMasterSchema");
 const GiftMaster = require("../../../../models/Admin/OrderSchema/ElementsMasterSchema/elementsGiftSchema");
 const OrderElements = require("../../../../models/Admin/OrderSchema/ElementsOverAllSchema/elementsOverAllSchema");
-const { successResponse, errorResponse } = require("../../../../utils/response");
+const {
+  successResponse,
+  errorResponse,
+} = require("../../../../utils/response");
 
 const createCategoryElement = async (req, res) => {
   try {
@@ -227,7 +230,16 @@ const saveGift = async (req, res) => {
         return errorResponse(res, "unit is required");
       }
     }
+    const existingItem = await GiftMaster.findOne({
+      _id: { $ne: id },
+      giftName: {
+        $regex: new RegExp(`^${giftName.trim()}$`, "i"),
+      },
+    });
 
+    if (existingItem) {
+      return errorResponse(res, "Gift Name already exists");
+    }
     const payload = {
       giftType,
       giftName,
@@ -268,27 +280,18 @@ const listGifts = async (req, res) => {
   try {
     const gifts = await GiftMaster.find({}).sort({ createdAt: -1 }).lean();
 
-    return res.status(200).json({
-      success: true,
-      count: gifts.length,
-      data: gifts,
-    });
+    return successResponse(res, "Gift created successfully", gifts);
   } catch (error) {
-
-     return errorResponse(res, error.message, 500);
+    return errorResponse(res, error.message, 500);
   }
 };
 
 const listItemsGroupedByCategory = async (req, res) => {
   try {
     const [items, gifts] = await Promise.all([
-      ItemMaster.find({})
-        .populate("category_id")
-        .sort({ createdAt: -1 }),
+      ItemMaster.find({}).populate("category_id").sort({ createdAt: -1 }),
 
-      GiftMaster.find({})
-        .sort({ createdAt: -1 })
-        .lean(),
+      GiftMaster.find({}).sort({ createdAt: -1 }).lean(),
     ]);
 
     const groupedData = {};
@@ -321,10 +324,7 @@ const listItemsGroupedByCategory = async (req, res) => {
       });
     });
 
-    return res.status(200).json({
-      success: true,
-      message: "Items and Gifts fetched successfully",
-      // count: Object.values(groupedData).length,
+    return successResponse(res, "Items and Gifts fetched successfully", {
       elementsDetails: Object.values(groupedData),
       giftsDetails: gifts,
     });
@@ -336,7 +336,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 // const saveElements = async (req, res) => {
 //   try {
 //     const { items = [], gifts = [], order_notes } = req.body;
- 
+
 //     // ── 1. At least one section must have entries ───────────────────────────
 //     if (
 //       (!Array.isArray(items) || items.length === 0) &&
@@ -347,7 +347,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         message: "Provide at least one item or one gift",
 //       });
 //     }
- 
+
 //     // ── 2. Validate items array entries ─────────────────────────────────────
 //     for (let i = 0; i < items.length; i++) {
 //       const { item_id, quantity } = items[i];
@@ -364,7 +364,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         });
 //       }
 //     }
- 
+
 //     // ── 3. Validate gifts array entries ─────────────────────────────────────
 //     for (let i = 0; i < gifts.length; i++) {
 //       const { gift_id, quantity } = gifts[i];
@@ -381,14 +381,14 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         });
 //       }
 //     }
- 
+
 //     // ── 4. Fetch all Items from DB in one query ──────────────────────────────
 //     let dbItemMap = {};
 //     if (items.length > 0) {
 //       const itemIds  = [...new Set(items.map((i) => i.item_id))];
 //       const dbItems  = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
 //       dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
- 
+
 //       // Verify every requested item was found
 //       for (let i = 0; i < items.length; i++) {
 //         if (!dbItemMap[items[i].item_id]) {
@@ -399,14 +399,14 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         }
 //       }
 //     }
- 
+
 //     // ── 5. Fetch all Gifts from DB in one query ──────────────────────────────
 //     let dbGiftMap = {};
 //     if (gifts.length > 0) {
 //       const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
 //       const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
 //       dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
- 
+
 //       // Verify every requested gift was found
 //       for (let i = 0; i < gifts.length; i++) {
 //         if (!dbGiftMap[gifts[i].gift_id]) {
@@ -417,7 +417,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         }
 //       }
 //     }
- 
+
 //     // ── 6. Build order items + accumulate items_total ────────────────────────
 //     let items_total = 0;
 //     const orderItems = items.map(({ item_id, quantity }) => {
@@ -425,7 +425,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //       const parsedCount = Number(quantity);
 //       const item_amount = doc.amount * parsedCount; // amount from DB only
 //       items_total += item_amount;
- 
+
 //       return {
 //         item_id:     doc._id,
 //         item_name:   doc.item_name,    // DB snapshot
@@ -436,7 +436,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         item_amount,                   // unit_amount × quantity
 //       };
 //     });
- 
+
 //     // ── 7. Build order gifts + accumulate gifts_total ────────────────────────
 //     let gifts_total = 0;
 //     const orderGifts = gifts.map(({ gift_id, quantity }) => {
@@ -444,7 +444,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //       const parsedCount = Number(quantity);
 //       const gift_amount = doc.price * parsedCount; // price from DB only
 //       gifts_total += gift_amount;
- 
+
 //       return {
 //         gift_id:    doc._id,
 //         gift_name:  doc.giftName,    // DB snapshot
@@ -455,10 +455,10 @@ const listItemsGroupedByCategory = async (req, res) => {
 //         gift_amount,                 // unit_price × quantity
 //       };
 //     });
- 
+
 //     // ── 8. Final total ───────────────────────────────────────────────────────
 //     const total_amount = items_total + gifts_total;
- 
+
 //     // ── 9. Persist ───────────────────────────────────────────────────────────
 //     const newOrder = await OrderElements.create({
 //       items:        orderItems,
@@ -468,7 +468,7 @@ const listItemsGroupedByCategory = async (req, res) => {
 //       total_amount,
 //       order_notes:  order_notes || "",
 //     });
- 
+
 //     // ── 10. Respond ──────────────────────────────────────────────────────────
 //     return res.status(201).json({
 //       success: true,

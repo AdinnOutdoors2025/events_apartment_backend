@@ -220,14 +220,15 @@ const buildApartmentFilters = (body, userType) => {
   if (search && search.toString().trim()) {
     const searchValue = search.toString().trim();
     const orFilters = [
-      { apartmentName: { $regex: searchValue, $options: "i" } },
-      { apartmentAddress: { $regex: searchValue, $options: "i" } },
+      { ApartmentName: { $regex: searchValue, $options: "i" } },
+      { ApartmentAddress: { $regex: searchValue, $options: "i" } },
       { City: { $regex: searchValue, $options: "i" } },
       { ApartmentGroupName: { $regex: searchValue, $options: "i" } },
       { State: { $regex: searchValue, $options: "i" } },
       { Location: { $regex: searchValue, $options: "i" } },
-      { contactPersonName: { $regex: searchValue, $options: "i" } },
-      { contactPersonPhone: { $regex: searchValue, $options: "i" } },
+      { ContactPersonName: { $regex: searchValue, $options: "i" } },
+      // { ContactPersonPhone: { $regex: searchValue, $options: "i" } },
+      // { ResidencyCount: { $regex: searchValue, $options: "i" } },
       { email: { $regex: searchValue, $options: "i" } },
       { permissionStatus: { $regex: searchValue, $options: "i" } },
     ];
@@ -236,12 +237,13 @@ const buildApartmentFilters = (body, userType) => {
     if (!isNaN(searchValue)) {
       const numberValue = Number(searchValue);
       orFilters.push(
-        { residencyCount: numberValue },
-        { approxPeopleCount: numberValue },
-        { fromTGValues: numberValue },
-        { toTGValues: numberValue },
-        { rating: numberValue },
-        { perDayRent: numberValue }
+        { ResidencyCount: numberValue },
+        { ApproxPeopleCount: numberValue },
+        { FromTGValues: numberValue },
+        { ToTGValues: numberValue },
+        { Rating: numberValue },
+        { PerDayRent: numberValue },
+        { ContactPersonPhone: numberValue }
       );
     }
     filter.$or = orFilters;

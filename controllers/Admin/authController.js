@@ -11,7 +11,7 @@ exports.register = async (req, res) => {
 
     // validation
     if (!name || !phoneNumber || !password) {
-      return errorResponse(res, 'Name, phone and password are required', 400);
+      return errorResponse(res, 'Name, phoneNumber and password are required', 400);
     }
 
     // check existing user
@@ -20,7 +20,7 @@ exports.register = async (req, res) => {
     });
 
     if (existingUser) {
-      return errorResponse(res, 'Phone number already exists', 400);
+      return errorResponse(res, 'Phone Number Already Exists', 400);
     }
 
     // hash password
@@ -47,7 +47,7 @@ exports.register = async (req, res) => {
     });
     return successResponse(
       res,
-      "User registered successfully",
+      "Admin Registered Successfully",
       {
         user: {
           id: user._id,
@@ -61,10 +61,7 @@ exports.register = async (req, res) => {
     );
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    return errorResponse(res, "User registered Failed", error.message);
   }
 };
 

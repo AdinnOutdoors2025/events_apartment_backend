@@ -64,7 +64,7 @@ const createBooking = asyncHandler(async (req, res) => {
     dailySchedule,
     items = [],
     gifts = [],
-     orderNoteText,
+    orderNoteText,
     orderNoteFiles,
   } = req.body;
 
@@ -85,20 +85,18 @@ const createBooking = asyncHandler(async (req, res) => {
     for (let i = 0; i < items.length; i++) {
       const { item_id, quantity } = items[i];
       if (!item_id) {
-        return res.status(400).json({
-          success: false,
-          message: `items[${i}]: item_id is required`,
-        });
+        return errorResponse(res, `items[${i}]: item_id is required`, 400);
       }
       if (
         !quantity ||
         !Number.isInteger(Number(quantity)) ||
         Number(quantity) < 1
       ) {
-        return res.status(400).json({
-          success: false,
-          message: `items[${i}]: quantity must be a positive integer`,
-        });
+        return errorResponse(
+          res,
+          `items[${i}]: quantity must be a positive integer`,
+          400,
+        );
       }
     }
 
@@ -116,10 +114,11 @@ const createBooking = asyncHandler(async (req, res) => {
     // Verify every requested item was found
     for (let i = 0; i < items.length; i++) {
       if (!dbItemMap[items[i].item_id]) {
-        return res.status(404).json({
-          success: false,
-          message: `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
-        });
+        return errorResponse(
+          res,
+          `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
+          404,
+        );
       }
     }
 
@@ -148,20 +147,18 @@ const createBooking = asyncHandler(async (req, res) => {
     for (let i = 0; i < gifts.length; i++) {
       const { gift_id, quantity } = gifts[i];
       if (!gift_id) {
-        return res.status(400).json({
-          success: false,
-          message: `gifts[${i}]: gift_id is required`,
-        });
+        return errorResponse(res, `gifts[${i}]: gift_id is required`, 400);
       }
       if (
         !quantity ||
         !Number.isInteger(Number(quantity)) ||
         Number(quantity) < 1
       ) {
-        return res.status(400).json({
-          success: false,
-          message: `gifts[${i}]: quantity must be a positive integer`,
-        });
+        return errorResponse(
+          res,
+          `gifts[${i}]: quantity must be a positive integer`,
+          400,
+        );
       }
     }
 
@@ -176,10 +173,11 @@ const createBooking = asyncHandler(async (req, res) => {
     // Verify every requested gift was found
     for (let i = 0; i < gifts.length; i++) {
       if (!dbGiftMap[gifts[i].gift_id]) {
-        return res.status(404).json({
-          success: false,
-          message: `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
-        });
+        return errorResponse(
+          res,
+          `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
+          404,
+        );
       }
     }
 
@@ -212,19 +210,15 @@ const createBooking = asyncHandler(async (req, res) => {
 
   if (id) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid booking id",
-      });
+     
+      return errorResponse(res, 'Invalid booking id', 400);
     }
 
     existingCustomerBooking = await orderBooking.findById(id);
 
     if (!existingCustomerBooking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found",
-      });
+     
+       return errorResponse(res, 'Booking not found', 400);
     }
   }
 
@@ -237,33 +231,24 @@ const createBooking = asyncHandler(async (req, res) => {
     !Array.isArray(dailySchedule) ||
     dailySchedule.length === 0
   ) {
-    return res.status(400).json({
-      success: false,
-      message: "dailySchedule is required with at least one day schedule",
-    });
+    return errorResponse(res, 'dailySchedule is required with at least one day schedule', 400);
   }
 
   // Validate each day's schedule
   for (const schedule of dailySchedule) {
     if (!schedule.days) {
-      return res.status(400).json({
-        success: false,
-        message: "Each schedule must have a days",
-      });
+      
+       return errorResponse(res, 'Each schedule must have a days', 400);
     }
 
     if (!schedule.fromTime) {
-      return res.status(400).json({
-        success: false,
-        message: `fromTime is required for day ${schedule.days}`,
-      });
+     
+      return errorResponse(res, `fromTime is required for day ${schedule.days}`, 400);
     }
 
     if (!schedule.toTime) {
-      return res.status(400).json({
-        success: false,
-        message: `toTime is required for day ${schedule.days}`,
-      });
+     
+       return errorResponse(res, `toTime is required for day ${schedule.days}`, 400);
     }
 
     // Validate time format (HH:MM AM/PM)
@@ -272,10 +257,8 @@ const createBooking = asyncHandler(async (req, res) => {
       !timeRegex.test(schedule.fromTime) ||
       !timeRegex.test(schedule.toTime)
     ) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
-      });
+     
+      return errorResponse(res, `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`, 400);
     }
 
     // Check that daysOfEvent matches the number of schedules
@@ -335,7 +318,7 @@ const createBooking = asyncHandler(async (req, res) => {
   };
 
   // If no files uploaded but order_notes text exists
-  if (!uploadedFiles.length && (orderNoteText)) {
+  if (!uploadedFiles.length && orderNoteText) {
     orderNote.files = [];
   }
 
@@ -499,7 +482,7 @@ const createBooking = asyncHandler(async (req, res) => {
   let promoterTotal = 0;
   const promotersWithAmount = (promoters || []).map((p) => {
     const promoterAmount = Math.floor(
-      (p.promoterPerDayCharge || 0) * (p.promoterDays  || 0),
+      (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
     );
     promoterTotal += promoterAmount;
     return {
@@ -882,7 +865,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
       .limit(limit)
       .lean(),
   ]);
-// FIXED: Properly remove unwanted fields using destructuring
+  // FIXED: Properly remove unwanted fields using destructuring
   const formattedBookings = bookings.map((item) => {
     // Destructure to exclude unwanted fields
     const {
@@ -917,7 +900,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
       promoterCount,
       ...rest
     } = item;
-    
+
     return {
       ...rest,
       orderStatusText: getStatusText(item.orderStatus),
@@ -1021,6 +1004,19 @@ const apartmentEventGet = async (req, res) => {
       });
     });
 
+    // ================= GROUP GIFTS BY TYPE =================
+    const groupedGifts = {
+      normalGifts: [], // giftType 1
+      liveCounterGifts: [], // giftType 2
+    };
+
+    gifts.forEach((gift) => {
+      if (gift.giftType === 1) {
+        groupedGifts.normalGifts.push(gift);
+      } else if (gift.giftType === 2) {
+        groupedGifts.liveCounterGifts.push(gift);
+      }
+    });
     return res.status(200).json({
       success: true,
       message: "Apartment, Events, Items and Gifts fetched successfully",
@@ -1031,7 +1027,8 @@ const apartmentEventGet = async (req, res) => {
         },
         events,
         elementsDetails: Object.values(groupedData),
-        giftsDetails: gifts,
+        // giftsDetails: gifts,
+        giftsDetails: groupedGifts,
       },
     });
   } catch (error) {
@@ -1109,7 +1106,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   if (additionalNotes) {
     if (Array.isArray(additionalNotes)) {
       normalizedNotes = additionalNotes.filter(
-        (n) => n && String(n).trim() !== ""
+        (n) => n && String(n).trim() !== "",
       );
     } else if (
       typeof additionalNotes === "string" &&
@@ -1153,7 +1150,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   if (uploadedStatusFile || statusDocument) {
     resolvedStatusDocument = processUploadedDocument(
       uploadedStatusFile,
-      statusDocument
+      statusDocument,
     );
 
     if (resolvedStatusDocument) {
@@ -1250,7 +1247,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   // If same fromStatus → toStatus: push notes & documents into it
   // ─────────────────────────────────────────────
   const existingEntryIndex = order.orderHistory.findIndex(
-    (h) => h.fromStatus === currentStatus && h.toStatus === newStatus
+    (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
   );
 
   if (existingEntryIndex !== -1) {
@@ -1277,13 +1274,13 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
 
     // Push new voiceDocument into existing entry (keep latest)
     if (resolvedVoiceNote) {
-       if (!Array.isArray(existingEntry.voiceDocument)) {
+      if (!Array.isArray(existingEntry.voiceDocument)) {
         // Migrate old single object to array if needed
         existingEntry.voiceDocument = existingEntry.voiceDocument
           ? [existingEntry.voiceDocument]
           : [];
       }
-      existingEntry.voiceDocument.push(resolvedVoiceNote); 
+      existingEntry.voiceDocument.push(resolvedVoiceNote);
     }
 
     // Update order-level additionalNotes safely

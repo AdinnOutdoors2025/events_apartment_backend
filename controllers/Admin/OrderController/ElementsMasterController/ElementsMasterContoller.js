@@ -12,8 +12,11 @@ const {
 
 const createCategoryElement = async (req, res) => {
   try {
-    const { id, category_name, description, status } = req.body;
+    const { id, state, category_name, description, status } = req.body;
 
+    if (!state) {
+      return errorResponse(res, "state is required");
+    }
     if (!category_name) {
       return errorResponse(res, "Category name is required");
     }
@@ -39,10 +42,10 @@ const createCategoryElement = async (req, res) => {
       if (existingCategory) {
         return errorResponse(res, "Category name already exists");
       }
-
+      element.status = status ?? element.status;
       element.category_name = category_name.trim();
       element.description = description || "";
-      element.status = status ?? element.status;
+      element.state = state || "";
 
       await element.save();
 
@@ -60,9 +63,10 @@ const createCategoryElement = async (req, res) => {
     }
 
     const element = new ElementsMaster({
+      status: status ?? 1,
       category_name: category_name.trim(),
       description,
-      status: status ?? 1,
+      state,
     });
 
     await element.save();
@@ -90,13 +94,19 @@ const elementsCreateItem = async (req, res) => {
       category_id,
       amount,
       amount_unit,
+      quantity,
       item_status,
       item_notes,
+      state,
     } = req.body;
 
+    if (!state) {
+      return errorResponse(res, "State is required");
+    }
     if (!item_name) {
       return errorResponse(res, "Item name is required");
     }
+    
     if (item_type === 2 && !category_id) {
       return res.status(400).json({
         success: false,
@@ -107,8 +117,25 @@ const elementsCreateItem = async (req, res) => {
       return errorResponse(res, "Invalid item type");
     }
 
-    if (![1, 2].includes(Number(amount_unit))) {
+    if (![1, 2, 3, 4, 5].includes(Number(amount_unit))) {
       return errorResponse(res, "Invalid amount unit");
+    }
+if (amount === undefined || amount === null || Number(amount) < 0) {
+      return errorResponse(res, "Valid amount is required");
+    }
+
+    // quantity required only for sq.ft, feet, pieces
+    if ([3, 4, 5].includes(Number(amount_unit))) {
+      if (
+        quantity === undefined ||
+        quantity === null ||
+        Number(quantity) <= 0
+      ) {
+        return errorResponse(
+          res,
+          "Quantity is required when amount unit is Sq.Ft, Feet or Pieces"
+        );
+      }
     }
 
     if (category_id && !mongoose.Types.ObjectId.isValid(category_id)) {
@@ -146,11 +173,19 @@ const elementsCreateItem = async (req, res) => {
       }
 
       item.item_name = item_name.trim();
+      item.state = state;
       item.item_type = item_type;
       item.category_id = category_id || null;
       item.amount = amount;
       item.amount_unit = amount_unit;
-      item.item_status = item_status ?? item.item_status;
+       // quantity only for units 3,4,5
+      item.quantity = [3, 4, 5].includes(Number(amount_unit))
+        ? Number(quantity)
+        : null;
+
+      item.item_status =
+        item_status !== undefined ? item_status : item.item_status;
+
       item.item_notes = item_notes || "";
 
       await item.save();
@@ -171,9 +206,15 @@ const elementsCreateItem = async (req, res) => {
     const item = new ItemMaster({
       item_name: item_name.trim(),
       item_type,
+      state,
       category_id: category_id || null,
       amount,
       amount_unit,
+      // quantity only for units 3,4,5
+      quantity: [3, 4, 5].includes(Number(amount_unit))
+        ? Number(quantity)
+        : null,
+
       item_status: item_status ?? 1,
       item_notes,
     });
@@ -199,7 +240,7 @@ const elementsListItems = async (req, res) => {
 };
 const saveGift = async (req, res) => {
   try {
-    const { id, giftType, giftName, priceType, price, unit, notes, status } =
+    const { id,state, giftType, giftName, priceType, price, unit, notes, status } =
       req.body;
 
     // Gift Type Validation
@@ -242,6 +283,7 @@ const saveGift = async (req, res) => {
     }
     const payload = {
       giftType,
+      state,
       giftName,
       priceType,
       price,

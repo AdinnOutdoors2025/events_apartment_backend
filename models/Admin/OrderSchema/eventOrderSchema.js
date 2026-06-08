@@ -253,6 +253,10 @@ const OrderItemSchema = new mongoose.Schema(
       ref: "ElementsItemsMaster",
       required: true,
     },
+    state: {
+      type: String,
+      required: true,
+    },
     item_name: {
       type: String,
       required: true,
@@ -275,9 +279,13 @@ const OrderItemSchema = new mongoose.Schema(
     },
     amount_unit: {
       type: Number,
-      enum: [1, 2, 3, 4], // 1=Day, 2=Hour, 3=sqr.ft, 4=feet
+      enum: [1, 2, 3, 4, 5], // 1=Day, 2=Hour, 3=sqr.ft, 4=feet 5= pices
       required: true,
     },
+    // quantity: {
+    //   type: Number,
+    //   default: null,
+    // },
     item_amount: {
       // unit_amount × quantity
       type: Number,
@@ -339,6 +347,11 @@ const OrderBookingSchema = new mongoose.Schema(
     //   ref: "User",
     //   required: true,
     // },
+    stageRequired: {
+      type: Number,
+      enum: [0, 1], // 0 = no 1 = Yes
+      default: 0,
+    },
     // Element items (can be empty if order has only gifts)
     items: {
       type: [OrderItemSchema],
@@ -353,7 +366,7 @@ const OrderBookingSchema = new mongoose.Schema(
 
     items_total: { type: Number, default: 0, min: 0 }, // sum of all item_amount
     gifts_total: { type: Number, default: 0, min: 0 }, // sum of all gift_amount
-    total_amount: { type: Number, required: true, min: 0 }, // items_total + gifts_total
+    itemsAndGiftsTotal: { type: Number, required: true, min: 0 }, // items_total + gifts_total
 
     order_status: {
       type: Number,
@@ -391,7 +404,7 @@ const OrderBookingSchema = new mongoose.Schema(
     // Promoter Information
     promoterRequired: {
       type: Number,
-      enum: [0, 1],
+      enum: [0, 1], // 0 = no 1 = Yes
       default: 0,
     },
     promoterCount: { type: Number, default: 0 },

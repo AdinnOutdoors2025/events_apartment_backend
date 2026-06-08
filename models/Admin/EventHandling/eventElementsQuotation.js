@@ -23,11 +23,6 @@ const itemSchema = new mongoose.Schema(
       default: 1,
     },
 
-    days: {
-      type: Number,
-      default: 1,
-    },
-
     amount: {
       type: Number,
       default: 0,

@@ -6,6 +6,7 @@ const ItemMaster = require("../../../models/Admin/OrderSchema/ElementsMasterSche
 const GiftMaster = require("../../../models/Admin/OrderSchema/ElementsMasterSchema/elementsGiftSchema");
 const StaffAdminUser = require("../../../models/Admin/StaffAdminManagement/staffAdminManagement");
 const Admin = require("../../../models/Admin/adminUser");
+const { successResponse, errorResponse } = require("../../../utils/response");
 require("dotenv").config();
 
 const axios = require("axios");
@@ -55,6 +56,7 @@ const createBooking = asyncHandler(async (req, res) => {
     toDate,
     daysOfEvent,
     promoterRequired,
+    stageRequired,
     promoterCount,
     promoters,
     customerDetails,
@@ -132,6 +134,7 @@ const createBooking = asyncHandler(async (req, res) => {
       return {
         item_id: doc._id,
         item_name: doc.item_name,
+        state: doc.state,
         item_type: doc.item_type,
         quantity: parsedCount,
         unit_amount: doc.amount,
@@ -210,15 +213,13 @@ const createBooking = asyncHandler(async (req, res) => {
 
   if (id) {
     if (!mongoose.Types.ObjectId.isValid(id)) {
-     
-      return errorResponse(res, 'Invalid booking id', 400);
+      return errorResponse(res, "Invalid booking id", 400);
     }
 
     existingCustomerBooking = await orderBooking.findById(id);
 
     if (!existingCustomerBooking) {
-     
-       return errorResponse(res, 'Booking not found', 400);
+      return errorResponse(res, "Booking not found", 400);
     }
   }
 
@@ -231,24 +232,33 @@ const createBooking = asyncHandler(async (req, res) => {
     !Array.isArray(dailySchedule) ||
     dailySchedule.length === 0
   ) {
-    return errorResponse(res, 'dailySchedule is required with at least one day schedule', 400);
+    return errorResponse(
+      res,
+      "dailySchedule is required with at least one day schedule",
+      400,
+    );
   }
 
   // Validate each day's schedule
   for (const schedule of dailySchedule) {
     if (!schedule.days) {
-      
-       return errorResponse(res, 'Each schedule must have a days', 400);
+      return errorResponse(res, "Each schedule must have a days", 400);
     }
 
     if (!schedule.fromTime) {
-     
-      return errorResponse(res, `fromTime is required for day ${schedule.days}`, 400);
+      return errorResponse(
+        res,
+        `fromTime is required for day ${schedule.days}`,
+        400,
+      );
     }
 
     if (!schedule.toTime) {
-     
-       return errorResponse(res, `toTime is required for day ${schedule.days}`, 400);
+      return errorResponse(
+        res,
+        `toTime is required for day ${schedule.days}`,
+        400,
+      );
     }
 
     // Validate time format (HH:MM AM/PM)
@@ -257,45 +267,52 @@ const createBooking = asyncHandler(async (req, res) => {
       !timeRegex.test(schedule.fromTime) ||
       !timeRegex.test(schedule.toTime)
     ) {
-     
-      return errorResponse(res, `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`, 400);
+      return errorResponse(
+        res,
+        `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
+        400,
+      );
     }
 
     // Check that daysOfEvent matches the number of schedules
     if (daysOfEvent && schedule.days > daysOfEvent) {
-      return res.status(400).json({
-        success: false,
-        message: `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
-      });
+      return errorResponse(
+        res,
+        `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
+        400,
+      );
     }
   }
 
   // Check if the number of schedules matches daysOfEvent
   if (daysOfEvent && dailySchedule.length !== daysOfEvent) {
-    return res.status(400).json({
-      success: false,
-      message: `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
-    });
+    return errorResponse(
+      res,
+      `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
+      400,
+    );
   }
 
   // Check for duplicate day numbers
   const dayNumbers = dailySchedule.map((s) => s.days);
   const hasDuplicates = new Set(dayNumbers).size !== dayNumbers.length;
   if (hasDuplicates) {
-    return res.status(400).json({
-      success: false,
-      message: "Duplicate day numbers found in dailySchedule",
-    });
+    return errorResponse(
+      res,
+      "Duplicate day numbers found in dailySchedule",
+      400,
+    );
   }
 
   // Check that day numbers are sequential starting from 1
   const sortedDays = [...dayNumbers].sort((a, b) => a - b);
   for (let i = 0; i < sortedDays.length; i++) {
     if (sortedDays[i] !== i + 1) {
-      return res.status(400).json({
-        success: false,
-        message: `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
-      });
+      return errorResponse(
+        res,
+        `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
+        400,
+      );
     }
   }
 
@@ -327,10 +344,11 @@ const createBooking = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
 
   if (!apartmentId || !mongoose.Types.ObjectId.isValid(apartmentId)) {
-    return res.status(400).json({
-      success: false,
-      message: !apartmentId ? "apartmentId is required" : "Invalid apartmentId",
-    });
+    return errorResponse(
+      res,
+      !apartmentId ? "apartmentId is required" : "Invalid apartmentId",
+      400,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -338,10 +356,11 @@ const createBooking = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
 
   if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
-    return res.status(400).json({
-      success: false,
-      message: !eventId ? "eventId is required" : "Invalid eventId",
-    });
+    return errorResponse(
+      res,
+      !eventId ? "eventId is required" : "Invalid eventId",
+      400,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -350,10 +369,11 @@ const createBooking = asyncHandler(async (req, res) => {
 
   const contactPersonPhoneNumber = customerDetails?.contactPersonPhoneNumber;
   if (!contactPersonPhoneNumber) {
-    return res.status(400).json({
-      success: false,
-      message: "customerDetails.contactPersonPhoneNumber is required",
-    });
+    return errorResponse(
+      res,
+      "customerDetails.contactPersonPhoneNumber is required",
+      400,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -361,34 +381,26 @@ const createBooking = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
 
   if (!fromDate || !toDate) {
-    return res.status(400).json({
-      success: false,
-      message: !fromDate ? "fromDate is required" : "toDate is required",
-    });
+    return errorResponse(
+      res,
+      !fromDate ? "fromDate is required" : "toDate is required",
+      400,
+    );
   }
 
   const parsedFromDate = new Date(fromDate);
   const parsedToDate = new Date(toDate);
 
   if (isNaN(parsedFromDate.getTime())) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid fromDate",
-    });
+    return errorResponse(res, "Invalid fromDate", 400);
   }
 
   if (isNaN(parsedToDate.getTime())) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid toDate",
-    });
+    return errorResponse(res, "Invalid toDate", 400);
   }
 
   if (parsedToDate < parsedFromDate) {
-    return res.status(400).json({
-      success: false,
-      message: "toDate must be on or after fromDate",
-    });
+    return errorResponse(res, "toDate must be on or after fromDate", 400);
   }
 
   // Calculate total days
@@ -411,17 +423,11 @@ const createBooking = asyncHandler(async (req, res) => {
   ]);
 
   if (!apartment) {
-    return res.status(404).json({
-      success: false,
-      message: "Apartment not found",
-    });
+    return errorResponse(res, "Apartment not found", 400);
   }
 
   if (!event) {
-    return res.status(404).json({
-      success: false,
-      message: "Event not found",
-    });
+    return errorResponse(res, "Event not found", 404);
   }
 
   // ─────────────────────────────────────────────
@@ -458,10 +464,11 @@ const createBooking = asyncHandler(async (req, res) => {
   });
 
   if (overlappingBooking) {
-    return res.status(409).json({
-      success: false,
-      message: `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
-    });
+    return errorResponse(
+      res,
+      `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
+      409,
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -480,6 +487,7 @@ const createBooking = asyncHandler(async (req, res) => {
   const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
 
   let promoterTotal = 0;
+  
   const promotersWithAmount = (promoters || []).map((p) => {
     const promoterAmount = Math.floor(
       (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
@@ -519,6 +527,7 @@ const createBooking = asyncHandler(async (req, res) => {
     existingCustomerBooking.daysOfEvent = eventDays;
     existingCustomerBooking.sqfet = sqfet;
     existingCustomerBooking.promoterRequired = promoterRequired;
+    existingCustomerBooking.stageRequired = stageRequired;
     existingCustomerBooking.promoterCount = promoterCount;
     existingCustomerBooking.promoters = promotersWithAmount;
     existingCustomerBooking.customerDetails = customerDetails;
@@ -543,38 +552,37 @@ const createBooking = asyncHandler(async (req, res) => {
     if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
     existingCustomerBooking.items_total = items_total;
     existingCustomerBooking.gifts_total = gifts_total;
-    existingCustomerBooking.total_amount = itemsAndGiftsTotal;
+    existingCustomerBooking.itemsAndGiftsTotal = itemsAndGiftsTotal;
 
     existingCustomerBooking.updatedBy = req.user?.name;
 
     await existingCustomerBooking.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Booking updated successfully",
-      data: {
-        _id: existingCustomerBooking._id,
-        orderId: existingCustomerBooking.orderId,
-        bookingDetails: {
-          fromDate: existingCustomerBooking.fromDate,
-          toDate: existingCustomerBooking.toDate,
-          daysOfEvent: existingCustomerBooking.daysOfEvent,
-          subTotal: subTotal,
-          discountAmount: discountAmount,
-          taxableAmount: taxableAmount,
-          gstAmount: gstAmount,
-          totalAmount: finalTotalAmount,
-        },
-        itemsDetails: {
-          items_total: items_total,
-          items: orderItems,
-        },
-        giftsDetails: {
-          gifts_total: gifts_total,
-          gifts: orderGifts,
-        },
-      },
-    });
+    return successResponse(res, "Booking updated successfully", 
+    //   {
+    //   _id: existingCustomerBooking._id,
+    //   orderId: existingCustomerBooking.orderId,
+    //   bookingDetails: {
+    //     fromDate: existingCustomerBooking.fromDate,
+    //     toDate: existingCustomerBooking.toDate,
+    //     daysOfEvent: existingCustomerBooking.daysOfEvent,
+    //     subTotal,
+    //     discountAmount,
+    //     taxableAmount,
+    //     gstAmount,
+    //     totalAmount: finalTotalAmount,
+    //   },
+    //   itemsDetails: {
+    //     items_total,
+    //     items: orderItems,
+    //   },
+    //   giftsDetails: {
+    //     gifts_total,
+    //     gifts: orderGifts,
+    //   },
+    // }
+    
+  );
   }
 
   // ─────────────────────────────────────────────
@@ -598,6 +606,7 @@ const createBooking = asyncHandler(async (req, res) => {
     daysOfEvent: eventDays,
     sqfet,
     promoterRequired,
+    stageRequired,
     promoterCount,
     promoters: promotersWithAmount,
     customerDetails,
@@ -618,38 +627,39 @@ const createBooking = asyncHandler(async (req, res) => {
     gifts: orderGifts,
     items_total: items_total,
     gifts_total: gifts_total,
-    total_amount: itemsAndGiftsTotal,
+    itemsAndGiftsTotal: itemsAndGiftsTotal,
     orderStatus: 1,
     createdBy: req.user?.name,
     updatedBy: req.user?.name,
   });
 
-  return res.status(201).json({
-    success: true,
-    message: "Booking created successfully",
-    data: {
-      _id: booking._id,
-      orderId: booking.orderId,
-      bookingDetails: {
-        fromDate: booking.fromDate,
-        toDate: booking.toDate,
-        daysOfEvent: booking.daysOfEvent,
-        subTotal: subTotal,
-        discountAmount: discountAmount,
-        taxableAmount: taxableAmount,
-        gstAmount: gstAmount,
-        totalAmount: finalTotalAmount,
-      },
-      itemsDetails: {
-        items_total: items_total,
-        items: orderItems,
-      },
-      giftsDetails: {
-        gifts_total: gifts_total,
-        gifts: orderGifts,
-      },
-    },
-  });
+  return successResponse(
+    res,
+    "Booking created successfully",
+    // {
+    //   _id: booking._id,
+    //   orderId: booking.orderId,
+    //   bookingDetails: {
+    //     fromDate: booking.fromDate,
+    //     toDate: booking.toDate,
+    //     daysOfEvent: booking.daysOfEvent,
+    //     subTotal,
+    //     discountAmount,
+    //     taxableAmount,
+    //     gstAmount,
+    //     totalAmount: finalTotalAmount,
+    //   },
+    //   itemsDetails: {
+    //     items_total,
+    //     items: orderItems,
+    //   },
+    //   giftsDetails: {
+    //     gifts_total,
+    //     gifts: orderGifts,
+    //   },
+    // },
+    201,
+  );
 });
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -812,18 +822,14 @@ const getOrderStatusCounts = async (filter = {}) => {
 const listAllBookings = asyncHandler(async (req, res) => {
   const { pageNumber, count } = req.body || {};
   if (!pageNumber || !count) {
-    return res
-      .status(400)
-      .json({ success: false, message: "pageNumber and count are required" });
+    return errorResponse(res, "pageNumber and count are required", 400);
   }
   const page = parseInt(pageNumber);
   const limit = parseInt(count);
   const skip = (page - 1) * limit;
   const filterResult = await buildBookingFilters(req.body);
   if (filterResult.error) {
-    return res
-      .status(400)
-      .json({ success: false, message: filterResult.error });
+    return errorResponse(res, filterResult.error, 400);
   }
   const filter = filterResult.filter;
   // =====================================================
@@ -840,17 +846,13 @@ const listAllBookings = asyncHandler(async (req, res) => {
   const statusCounts = await getOrderStatusCounts(filter);
 
   if (filterResult.noMatch) {
-    return res.status(200).json({
-      success: true,
-      message: "Bookings fetched successfully",
-      data: {
-        pageNumber: page,
-        count: limit,
-        totalCount: 0,
-        totalPages: 0,
-        bookings: [],
-        statusCounts,
-      },
+    return successResponse(res, "Bookings fetched successfully", {
+      pageNumber: page,
+      count: limit,
+      totalCount: 0,
+      totalPages: 0,
+      bookings: [],
+      statusCounts,
     });
   }
 
@@ -873,13 +875,13 @@ const listAllBookings = asyncHandler(async (req, res) => {
       gifts,
       items_total,
       gifts_total,
-      total_amount,
       dailySchedule,
       promoters,
       eventDetails,
       apartmentAmount,
       eventAmount,
       promoterTotal,
+      itemsAndGiftsTotal,
       subTotal,
       discountAmount,
       taxableAmount,
@@ -897,6 +899,7 @@ const listAllBookings = asyncHandler(async (req, res) => {
       voiceNote,
       orderNote,
       promoterRequired,
+      stageRequired,
       promoterCount,
       ...rest
     } = item;
@@ -919,17 +922,13 @@ const listAllBookings = asyncHandler(async (req, res) => {
         : null,
     };
   });
-  return res.status(200).json({
-    success: true,
-    message: "Bookings fetched successfully",
-    data: {
-      pageNumber: page,
-      count: limit,
-      totalCount,
-      totalPages: Math.ceil(totalCount / limit),
-      bookings: formattedBookings,
-      statusCounts,
-    },
+  return successResponse(res, "Bookings fetched successfully", {
+    pageNumber: page,
+    count: limit,
+    totalCount,
+    totalPages: Math.ceil(totalCount / limit),
+    bookings: formattedBookings,
+    statusCounts,
   });
 });
 // ─── apartment GET BOOKINGS ──────────────────────────────────────────────────
@@ -939,10 +938,7 @@ const apartmentEventGet = async (req, res) => {
     const { apartmentId } = req.query;
 
     if (!apartmentId) {
-      return res.status(400).json({
-        success: false,
-        message: "apartmentId is required",
-      });
+      return errorResponse(res, "apartmentId is required", 400);
     }
 
     const [apartment, events, items, gifts] = await Promise.all([
@@ -953,10 +949,7 @@ const apartmentEventGet = async (req, res) => {
     ]);
 
     if (!apartment) {
-      return res.status(404).json({
-        success: false,
-        message: "Apartment not found",
-      });
+      return errorResponse(res, "Apartment not found", 404);
     }
     // ================= SQ FEET CHARGES =================
     const sqFeetAmount = [
@@ -993,10 +986,13 @@ const apartmentEventGet = async (req, res) => {
 
       groupedData[categoryKey].itemsData.push({
         _id: item._id,
+        state: item.state,
         item_name: item.item_name,
         item_type: item.item_type,
         amount: item.amount,
+       
         amount_unit: item.amount_unit,
+         quantity: item.quantity,
         item_status: item.item_status,
         item_notes: item.item_notes,
         createdAt: item.createdAt,
@@ -1017,28 +1013,21 @@ const apartmentEventGet = async (req, res) => {
         groupedGifts.liveCounterGifts.push(gift);
       }
     });
-    return res.status(200).json({
-      success: true,
-      message: "Apartment, Events, Items and Gifts fetched successfully",
-      data: {
+    return successResponse(
+      res,
+      "Apartment, Events, Items and Gifts fetched successfully",
+      {
         apartment: {
           ...apartment.toObject(),
           sqFeetAmount,
         },
         events,
         elementsDetails: Object.values(groupedData),
-        // giftsDetails: gifts,
         giftsDetails: groupedGifts,
       },
-    });
+    );
   } catch (error) {
-    console.log("LIST ITEMS GROUP ERROR:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
+    return errorResponse(res, "Internal server error", 400);
   }
 };
 
@@ -1057,34 +1046,30 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   // VALIDATIONS
   // ─────────────────────────────────────────────
   if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-    return res.status(400).json({
-      success: false,
-      message: !orderId ? "orderId is required" : "Invalid orderId",
-    });
+    return errorResponse(
+      res,
+      !orderId ? "orderId is required" : "Invalid orderId",
+      400,
+    );
   }
 
   if (status === undefined || status === null) {
-    return res.status(400).json({
-      success: false,
-      message: "status is required",
-    });
+    return errorResponse(res, "status is required", 400);
   }
 
   const newStatus = Number(status);
   if (![1, 2, 3, 4, 5, 6].includes(newStatus)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid status value. Allowed values: 1,2,3,4,5,6",
-    });
+    return errorResponse(
+      res,
+      "Invalid status value. Allowed values: 1,2,3,4,5,6",
+      400,
+    );
   }
 
   // FIND ORDER
   const order = await orderBooking.findById(orderId);
   if (!order) {
-    return res.status(404).json({
-      success: false,
-      message: "Order not found",
-    });
+    return errorResponse(res, "Order not found", 400);
   }
 
   const currentStatus = order.orderStatus;
@@ -1159,11 +1144,11 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
         !resolvedStatusDocument.fileName ||
         !resolvedStatusDocument.filePath
       ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "statusDocument must contain originalName, fileName, and filePath",
-        });
+        return errorResponse(
+          res,
+          "statusDocument must contain originalName, fileName, and filePath",
+          400,
+        );
       }
     }
   }
@@ -1443,10 +1428,11 @@ const getOrderDetails = asyncHandler(async (req, res) => {
   const { orderId } = req.query;
 
   if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-    return res.status(400).json({
-      success: false,
-      message: !orderId ? "orderId is required" : "Invalid orderId",
-    });
+    return errorResponse(
+      res,
+      !orderId ? "orderId is required" : "Invalid orderId",
+      400,
+    );
   }
 
   const order = await orderBooking
@@ -1459,7 +1445,7 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     .lean();
 
   if (!order) {
-    return res.status(404).json({ success: false, message: "Order not found" });
+    return errorResponse(res, "Order not found", 400);
   }
   const formattedOrderHistory =
     order.orderHistory?.map((history) => ({
@@ -1486,11 +1472,7 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     orderStatusText: getStatusText(order.orderStatus),
     orderHistory: formattedOrderHistory,
   };
-  return res.status(200).json({
-    success: true,
-    message: "Order fetched successfully",
-    data: formattedOrder,
-  });
+  return successResponse(res, "Order fetched successfully", formattedOrder);
 });
 
 // ─────────────────────────────────────────────
@@ -1505,10 +1487,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     // ─────────────────────────────────────────────
 
     if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: "orderId is required",
-      });
+      return errorResponse(res, "orderId is required", 400);
     }
 
     // ─────────────────────────────────────────────
@@ -1520,10 +1499,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     });
 
     if (!orderData) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return errorResponse(res, "Order not found", 400);
     }
 
     if (orderData.isMailSent === true) {
@@ -1725,71 +1701,52 @@ const assignBookingUser = async (req, res) => {
 
     // Only Admin can assign
     if (req.user.userType !== 1) {
-      return res.status(403).json({
-        success: false,
-        message: "Only Admin can assign bookings",
-      });
+      return errorResponse(res, "Only Admin can assign bookings", 403);
     }
 
     // Validation
     if (!orderId) {
-      return res.status(400).json({
-        success: false,
-        message: "orderId is required",
-      });
+      return errorResponse(res, "orderId is required", 400);
     }
 
     if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
+      return errorResponse(res, "userId is required", 400);
     }
 
     if (!assignedToType) {
-      return res.status(400).json({
-        success: false,
-        message: "assignedToType is required",
-      });
+      return errorResponse(res, "assignedToType is required", 400);
     }
 
     if (![1, 2].includes(Number(assignedToType))) {
-      return res.status(400).json({
-        success: false,
-        message: "assignedToType must be 1 (Admin) or 2 (Staff Admin)",
-      });
+      return errorResponse(
+        res,
+        "assignedToType must be 1 (Admin) or 2 (Staff Admin)",
+        400,
+      );
     }
 
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid orderId",
-      });
+      return errorResponse(res, "Invalid orderId", 400);
     }
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid userId",
-      });
+      return errorResponse(res, "Invalid userId", 400);
     }
 
     // Find Booking
     const booking = await orderBooking.findById(orderId);
 
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking not found",
-      });
+      return errorResponse(res, "Booking not found", 400);
     }
 
     // Prevent Reassignment
     if (booking.assignment?.assignedUserId) {
-      return res.status(400).json({
-        success: false,
-        message: `This booking is already assigned to ${booking.assignment.assignedUserName}`,
-      });
+      return errorResponse(
+        res,
+        `This booking is already assigned to ${booking.assignment.assignedUserName}`,
+        400,
+      );
     }
 
     // Find User Based On Type
@@ -1804,10 +1761,7 @@ const assignBookingUser = async (req, res) => {
     }
 
     if (!assignedUser) {
-      return res.status(404).json({
-        success: false,
-        message: "Assigned user not found",
-      });
+      return errorResponse(res, "Assigned user not found", 404);
     }
 
     // Format Date Time
@@ -1845,18 +1799,9 @@ const assignBookingUser = async (req, res) => {
 
     await booking.save();
 
-    return res.status(200).json({
-      success: true,
-      message: "Booking assigned successfully",
-      data: booking,
-    });
+    return successResponse(res, "Booking assigned successfully", booking);
   } catch (error) {
-    console.error("Assign Booking Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal Server Error",
-    });
+    return errorResponse(res, "Internal Server Error", 400);
   }
 };
 

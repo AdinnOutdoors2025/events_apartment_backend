@@ -72,7 +72,7 @@ const hasDataChanged = (existing, incoming, bankDetails) => {
 const uploadExcel = async (req, res) => {
   try {
     if (!req.file) {
-      return errorResponse(res, "Please upload an Excel file", 400);
+      return errorResponse(res, "Please upload an Excel file",null, 400);
     }
 
     // ── LOCAL ONLY: verify file was saved to disk ─────────────────────────────
@@ -83,7 +83,7 @@ const uploadExcel = async (req, res) => {
     ) {
       return errorResponse(
         res,
-        "File upload failed - file not saved properly",
+        "File upload failed - file not saved properly",null,
         400,
       );
     }
@@ -317,10 +317,8 @@ const uploadExcel = async (req, res) => {
         totalUpdated: updatedData.length,
         totalSkipped: skippedData.length,
       },
-    });
+    },201);
   } catch (error) {
-    console.error("uploadExcel error:", error);
-
     // Cleanup local file on hard failure
     if (STORAGE_TYPE === "local" && req.file?.path) {
       try {
@@ -330,7 +328,7 @@ const uploadExcel = async (req, res) => {
       }
     }
 
-    return errorResponse(res, "Error Uploading File", error.message);
+    return errorResponse(res, "Error Uploading File", error.message,);
   }
 };
 // ─────────────────────────────────────────────

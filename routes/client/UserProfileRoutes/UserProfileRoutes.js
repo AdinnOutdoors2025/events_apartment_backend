@@ -3,7 +3,7 @@ const router = express.Router();
 const protect = require("../../../middleware/authMiddleware");
 // const upload = require("../../../middleware/orderNoteFileUpload");
 const { createUploader } = require("../../../middleware/dynamicFileUpload");
-const { upload, processFile } = createUploader("userProfiles");  // 👈 folder name
+const { upload, processFile } = createUploader("userProfiles"); // 👈 folder name
 const {
   saveOrUpdateUserProfile,
   getUserProfile,
@@ -16,8 +16,8 @@ router.post(
   "/profile-save",
   protect,
   upload.fields([{ name: "logoDocument", maxCount: 10 }]),
-   (req, res, next) => {
-    req.processFile = processFile;  // 👈 pass to controller
+  (req, res, next) => {
+    req.processFile = processFile; // 👈 pass to controller
     next();
   },
   saveOrUpdateUserProfile,

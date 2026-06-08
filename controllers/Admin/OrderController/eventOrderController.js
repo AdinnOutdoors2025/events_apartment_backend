@@ -487,18 +487,32 @@ const createBooking = asyncHandler(async (req, res) => {
   const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
 
   let promoterTotal = 0;
-  
+  // OLD CODE
+  // const promotersWithAmount = (promoters || []).map((p) => {
+  //   const promoterAmount = Math.floor(
+  //     (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
+  //   );
+  //   promoterTotal += promoterAmount;
+  //   return {
+  //     ...p,
+  //     promoterAmount,
+  //   };
+  // });
+  // NEW CODE
+  const PROMOTER_PER_DAY_CHARGE =
+    Number(process.env.PROMOTER_PER_DAY_CHARGE) || 1500;
+
   const promotersWithAmount = (promoters || []).map((p) => {
     const promoterAmount = Math.floor(
-      (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
+      PROMOTER_PER_DAY_CHARGE * (p.promoterDays || 0), // 👈 .env value, ignore p.promoterPerDayCharge
     );
     promoterTotal += promoterAmount;
     return {
       ...p,
+      promoterPerDayCharge: PROMOTER_PER_DAY_CHARGE, // 👈 overwrite with .env value before saving
       promoterAmount,
     };
   });
-
   // Calculate subTotal including items and gifts
   const subTotal = Math.floor(
     apartmentAmount + eventAmount + promoterTotal + itemsAndGiftsTotal,
@@ -558,31 +572,32 @@ const createBooking = asyncHandler(async (req, res) => {
 
     await existingCustomerBooking.save();
 
-    return successResponse(res, "Booking updated successfully", 
-    //   {
-    //   _id: existingCustomerBooking._id,
-    //   orderId: existingCustomerBooking.orderId,
-    //   bookingDetails: {
-    //     fromDate: existingCustomerBooking.fromDate,
-    //     toDate: existingCustomerBooking.toDate,
-    //     daysOfEvent: existingCustomerBooking.daysOfEvent,
-    //     subTotal,
-    //     discountAmount,
-    //     taxableAmount,
-    //     gstAmount,
-    //     totalAmount: finalTotalAmount,
-    //   },
-    //   itemsDetails: {
-    //     items_total,
-    //     items: orderItems,
-    //   },
-    //   giftsDetails: {
-    //     gifts_total,
-    //     gifts: orderGifts,
-    //   },
-    // }
-    
-  );
+    return successResponse(
+      res,
+      "Booking updated successfully",
+      //   {
+      //   _id: existingCustomerBooking._id,
+      //   orderId: existingCustomerBooking.orderId,
+      //   bookingDetails: {
+      //     fromDate: existingCustomerBooking.fromDate,
+      //     toDate: existingCustomerBooking.toDate,
+      //     daysOfEvent: existingCustomerBooking.daysOfEvent,
+      //     subTotal,
+      //     discountAmount,
+      //     taxableAmount,
+      //     gstAmount,
+      //     totalAmount: finalTotalAmount,
+      //   },
+      //   itemsDetails: {
+      //     items_total,
+      //     items: orderItems,
+      //   },
+      //   giftsDetails: {
+      //     gifts_total,
+      //     gifts: orderGifts,
+      //   },
+      // }
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -594,7 +609,17 @@ const createBooking = asyncHandler(async (req, res) => {
   // ─────────────────────────────────────────────
   // CREATE NEW BOOKING
   // ─────────────────────────────────────────────
-
+  const initialHistoryEntry = {
+    fromStatus: null,
+    fromStatusText: null,
+    toStatus: 1,
+    toStatusText: "Enquiry",
+    changedBy: req.user?.name || "Admin",
+    changedAt: new Date(),
+    additionalNotes: [],
+    statusDocument: [],
+    voiceDocument: [],
+  };
   const booking = await orderBooking.create({
     orderId,
     apartmentId,
@@ -629,6 +654,7 @@ const createBooking = asyncHandler(async (req, res) => {
     gifts_total: gifts_total,
     itemsAndGiftsTotal: itemsAndGiftsTotal,
     orderStatus: 1,
+    orderHistory: [initialHistoryEntry],
     createdBy: req.user?.name,
     updatedBy: req.user?.name,
   });
@@ -886,7 +912,6 @@ const listAllBookings = asyncHandler(async (req, res) => {
       discountAmount,
       taxableAmount,
       gstAmount,
-      totalAmount,
       orderHistory,
       customerDetails,
       apartmentDetails,
@@ -911,6 +936,10 @@ const listAllBookings = asyncHandler(async (req, res) => {
       apartmentName: item.apartmentId?.ApartmentName || "",
       eventId: item.eventId?._id || null,
       eventName: item.eventId?.eventName || "",
+
+      customerDetails: {
+        brandOrCompanyName: customerDetails?.brandOrCompanyName || "",
+      },
       assignment: item.assignment
         ? {
             assignedUserId: item.assignment.assignedUserId || null,
@@ -990,9 +1019,9 @@ const apartmentEventGet = async (req, res) => {
         item_name: item.item_name,
         item_type: item.item_type,
         amount: item.amount,
-       
+
         amount_unit: item.amount_unit,
-         quantity: item.quantity,
+        quantity: item.quantity,
         item_status: item.item_status,
         item_notes: item.item_notes,
         createdAt: item.createdAt,
@@ -1231,8 +1260,19 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   // CHECK IF SAME TRANSITION ENTRY ALREADY EXISTS
   // If same fromStatus → toStatus: push notes & documents into it
   // ─────────────────────────────────────────────
-  const existingEntryIndex = order.orderHistory.findIndex(
-    (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
+  // const existingEntryIndex = order.orderHistory.findIndex(
+  //   (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
+  // );
+  // ─────────────────────────────────────────────
+  // CHECK IF SAME STATUS (fromStatus === newStatus)
+  // Don't create new entry — push into the existing toStatus entry
+  // ─────────────────────────────────────────────
+  const isSameStatus = currentStatus === newStatus;
+
+  const existingEntryIndex = order.orderHistory.findIndex((h) =>
+    isSameStatus
+      ? h.toStatus === newStatus
+      : h.fromStatus === currentStatus && h.toStatus === newStatus,
   );
 
   if (existingEntryIndex !== -1) {

@@ -87,11 +87,11 @@
 //             numberValue,
 //         },
 //         {
-//           fromTGValues:
+//           FromTGValues:
 //             numberValue,
 //         },
 //         {
-//           toTGValues:
+//           ToTGValues:
 //             numberValue,
 //         },
 //         {
@@ -99,7 +99,7 @@
 //             numberValue,
 //         },
 //         {
-//           perDayRent:
+//           PerDayRent:
 //             numberValue,
 //         }
 //       );
@@ -155,15 +155,15 @@
 //   // RENT FILTER
 //   if (minRent || maxRent) {
 
-//     filter.perDayRent = {};
+//     filter.PerDayRent = {};
 
 //     if (minRent) {
-//       filter.perDayRent.$gte =
+//       filter.PerDayRent.$gte =
 //         Number(minRent);
 //     }
 
 //     if (maxRent) {
-//       filter.perDayRent.$lte =
+//       filter.PerDayRent.$lte =
 //         Number(maxRent);
 //     }
 //   }
@@ -171,16 +171,16 @@
 //   // TG FILTER
 //   if (minTG || maxTG) {
 
-//     filter.fromTGValues = {};
-//     filter.toTGValues = {};
+//     filter.FromTGValues = {};
+//     filter.ToTGValues = {};
 
 //     if (minTG) {
-//       filter.fromTGValues.$gte =
+//       filter.FromTGValues.$gte =
 //         Number(minTG);
 //     }
 
 //     if (maxTG) {
-//       filter.toTGValues.$lte =
+//       filter.ToTGValues.$lte =
 //         Number(maxTG);
 //     }
 //   }
@@ -269,7 +269,7 @@ const buildApartmentFilters = (body, userType) => {
       $in: cityFilter.map((cit) => new RegExp(`^${cit}$`, "i")),
     };
   }
-  // CITY ARRAY FILTER
+  // GroupName ARRAY FILTER
   if (apartmentGroupNameFilter && Array.isArray(apartmentGroupNameFilter) && apartmentGroupNameFilter.length > 0) {
     filter.ApartmentGroupName = {
       $in: apartmentGroupNameFilter.map((cit) => new RegExp(`^${cit}$`, "i")),
@@ -296,17 +296,17 @@ const buildApartmentFilters = (body, userType) => {
 
   // RENT FILTER
   if (minRent || maxRent) {
-    filter.perDayRent = {};
-    if (minRent) filter.perDayRent.$gte = Number(minRent);
-    if (maxRent) filter.perDayRent.$lte = Number(maxRent);
+    filter.PerDayRent = {};
+    if (minRent) filter.PerDayRent.$gte = Number(minRent);
+    if (maxRent) filter.PerDayRent.$lte = Number(maxRent);
   }
 
   // TG FILTER
   if (minTG || maxTG) {
-    filter.fromTGValues = {};
-    filter.toTGValues = {};
-    if (minTG) filter.fromTGValues.$gte = Number(minTG);
-    if (maxTG) filter.toTGValues.$lte = Number(maxTG);
+    filter.FromTGValues = {};
+    filter.ToTGValues = {};
+    if (minTG) filter.FromTGValues.$gte = Number(minTG);
+    if (maxTG) filter.ToTGValues.$lte = Number(maxTG);
   }
 
   return filter;

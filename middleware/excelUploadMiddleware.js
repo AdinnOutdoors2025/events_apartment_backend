@@ -131,7 +131,7 @@ const upload = multer({
   storage: STORAGE_TYPE === "space" ? spacesStorageEngine : localStorageEngine,
   fileFilter,
   limits: {
-    fileSize: 1 * 1024 * 1024, // 5MB
+    fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
 

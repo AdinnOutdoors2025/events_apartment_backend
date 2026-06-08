@@ -71,10 +71,33 @@ const hasDataChanged = (existing, incoming, bankDetails) => {
 
 const uploadExcel = async (req, res) => {
   try {
+       // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
+    const fileUrl = getFileUrl(req, req.file);
+    const fileBuffer = await getFileBuffer(req.file);
+    const data = readExcelFile(fileBuffer);
     if (!req.file) {
-      return errorResponse(res, "Please upload an Excel file",null, 400);
+      return errorResponse(res, "Please upload an Excel file", null, 400);
+    }
+    if (!data || data.length === 0) {
+      return errorResponse(res, "Excel file is empty", null, 400);
     }
 
+    const requiredHeaders = ["ApartmentName", "ApartmentGroupName"];
+
+    const excelHeaders = Object.keys(data[0] || {});
+
+    const missingHeaders = requiredHeaders.filter(
+      (header) => !excelHeaders.includes(header),
+    );
+
+    if (missingHeaders.length > 0) {
+      return errorResponse(
+        res,
+        `Invalid Excel format`,
+        null,
+        400,
+      );
+    }
     // ── LOCAL ONLY: verify file was saved to disk ─────────────────────────────
     if (
       STORAGE_TYPE === "local" &&
@@ -83,15 +106,13 @@ const uploadExcel = async (req, res) => {
     ) {
       return errorResponse(
         res,
-        "File upload failed - file not saved properly",null,
+        "File upload failed - file not saved properly",
+        null,
         400,
       );
     }
 
-    // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
-    const fileUrl = getFileUrl(req, req.file);
-    const fileBuffer = await getFileBuffer(req.file);
-    const data = readExcelFile(fileBuffer);
+ 
 
     const insertedData = [];
     const updatedData = [];
@@ -301,23 +322,28 @@ const uploadExcel = async (req, res) => {
       },
     });
 
-    return successResponse(res, "Excel Upload Completed", {
-      sessionId: session._id,
-      fileName: req.file.originalname,
-      totalRows: data.length,
-      updatedBy: req.user.name,
-      insertedCount: insertedData.length,
-      updatedCount: updatedData.length,
-      skippedCount: skippedData.length,
-      insertedData,
-      updatedData,
-      skippedData,
-      summary: {
-        totalInserted: insertedData.length,
-        totalUpdated: updatedData.length,
-        totalSkipped: skippedData.length,
+    return successResponse(
+      res,
+      "Excel Upload Completed",
+      {
+        sessionId: session._id,
+        fileName: req.file.originalname,
+        totalRows: data.length,
+        updatedBy: req.user.name,
+        insertedCount: insertedData.length,
+        updatedCount: updatedData.length,
+        skippedCount: skippedData.length,
+        insertedData,
+        updatedData,
+        skippedData,
+        summary: {
+          totalInserted: insertedData.length,
+          totalUpdated: updatedData.length,
+          totalSkipped: skippedData.length,
+        },
       },
-    },201);
+      201,
+    );
   } catch (error) {
     // Cleanup local file on hard failure
     if (STORAGE_TYPE === "local" && req.file?.path) {
@@ -328,7 +354,7 @@ const uploadExcel = async (req, res) => {
       }
     }
 
-    return errorResponse(res, "Error Uploading File", error.message,);
+    return errorResponse(res, "Error Uploading File", error.message);
   }
 };
 // ─────────────────────────────────────────────
@@ -553,29 +579,34 @@ const listApartments = async (req, res) => {
         .lean();
     }
 
-    return successResponse(res, "Apartments fetched successfully", {
-      pageNumber,
-      count,
-      totalCount,
-      totalPages: Math.ceil(totalCount / count),
-      file: {
-        sessionId: latestSession?._id,
-        fileName: latestSession?.fileName || "",
-        totalRows: latestSession?.totalRows || 0,
-        insertedCount: latestSession?.insertedCount || 0,
-        updatedCount: latestSession?.updatedCount || 0,
-        skippedCount: latestSession?.skippedCount || 0,
-        uploadedAt: latestSession?.createdAt || null,
+    return successResponse(
+      res,
+      "Apartments fetched successfully",
+      {
+        pageNumber,
+        count,
+        totalCount,
+        totalPages: Math.ceil(totalCount / count),
+        file: {
+          sessionId: latestSession?._id,
+          fileName: latestSession?.fileName || "",
+          totalRows: latestSession?.totalRows || 0,
+          insertedCount: latestSession?.insertedCount || 0,
+          updatedCount: latestSession?.updatedCount || 0,
+          skippedCount: latestSession?.skippedCount || 0,
+          uploadedAt: latestSession?.createdAt || null,
+        },
+        locationFilter: uniqueLocations,
+        cityFilter: uniqueCities,
+        stateFilter: uniqueStates,
+        apartmentGroupNameFilter: uniqueApartmentGroupName,
+        priceRange,
+        apartments: apartmentsWithStatus,
       },
-      locationFilter: uniqueLocations,
-      cityFilter: uniqueCities,
-      stateFilter: uniqueStates,
-      apartmentGroupNameFilter: uniqueApartmentGroupName,
-      priceRange,
-      apartments: apartmentsWithStatus,
-    });
+      200,
+    );
   } catch (error) {
-    return errorResponse(res, "Error Fetching Apartments", error.message);
+    return errorResponse(res, "Error Fetching Apartments", error.message, 500);
   }
 };
 const getApartmentById = async (req, res) => {
@@ -621,9 +652,14 @@ const getApartmentById = async (req, res) => {
       totalOrders: orders.length,
     };
 
-    return successResponse(res, "Apartment fetched successfully", responseData);
+    return successResponse(
+      res,
+      "Apartment fetched successfully",
+      responseData,
+      200,
+    );
   } catch (error) {
-    return errorResponse(res, "Error fetching apartment", error.message);
+    return errorResponse(res, "Error fetching apartment", error.message, 500);
   }
 };
 

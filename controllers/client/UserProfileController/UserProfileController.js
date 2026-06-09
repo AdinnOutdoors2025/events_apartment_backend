@@ -1,4 +1,5 @@
 const UserProfile = require("../../../models/client/UserProfile/UserProfileSchema");
+const User = require("../../../models/client/UserModule/UserSchema");
 const { successResponse, errorResponse } = require("../../../utils/response");
 // const saveOrUpdateUserProfile = async (req, res) => {
 //   try {
@@ -262,14 +263,21 @@ const getUserProfile = async (req, res) => {
     }
   const profile = await UserProfile.findOne({
       userId: userId.trim(),
-    });
-    // const profile = await UserProfile.findById(userId.trim()); // trim whitespace
+    }).lean();
+    
 
     if (!profile) {
       return errorResponse(res, "Profile not found", 400);
     }
-
-    return successResponse(res,"Fetch Data",  profile,200);
+   const user = await User.findById(profile.userId)
+      .select("userPhone")
+      .lean();
+      
+      const responseData = {
+      ...profile,
+      userPhone: user?.userPhone || "",
+    };
+    return successResponse(res,"Fetch Data",  responseData,200);
   } catch (error) {
     if (error.name === "CastError") {
       return errorResponse(res, "Invalid userId format", 400);

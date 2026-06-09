@@ -2,19 +2,14 @@ const EventRate = require("../../../models/Admin/EventHandling/eventRateSchema")
 const { successResponse, errorResponse } = require("../../../utils/response");
 exports.saveEventRate = async (req, res) => {
   try {
-    const { id, eventName, amount, status } = req.body;
-
-    // VALIDATION
-    if (status === undefined || status === null) {
-      return errorResponse(res, "status is required", 400);
-    }
+    const { id, eventName, amount } = req.body;
 
     if (!eventName) {
-      return errorResponse(res, "eventName is required", 400);
+      return errorResponse(res, "eventName is required",null, 400);
     }
 
     if (amount === undefined || amount === null) {
-      return errorResponse(res, "amount is required", 400);
+      return errorResponse(res, "amount is required",null, 400);
     }
 
     let saveData;
@@ -28,7 +23,6 @@ exports.saveEventRate = async (req, res) => {
         {
           eventName: eventName.trim(),
           amount,
-          status,
         },
         {
           new: true,
@@ -36,7 +30,7 @@ exports.saveEventRate = async (req, res) => {
       );
 
       if (!saveData) {
-        return errorResponse(res, "Event Rate not found", 404);
+        return errorResponse(res, "Event Rate not found",null, 404);
       }
 
       return successResponse(res, "Event Rate updated successfully", saveData);
@@ -48,7 +42,6 @@ exports.saveEventRate = async (req, res) => {
     saveData = await EventRate.create({
       eventName: eventName.trim(),
       amount,
-      status,
     });
 
     return successResponse(res, "Event Rate saved successfully", {
@@ -56,14 +49,12 @@ exports.saveEventRate = async (req, res) => {
       updatedBy: req.user?.name || "Admin",
     });
   } catch (error) {
-    console.log(error);
-
     return errorResponse(res, "Internal Server Error", 500);
   }
 };
 
-
 // ====================== LIST EVENT RATE ======================
+
 exports.listEventRate = async (req, res) => {
   try {
     // GET ONLY STATUS 1 EVENTS
@@ -75,7 +66,7 @@ exports.listEventRate = async (req, res) => {
 
     return successResponse(res, "Event Rate list fetched successfully", {
       totalCount: eventList.length,
-       eventList,
+      eventList,
     });
   } catch (error) {
     console.log(error);

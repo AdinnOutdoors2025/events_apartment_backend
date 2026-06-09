@@ -260,18 +260,17 @@ const getUserProfile = async (req, res) => {
     if (!userId) {
       return errorResponse(res, "userId is required", 400);
     }
-
-    const profile = await UserProfile.findById(userId.trim()); // trim whitespace
+  const profile = await UserProfile.findOne({
+      userId: userId.trim(),
+    });
+    // const profile = await UserProfile.findById(userId.trim()); // trim whitespace
 
     if (!profile) {
       return errorResponse(res, "Profile not found", 400);
     }
 
-    return successResponse(res, {
-      data: profile,
-    });
+    return successResponse(res,"Fetch Data",  profile,200);
   } catch (error) {
-    console.log("Error:", error.message); // 👈 check actual error
     if (error.name === "CastError") {
       return errorResponse(res, "Invalid userId format", 400);
     }

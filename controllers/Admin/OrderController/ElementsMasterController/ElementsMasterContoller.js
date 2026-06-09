@@ -106,7 +106,7 @@ const elementsCreateItem = async (req, res) => {
     if (!item_name) {
       return errorResponse(res, "Item name is required");
     }
-    
+
     if (item_type === 2 && !category_id) {
       return res.status(400).json({
         success: false,
@@ -120,7 +120,7 @@ const elementsCreateItem = async (req, res) => {
     if (![1, 2, 3, 4, 5].includes(Number(amount_unit))) {
       return errorResponse(res, "Invalid amount unit");
     }
-if (amount === undefined || amount === null || Number(amount) < 0) {
+    if (amount === undefined || amount === null || Number(amount) < 0) {
       return errorResponse(res, "Valid amount is required");
     }
 
@@ -133,7 +133,7 @@ if (amount === undefined || amount === null || Number(amount) < 0) {
       ) {
         return errorResponse(
           res,
-          "Quantity is required when amount unit is Sq.Ft, Feet or Pieces"
+          "Quantity is required when amount unit is Sq.Ft, Feet or Pieces",
         );
       }
     }
@@ -178,7 +178,7 @@ if (amount === undefined || amount === null || Number(amount) < 0) {
       item.category_id = category_id || null;
       item.amount = amount;
       item.amount_unit = amount_unit;
-       // quantity only for units 3,4,5
+      // quantity only for units 3,4,5
       item.quantity = [3, 4, 5].includes(Number(amount_unit))
         ? Number(quantity)
         : null;
@@ -240,8 +240,17 @@ const elementsListItems = async (req, res) => {
 };
 const saveGift = async (req, res) => {
   try {
-    const { id,state, giftType, giftName, priceType, price, unit, notes, status } =
-      req.body;
+    const {
+      id,
+      state,
+      giftType,
+      giftName,
+      priceType,
+      price,
+      unit,
+      notes,
+      status,
+    } = req.body;
 
     // Gift Type Validation
     if (![1, 2].includes(Number(giftType))) {

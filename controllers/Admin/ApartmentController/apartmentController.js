@@ -71,7 +71,7 @@ const hasDataChanged = (existing, incoming, bankDetails) => {
 
 const uploadExcel = async (req, res) => {
   try {
-       // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
+    // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
     const fileUrl = getFileUrl(req, req.file);
     const fileBuffer = await getFileBuffer(req.file);
     const data = readExcelFile(fileBuffer);
@@ -91,12 +91,7 @@ const uploadExcel = async (req, res) => {
     );
 
     if (missingHeaders.length > 0) {
-      return errorResponse(
-        res,
-        `Invalid Excel format`,
-        null,
-        400,
-      );
+      return errorResponse(res, `Invalid Excel format`, null, 400);
     }
     // ── LOCAL ONLY: verify file was saved to disk ─────────────────────────────
     if (
@@ -111,8 +106,6 @@ const uploadExcel = async (req, res) => {
         400,
       );
     }
-
- 
 
     const insertedData = [];
     const updatedData = [];
@@ -506,6 +499,11 @@ const listApartments = async (req, res) => {
 
     // Add status field to each apartment
     const apartmentsWithStatus = apartments.map((apt) => {
+      const properApartmentName = apt.ApartmentName
+        ? apt.ApartmentName.toLowerCase().replace(/\b\w/g, (char) =>
+            char.toUpperCase(),
+          )
+        : "";
       let status = "unknown";
       if (sessionId) {
         const sid = sessionId.toString();
@@ -526,6 +524,7 @@ const listApartments = async (req, res) => {
       }
       return {
         ...apt,
+            ApartmentName: properApartmentName,
         // PerDayRent: apt.PerDayRent
         //   ? Number(apt.PerDayRent).toLocaleString("en-IN")
         //   : "0",

@@ -684,7 +684,6 @@ const createBooking = asyncHandler(async (req, res) => {
     //     gifts: orderGifts,
     //   },
     // },
-    201,
   );
 });
 const parseDate = (dateString) => {

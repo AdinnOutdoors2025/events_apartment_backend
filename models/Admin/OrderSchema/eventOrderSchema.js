@@ -132,6 +132,10 @@ const PromoterSchema = new mongoose.Schema(
       },
     ],
     promoterAmount: { type: Number, default: 0 },
+    promoterNotes: {
+      type: String,
+      default: "",
+    },
   },
   { _id: false },
 );

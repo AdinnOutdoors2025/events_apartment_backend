@@ -14,11 +14,11 @@ const protect = require("../../../middleware/authMiddleware");
 const { successResponse, errorResponse } = require("../../../utils/response");
 const uploadExcelMiddleware = (req, res, next) => {
   upload.single("file")(req, res, (err) => {
-    console.log("req.file =>", req.file);
-    console.log("req.body =>", req.body);
+    // console.log("req.file =>", req.file);
+    // console.log("req.body =>", req.body);
 
     if (err) {
-      console.log("Upload Error =>", err);
+      // console.log("Upload Error =>", err);
       return errorResponse(res, err.message, null, 400);
     }
 

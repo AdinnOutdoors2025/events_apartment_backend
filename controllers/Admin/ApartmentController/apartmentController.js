@@ -662,37 +662,204 @@ const getApartmentById = async (req, res) => {
   }
 };
 
+// const createOrUpdateParticularApartment = async (req, res) => {
+  
+//     const {
+//       apartmentId,
+//       ApartmentName,
+//       ApartmentGroupName,
+//       City,
+//       State,
+//       Location,
+//       GeoLocation,
+//       photo,
+//       ContactPersonPhone,
+//       ContactPersonName,
+//       PermissionStatus,
+//       Rating,
+//       ResidencyCount,
+//       ApproxPeopleCount,
+//       FromTGValues,
+//       ToTGValues,
+//       PerDayRent,
+
+//       // ✅ flat individual bank fields from req.body
+//       AccountHolderName,
+//       BankName,
+//       AccountNumber,
+//       IfscCode,
+//       PhoneNumber,
+//       UpiID,
+//       isActive,
+//     } = req.body;
+// try {
+//     // =====================================================
+//     // VALIDATION
+//     // =====================================================
+//     if (!ApartmentName || !City || !State || !Location || !ContactPersonPhone) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields are missing",
+//       });
+//     }
+
+//     // ✅ Build bankDetails object from flat fields
+//     const bankDetails = {
+//       AccountHolderName: AccountHolderName ?? "",
+//       BankName: BankName ?? "",
+//       AccountNumber: AccountNumber ?? "",
+//       IfscCode: IfscCode ?? "",
+//       PhoneNumber: PhoneNumber ?? "",
+//       UpiID: UpiID ?? "",
+//     };
+
+//     // =====================================================
+//     // COMMON DATA
+//     // =====================================================
+//     const apartmentData = {
+//       ApartmentName,
+//       ApartmentGroupName,
+//       City,
+//       State,
+//       Location,
+//       GeoLocation,
+//       photo,
+//       ContactPersonPhone,
+//       ContactPersonName,
+//       PermissionStatus,
+//       Rating,
+//       ResidencyCount,
+//       ApproxPeopleCount,
+//       FromTGValues,
+//       ToTGValues,
+//       PerDayRent,
+//       updatedBy: req.user.name,
+//       isActive: isActive ?? true,
+//     };
+
+//     // =====================================================
+//     // ADD apartmentId ONLY IF VALID
+//     // =====================================================
+//     const isValidApartmentId =
+//       apartmentId &&
+//       apartmentId !== null &&
+//       apartmentId !== "" &&
+//       apartmentId !== "null" &&
+//       apartmentId !== "undefined";
+
+//     if (isValidApartmentId) {
+//       apartmentData.apartmentId = apartmentId;
+//     }
+
+//     if (
+//       apartmentData.apartmentId === undefined ||
+//       apartmentData.apartmentId === null ||
+//       apartmentData.apartmentId === ""
+//     ) {
+//       delete apartmentData.apartmentId;
+//     }
+
+//     // =====================================================
+//     // UPDATE
+//     // =====================================================
+//     if (isValidApartmentId) {
+//       let query;
+
+//       if (mongoose.Types.ObjectId.isValid(apartmentId)) {
+//         query = {
+//           $or: [{ _id: apartmentId }, { apartmentId: apartmentId }],
+//         };
+//       } else {
+//         query = { apartmentId: apartmentId };
+//       }
+
+//       const existingApartment = await Apartment.findOne(query);
+
+//       if (!existingApartment) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Invalid apartmentId",
+//         });
+//       }
+
+//       // ✅ dot-notation stores flat fields into bankDetails object
+//       const updatedApartment = await Apartment.findByIdAndUpdate(
+//         existingApartment._id,
+//         {
+//           $set: {
+//             ...apartmentData,
+//             "bankDetails.AccountHolderName": bankDetails.AccountHolderName,
+//             "bankDetails.BankName": bankDetails.BankName,
+//             "bankDetails.AccountNumber": bankDetails.AccountNumber,
+//             "bankDetails.IfscCode": bankDetails.IfscCode,
+//             "bankDetails.PhoneNumber": bankDetails.PhoneNumber,
+//             "bankDetails.UpiID": bankDetails.UpiID,
+//           },
+//         },
+//         { new: true, runValidators: true },
+//       );
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Apartment updated successfully",
+//         data: updatedApartment,
+//       });
+//     }
+
+//     // =====================================================
+//     // CREATE NEW
+//     // =====================================================
+
+//     // ✅ attach the built bankDetails object on create
+//     apartmentData.bankDetails = bankDetails;
+
+//     const newApartment = await Apartment.create(apartmentData);
+
+//     return successResponse(
+//       res,
+//       "Apartments fetched successfully",
+//       newApartment,
+//       201,
+//     );
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return errorResponse(res, "Apartment ID already exists", 400);
+//     }
+
+//     return errorResponse(res, error.message, 500);
+//   }
+// };
 const createOrUpdateParticularApartment = async (req, res) => {
+  const {
+    _id,  // Changed from apartmentId to _id
+    ApartmentName,
+    ApartmentGroupName,
+    City,
+    State,
+    Location,
+    GeoLocation,
+    photo,
+    ContactPersonPhone,
+    ContactPersonName,
+    PermissionStatus,
+    Rating,
+    ResidencyCount,
+    ApproxPeopleCount,
+    FromTGValues,
+    ToTGValues,
+    PerDayRent,
+
+    // ✅ flat individual bank fields from req.body
+    AccountHolderName,
+    BankName,
+    AccountNumber,
+    IfscCode,
+    PhoneNumber,
+    UpiID,
+    isActive,
+  } = req.body;
+  
   try {
-    const {
-      apartmentId,
-      ApartmentName,
-      ApartmentGroupName,
-      City,
-      State,
-      Location,
-      GeoLocation,
-      photo,
-      ContactPersonPhone,
-      ContactPersonName,
-      PermissionStatus,
-      Rating,
-      ResidencyCount,
-      ApproxPeopleCount,
-      FromTGValues,
-      ToTGValues,
-      PerDayRent,
-
-      // ✅ flat individual bank fields from req.body
-      AccountHolderName,
-      BankName,
-      AccountNumber,
-      IfscCode,
-      PhoneNumber,
-      UpiID,
-      isActive,
-    } = req.body;
-
     // =====================================================
     // VALIDATION
     // =====================================================
@@ -738,53 +905,24 @@ const createOrUpdateParticularApartment = async (req, res) => {
     };
 
     // =====================================================
-    // ADD apartmentId ONLY IF VALID
+    // UPDATE by _id ONLY
     // =====================================================
-    const isValidApartmentId =
-      apartmentId &&
-      apartmentId !== null &&
-      apartmentId !== "" &&
-      apartmentId !== "null" &&
-      apartmentId !== "undefined";
+    const isValidId = _id && mongoose.Types.ObjectId.isValid(_id);
 
-    if (isValidApartmentId) {
-      apartmentData.apartmentId = apartmentId;
-    }
-
-    if (
-      apartmentData.apartmentId === undefined ||
-      apartmentData.apartmentId === null ||
-      apartmentData.apartmentId === ""
-    ) {
-      delete apartmentData.apartmentId;
-    }
-
-    // =====================================================
-    // UPDATE
-    // =====================================================
-    if (isValidApartmentId) {
-      let query;
-
-      if (mongoose.Types.ObjectId.isValid(apartmentId)) {
-        query = {
-          $or: [{ _id: apartmentId }, { apartmentId: apartmentId }],
-        };
-      } else {
-        query = { apartmentId: apartmentId };
-      }
-
-      const existingApartment = await Apartment.findOne(query);
+    if (isValidId) {
+      // Find existing apartment by _id
+      const existingApartment = await Apartment.findById(_id);
 
       if (!existingApartment) {
         return res.status(404).json({
           success: false,
-          message: "Invalid apartmentId",
+          message: "Apartment not found with the provided _id",
         });
       }
 
-      // ✅ dot-notation stores flat fields into bankDetails object
+      // ✅ Update using findByIdAndUpdate
       const updatedApartment = await Apartment.findByIdAndUpdate(
-        existingApartment._id,
+        _id,
         {
           $set: {
             ...apartmentData,
@@ -796,7 +934,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
             "bankDetails.UpiID": bankDetails.UpiID,
           },
         },
-        { new: true, runValidators: true },
+        { new: true, runValidators: true }
       );
 
       return res.status(200).json({
@@ -810,6 +948,18 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // CREATE NEW
     // =====================================================
 
+    // ✅ Check if apartment with same name already exists (optional but recommended)
+    const existingApartmentByName = await Apartment.findOne({ 
+      ApartmentName: ApartmentName 
+    });
+    
+    if (existingApartmentByName) {
+      return res.status(400).json({
+        success: false,
+        message: `Apartment with name "${ApartmentName}" already exists. Please use a different name or provide _id to update.`,
+      });
+    }
+
     // ✅ attach the built bankDetails object on create
     apartmentData.bankDetails = bankDetails;
 
@@ -817,13 +967,13 @@ const createOrUpdateParticularApartment = async (req, res) => {
 
     return successResponse(
       res,
-      "Apartments fetched successfully",
+      "Apartment created successfully",
       newApartment,
       201,
     );
   } catch (error) {
     if (error.code === 11000) {
-      return errorResponse(res, "Apartment ID already exists", 400);
+      return errorResponse(res, "Apartment name already exists", 400);
     }
 
     return errorResponse(res, error.message, 500);

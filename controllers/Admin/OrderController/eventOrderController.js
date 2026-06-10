@@ -1646,6 +1646,15 @@ const getOrderDetails = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────
 // SEND ORDER MAIL USING EXISTING ORDER DATA
 // ─────────────────────────────────────────────
+const getCloseWonPoDocument = (orderData) => {
+  if (!orderData?.orderHistory) return null;
+  
+  const closeWonEntry = orderData.orderHistory.find(
+    history => history.toStatus === 5 // Close Won status
+  );
+  
+  return closeWonEntry?.poDocument || null;
+};
 const sendOrderMail = asyncHandler(async (req, res) => {
   try {
     const { orderId } = req.query;
@@ -1719,13 +1728,14 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         contactPersonPhoneNumber:
           orderData?.customerDetails?.contactPersonPhoneNumber || "",
         email: orderData?.customerDetails?.email || "",
-        additionalNotes: orderData?.customerDetails?.additionalNotes || "",
+        additionalNotes: orderData?.customerDetails?.customerAdditionalNotes || "",
         gstNumber: orderData?.customerDetails?.gstNumber || "",
         designation: orderData?.customerDetails?.designation || "",
       },
 
       // Order Details
       orderId: orderData?.orderId,
+      daysOfEvent: orderData?.daysOfEvent,
       fromDate: orderData?.fromDate
         ? new Date(orderData.fromDate)
             .toLocaleDateString("en-GB")
@@ -1770,7 +1780,8 @@ const sendOrderMail = asyncHandler(async (req, res) => {
       totalAmount: orderData?.totalAmount || 0,
 
       // PO Document
-      poDocument: orderData?.poDocument || null,
+      // poDocument: orderData?.poDocument || null,
+      poDocument: getCloseWonPoDocument(orderData) || null,
     };
 
     console.log("📧 PHP MAIL PAYLOAD:", JSON.stringify(mailPayload, null, 2));

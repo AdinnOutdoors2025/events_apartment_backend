@@ -171,11 +171,11 @@ const CustomerDetailsSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    // additionalNotes: {
-    //   type: String,
-    //   trim: true,
-    // },
-    additionalNotes: { type: [String], default: [] },
+    customerAdditionalNotes: {
+      type: String,
+      trim: true,
+    },
+    // additionalNotes: { type: [String], default: [] },
     _customerId: {
       type: mongoose.Schema.Types.ObjectId,
       default: () => new mongoose.Types.ObjectId(),

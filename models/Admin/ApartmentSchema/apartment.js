@@ -1,18 +1,18 @@
 const mongoose = require("mongoose");
-async function generateApartmentId() {
-  const now = new Date();
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(now.getFullYear());
-  const datePrefix = `${dd}${mm}${yyyy}`; // e.g. "22052026"
+// async function generateApartmentId() {
+//   const now = new Date();
+//   const dd = String(now.getDate()).padStart(2, "0");
+//   const mm = String(now.getMonth() + 1).padStart(2, "0");
+//   const yyyy = String(now.getFullYear());
+//   const datePrefix = `${dd}${mm}${yyyy}`; // e.g. "22052026"
 
-  // Count how many apartments already have today's prefix, then increment
-  const count = await mongoose
-    .model("Apartment")
-    .countDocuments({ apartmentId: new RegExp(`^${datePrefix}#`) });
+//   // Count how many apartments already have today's prefix, then increment
+//   const count = await mongoose
+//     .model("Apartment")
+//     .countDocuments({ apartmentId: new RegExp(`^${datePrefix}#`) });
 
-  return `${datePrefix}#${count + 1}`; // e.g. "22052026#1"
-}
+//   return `${datePrefix}#${count + 1}`; // e.g. "22052026#1"
+// }
 const apartmentSchema = new mongoose.Schema(
   {
     // apartmentId: {
@@ -21,13 +21,13 @@ const apartmentSchema = new mongoose.Schema(
     //   trim: true,
     //   unique: true,
     // },
-    apartmentId: {
-      type: String,
-      // trim: true,
-      unique: true,
-      sparse: true,
-      // default: null,
-    },
+    // apartmentId: {
+    //   type: String,
+    //   // trim: true,
+    //   unique: true,
+    //   sparse: true,
+    //   // default: null,
+    // },
     // ── WHICH SESSION FIRST INSERTED THIS RECORD ──
     createdBySession: {
       type: mongoose.Schema.Types.ObjectId,
@@ -95,9 +95,9 @@ const apartmentSchema = new mongoose.Schema(
 );
 // ── PRE-SAVE HOOK: auto-assign apartmentId if missing ────────────────────────
 // ✅ CORRECT - async hook, no next() parameter
-apartmentSchema.pre("save", async function () {
-  if (!this.apartmentId) {
-    this.apartmentId = await generateApartmentId();
-  }
-});
+// apartmentSchema.pre("save", async function () {
+//   if (!this.apartmentId) {
+//     this.apartmentId = await generateApartmentId();
+//   }
+// });
 module.exports = mongoose.model("Apartment", apartmentSchema);

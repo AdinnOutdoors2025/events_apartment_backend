@@ -122,7 +122,7 @@ const registerSendOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userName || !userPhone || !categoryType) {
-      return errorResponse(res, "All fields are required", 400);
+      return errorResponse(res, "All fields are required",null, 400);
     }
 
     // ================= CHECK PHONE =================
@@ -132,7 +132,7 @@ const registerSendOtp = async (req, res) => {
     });
 
     if (existingPhone) {
-      return errorResponse(res, "Phone number already registered", 400);
+      return errorResponse(res, "Phone number already registered",null, 400);
     }
 
     // ================= GENERATE OTP =================
@@ -157,24 +157,21 @@ const registerSendOtp = async (req, res) => {
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to send OTP", 400);
+        return errorResponse(res, "Failed to send OTP",null, 400);
       }
 
-      return res.json({
-        success: true,
-        message: "OTP sent to mobile number",
-      });
+     
+       return successResponse(res, "OTP sent to mobile number", 200);
     } else {
-      return res.json({
-        success: true,
-        message: "OTP sent successfully",
-        testOtp: otp,
-      });
+    
+      return successResponse(res, "OTP sent successfully",{
+        testOtp: otp
+      }, 200);
     }
   } catch (err) {
     console.log("Register Send OTP Error:", err);
 
-    return errorResponse(res, "Server error", 500);
+    return errorResponse(res, "Server error",null, 500);
   }
 };
 
@@ -185,7 +182,7 @@ const verifyRegisterOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone || !otp) {
-      return errorResponse(res, "Phone number and OTP are required", 400);
+      return errorResponse(res, "Phone number and OTP are required",null, 400);
     }
 
     // ================= VERIFY OTP =================
@@ -193,7 +190,7 @@ const verifyRegisterOtp = async (req, res) => {
     const otpError = validateOtp(userPhone, otp);
 
     if (otpError) {
-      return errorResponse(res, otpError, 400);
+      return errorResponse(res, otpError,null, 400);
     }
 
     // ================= GET STORED DATA =================
@@ -201,7 +198,7 @@ const verifyRegisterOtp = async (req, res) => {
     const storedData = otpStore[userPhone];
 
     if (!storedData) {
-      return errorResponse(res, "OTP data not found", 400);
+      return errorResponse(res, "OTP data not found",null, 400);
     }
 
     const { userName, userEmail } = storedData.userData;
@@ -240,7 +237,7 @@ const verifyRegisterOtp = async (req, res) => {
   } catch (err) {
     console.log("Verify Register OTP Error:", err);
 
-    return errorResponse(res, "Server error", 400);
+    return errorResponse(res, "Server error",null, 400);
   }
 };
 
@@ -251,7 +248,7 @@ const resendRegisterOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone) {
-      return errorResponse(res, "Phone number is required", 400);
+      return errorResponse(res, "Phone number is required",null, 400);
     }
 
     // ================= CHECK OTP STORE =================
@@ -259,7 +256,7 @@ const resendRegisterOtp = async (req, res) => {
     const storedData = otpStore[userPhone];
 
     if (!storedData) {
-      return errorResponse(res, "No registration request found", 400);
+      return errorResponse(res, "No registration request found",null, 400);
     }
 
     // ================= GENERATE NEW OTP =================
@@ -280,7 +277,7 @@ const resendRegisterOtp = async (req, res) => {
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to resend OTP", 500);
+        return errorResponse(res, "Failed to resend OTP",null, 500);
       }
 
       return successResponse(res, "OTP resent successfully", 200);
@@ -297,7 +294,7 @@ const resendRegisterOtp = async (req, res) => {
   } catch (err) {
     console.log("Resend OTP Error:", err);
 
-    return errorResponse(res, "Server error", 500);
+    return errorResponse(res, "Server error",null, 500);
   }
 };
 
@@ -306,7 +303,7 @@ const loginSendOtp = async (req, res) => {
 
   try {
     if (!userPhone) {
-      return errorResponse(res, "Phone number is required", 400);
+      return errorResponse(res, "Phone number is required",null, 400);
     }
 
     // ================= FIND USER =================
@@ -316,7 +313,7 @@ const loginSendOtp = async (req, res) => {
     });
 
     if (!user) {
-      return errorResponse(res, "User not found", 404);
+      return errorResponse(res, "User not found",null, 404);
     }
 
     // ================= GENERATE OTP =================
@@ -336,7 +333,7 @@ const loginSendOtp = async (req, res) => {
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to send login OTP", 500);
+        return errorResponse(res, "Failed to send login OTP",null, 500);
       }
 
       return successResponse(res, "Login OTP sent successfully", 200);
@@ -353,7 +350,7 @@ const loginSendOtp = async (req, res) => {
   } catch (err) {
     console.log("Login Send OTP Error:", err);
 
-    return errorResponse(res, "Server error", 500);
+    return errorResponse(res, "Server error",null, 500);
   }
 };
 
@@ -362,7 +359,7 @@ const loginVerifyOtp = async (req, res) => {
 
   try {
     if (!userPhone || !otp) {
-      return errorResponse(res, "Phone and OTP required", 400);
+      return errorResponse(res, "Phone and OTP required",null, 400);
     }
 
     // ================= VALIDATE OTP =================
@@ -370,7 +367,7 @@ const loginVerifyOtp = async (req, res) => {
     const otpError = validateOtp(userPhone, otp);
 
     if (otpError) {
-      return errorResponse(res, otpError, 400);
+      return errorResponse(res, otpError,null, 400);
     }
 
     // ================= FIND USER =================
@@ -380,7 +377,7 @@ const loginVerifyOtp = async (req, res) => {
     });
 
     if (!user) {
-      return errorResponse(res, "User not found", 404);
+      return errorResponse(res, "User not found",null, 404);
     }
 
     // ================= DELETE OTP =================
@@ -403,7 +400,7 @@ const loginVerifyOtp = async (req, res) => {
   } catch (err) {
     console.log("Login Verify OTP Error:", err);
 
-    return errorResponse(res, "Server error", 500);
+    return errorResponse(res, "Server error",null, 500);
   }
 };
 
@@ -414,7 +411,7 @@ const resendLoginOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone) {
-      return errorResponse(res, "Phone number is required", 400);
+      return errorResponse(res, "Phone number is required",null, 400);
     }
 
     // ================= CHECK OTP STORE =================
@@ -424,7 +421,7 @@ const resendLoginOtp = async (req, res) => {
     if (!storedData) {
       return errorResponse(
         res,
-        "No login request found. Please login again",
+        "No login request found. Please login again",null,
         400,
       );
     }
@@ -447,7 +444,7 @@ const resendLoginOtp = async (req, res) => {
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to resend login OTP", 500);
+        return errorResponse(res, "Failed to resend login OTP",null, 500);
       }
 
       return successResponse(res, "Login OTP resent successfully", 200);
@@ -459,7 +456,7 @@ const resendLoginOtp = async (req, res) => {
   } catch (err) {
     console.log("Resend Login OTP Error:", err);
 
-    return errorResponse(res, "Server error", 500);
+    return errorResponse(res, "Server error",null, 500);
   }
 };
 // const listUsers = async (req, res) => {
@@ -511,7 +508,7 @@ const listUsers = async (req, res) => {
     const allUsers = [...formattedAdmins, ...formattedUsers];
 
     if (allUsers.length === 0) {
-      return errorResponse(res, "No users found", 404);
+      return errorResponse(res, "No users found",null, 404);
     }
 
     return successResponse(res, "Users retrieved successfully", {
@@ -520,7 +517,7 @@ const listUsers = async (req, res) => {
     });
   } catch (err) {
     console.error("List Users Error:", err);
-    return errorResponse(res, "Server error while fetching users", 500);
+    return errorResponse(res, "Server error while fetching users",null, 500);
   }
 };
 module.exports = {

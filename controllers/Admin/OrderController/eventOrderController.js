@@ -48,540 +48,640 @@ function getFileCategory(mimeType) {
 }
 
 const createBooking = asyncHandler(async (req, res) => {
-  const {
-    id,
-    apartmentId,
-    eventId,
-    fromDate,
-    toDate,
-    daysOfEvent,
-    promoterRequired,
-    stageRequired,
-    promoterCount,
-    promoters,
-    customerDetails,
-    discountPercentage,
-    discountType,
-    sqfet,
-    dailySchedule,
-    items = [],
-    gifts = [],
-    orderNoteText,
-    orderNoteFiles,
-  } = req.body;
+  try {
+    const {
+      id,
+      apartmentId,
+      eventId,
+      fromDate,
+      toDate,
+      daysOfEvent,
+      promoterRequired,
+      stageRequired,
+      promoterCount,
+      promoters,
+      customerDetails,
+      discountType,
+      discountPercentage,
+      sqfet,
+      dailySchedule,
+      items = [],
+      gifts = [],
+      orderNoteText,
+      orderNoteFiles,
+    } = req.body;
 
-  // ─────────────────────────────────────────────
-  // VALIDATE ITEMS & GIFTS
-  // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // VALIDATE ITEMS & GIFTS
+    // ─────────────────────────────────────────────
 
-  // Note: items and gifts are optional now
-  let items_total = 0;
-  let gifts_total = 0;
-  let itemsAndGiftsTotal = 0;
-  let orderItems = [];
-  let orderGifts = [];
+    // Note: items and gifts are optional now
+    let items_total = 0;
+    let gifts_total = 0;
+    let itemsAndGiftsTotal = 0;
+    let orderItems = [];
+    let orderGifts = [];
 
-  // Process items if provided
-  if (items && items.length > 0) {
-    // Validate items array entries
-    for (let i = 0; i < items.length; i++) {
-      const { item_id, quantity } = items[i];
-      if (!item_id) {
-        return errorResponse(res, `items[${i}]: item_id is required`, 400);
+    // Process items if provided
+    if (items && items.length > 0) {
+      // Validate items array entries
+      for (let i = 0; i < items.length; i++) {
+        const { item_id, quantity } = items[i];
+        if (!item_id) {
+          return errorResponse(
+            res,
+            `items[${i}]: item_id is required`,
+            null,
+            400,
+          );
+        }
+        if (
+          !quantity ||
+          !Number.isInteger(Number(quantity)) ||
+          Number(quantity) < 1
+        ) {
+          return errorResponse(
+            res,
+            `items[${i}]: quantity must be a positive integer`,
+            null,
+            400,
+          );
+        }
       }
-      if (
-        !quantity ||
-        !Number.isInteger(Number(quantity)) ||
-        Number(quantity) < 1
-      ) {
-        return errorResponse(
-          res,
-          `items[${i}]: quantity must be a positive integer`,
-          400,
-        );
+
+      // Fetch all Items from DB
+      const itemIds = [...new Set(items.map((i) => i.item_id))];
+      const dbItems = await ItemMaster.find({
+        _id: { $in: itemIds },
+        item_status: 1,
+      });
+      const dbItemMap = {};
+      dbItems.forEach((doc) => {
+        dbItemMap[doc._id.toString()] = doc;
+      });
+
+      // Verify every requested item was found
+      for (let i = 0; i < items.length; i++) {
+        if (!dbItemMap[items[i].item_id]) {
+          return errorResponse(
+            res,
+            `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
+            null,
+            404,
+          );
+        }
+      }
+
+      // Build order items + accumulate items_total
+      orderItems = items.map(({ item_id, quantity }) => {
+        const doc = dbItemMap[item_id];
+        const parsedCount = Number(quantity);
+        const item_amount = doc.amount * parsedCount;
+        items_total += item_amount;
+
+        return {
+          item_id: doc._id,
+          item_name: doc.item_name,
+          state: doc.state,
+          item_type: doc.item_type,
+          quantity: parsedCount,
+          unit_amount: doc.amount,
+          amount_unit: doc.amount_unit,
+          item_amount,
+        };
+      });
+    }
+
+    // Process gifts if provided
+    if (gifts && gifts.length > 0) {
+      // Validate gifts array entries
+      for (let i = 0; i < gifts.length; i++) {
+        const { gift_id, quantity } = gifts[i];
+        if (!gift_id) {
+          return errorResponse(
+            res,
+            `gifts[${i}]: gift_id is required`,
+            null,
+            400,
+          );
+        }
+        if (
+          !quantity ||
+          !Number.isInteger(Number(quantity)) ||
+          Number(quantity) < 1
+        ) {
+          return errorResponse(
+            res,
+            `gifts[${i}]: quantity must be a positive integer`,
+            null,
+            400,
+          );
+        }
+      }
+
+      // Fetch all Gifts from DB
+      const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
+      const dbGifts = await GiftMaster.find({
+        _id: { $in: giftIds },
+        status: 1,
+      });
+      const dbGiftMap = {};
+      dbGifts.forEach((doc) => {
+        dbGiftMap[doc._id.toString()] = doc;
+      });
+
+      // Verify every requested gift was found
+      for (let i = 0; i < gifts.length; i++) {
+        if (!dbGiftMap[gifts[i].gift_id]) {
+          return errorResponse(
+            res,
+            `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
+            null,
+            404,
+          );
+        }
+      }
+
+      // Build order gifts + accumulate gifts_total
+      orderGifts = gifts.map(({ gift_id, quantity }) => {
+        const doc = dbGiftMap[gift_id];
+        const parsedCount = Number(quantity);
+        const gift_amount = doc.price * parsedCount;
+        gifts_total += gift_amount;
+
+        return {
+          gift_id: doc._id,
+          gift_name: doc.giftName,
+          gift_type: doc.giftType,
+          quantity: parsedCount,
+          unit_price: doc.price,
+          price_type: doc.priceType,
+          gift_amount,
+        };
+      });
+    }
+
+    itemsAndGiftsTotal = items_total + gifts_total;
+
+    // ─────────────────────────────────────────────
+    // FIND EXISTING BOOKING BY _id (if provided)
+    // ─────────────────────────────────────────────
+
+    let existingCustomerBooking = null;
+
+    if (id) {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return errorResponse(res, "Invalid booking id", null, 400);
+      }
+
+      existingCustomerBooking = await orderBooking.findById(id);
+
+      if (!existingCustomerBooking) {
+        return errorResponse(res, "Booking not found", null, 400);
       }
     }
 
-    // Fetch all Items from DB
-    const itemIds = [...new Set(items.map((i) => i.item_id))];
-    const dbItems = await ItemMaster.find({
-      _id: { $in: itemIds },
-      item_status: 1,
-    });
-    const dbItemMap = {};
-    dbItems.forEach((doc) => {
-      dbItemMap[doc._id.toString()] = doc;
-    });
+    // ─────────────────────────────────────────────
+    // VALIDATE DAILY SCHEDULE
+    // ─────────────────────────────────────────────
 
-    // Verify every requested item was found
-    for (let i = 0; i < items.length; i++) {
-      if (!dbItemMap[items[i].item_id]) {
-        return errorResponse(
-          res,
-          `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
-          404,
-        );
-      }
-    }
-
-    // Build order items + accumulate items_total
-    orderItems = items.map(({ item_id, quantity }) => {
-      const doc = dbItemMap[item_id];
-      const parsedCount = Number(quantity);
-      const item_amount = doc.amount * parsedCount;
-      items_total += item_amount;
-
-      return {
-        item_id: doc._id,
-        item_name: doc.item_name,
-        state: doc.state,
-        item_type: doc.item_type,
-        quantity: parsedCount,
-        unit_amount: doc.amount,
-        amount_unit: doc.amount_unit,
-        item_amount,
-      };
-    });
-  }
-
-  // Process gifts if provided
-  if (gifts && gifts.length > 0) {
-    // Validate gifts array entries
-    for (let i = 0; i < gifts.length; i++) {
-      const { gift_id, quantity } = gifts[i];
-      if (!gift_id) {
-        return errorResponse(res, `gifts[${i}]: gift_id is required`, 400);
-      }
-      if (
-        !quantity ||
-        !Number.isInteger(Number(quantity)) ||
-        Number(quantity) < 1
-      ) {
-        return errorResponse(
-          res,
-          `gifts[${i}]: quantity must be a positive integer`,
-          400,
-        );
-      }
-    }
-
-    // Fetch all Gifts from DB
-    const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
-    const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
-    const dbGiftMap = {};
-    dbGifts.forEach((doc) => {
-      dbGiftMap[doc._id.toString()] = doc;
-    });
-
-    // Verify every requested gift was found
-    for (let i = 0; i < gifts.length; i++) {
-      if (!dbGiftMap[gifts[i].gift_id]) {
-        return errorResponse(
-          res,
-          `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
-          404,
-        );
-      }
-    }
-
-    // Build order gifts + accumulate gifts_total
-    orderGifts = gifts.map(({ gift_id, quantity }) => {
-      const doc = dbGiftMap[gift_id];
-      const parsedCount = Number(quantity);
-      const gift_amount = doc.price * parsedCount;
-      gifts_total += gift_amount;
-
-      return {
-        gift_id: doc._id,
-        gift_name: doc.giftName,
-        gift_type: doc.giftType,
-        quantity: parsedCount,
-        unit_price: doc.price,
-        price_type: doc.priceType,
-        gift_amount,
-      };
-    });
-  }
-
-  itemsAndGiftsTotal = items_total + gifts_total;
-
-  // ─────────────────────────────────────────────
-  // FIND EXISTING BOOKING BY _id (if provided)
-  // ─────────────────────────────────────────────
-
-  let existingCustomerBooking = null;
-
-  if (id) {
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return errorResponse(res, "Invalid booking id", 400);
-    }
-
-    existingCustomerBooking = await orderBooking.findById(id);
-
-    if (!existingCustomerBooking) {
-      return errorResponse(res, "Booking not found", 400);
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // VALIDATE DAILY SCHEDULE
-  // ─────────────────────────────────────────────
-
-  if (
-    !dailySchedule ||
-    !Array.isArray(dailySchedule) ||
-    dailySchedule.length === 0
-  ) {
-    return errorResponse(
-      res,
-      "dailySchedule is required with at least one day schedule",
-      400,
-    );
-  }
-
-  // Validate each day's schedule
-  for (const schedule of dailySchedule) {
-    if (!schedule.days) {
-      return errorResponse(res, "Each schedule must have a days", 400);
-    }
-
-    if (!schedule.fromTime) {
-      return errorResponse(
-        res,
-        `fromTime is required for day ${schedule.days}`,
-        400,
-      );
-    }
-
-    if (!schedule.toTime) {
-      return errorResponse(
-        res,
-        `toTime is required for day ${schedule.days}`,
-        400,
-      );
-    }
-
-    // Validate time format (HH:MM AM/PM)
-    const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
     if (
-      !timeRegex.test(schedule.fromTime) ||
-      !timeRegex.test(schedule.toTime)
+      !dailySchedule ||
+      !Array.isArray(dailySchedule) ||
+      dailySchedule.length === 0
     ) {
       return errorResponse(
         res,
-        `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
+        "dailySchedule is required with at least one day schedule",
+        null,
         400,
       );
     }
 
-    // Check that daysOfEvent matches the number of schedules
-    if (daysOfEvent && schedule.days > daysOfEvent) {
+    // Validate each day's schedule
+    for (const schedule of dailySchedule) {
+      if (!schedule.days) {
+        return errorResponse(res, "Each schedule must have a days", null, 400);
+      }
+
+      if (!schedule.fromTime) {
+        return errorResponse(
+          res,
+          `fromTime is required for day ${schedule.days}`,
+          null,
+          400,
+        );
+      }
+
+      if (!schedule.toTime) {
+        return errorResponse(
+          res,
+          `toTime is required for day ${schedule.days}`,
+          null,
+          400,
+        );
+      }
+
+      // Validate time format (HH:MM AM/PM)
+      const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
+      if (
+        !timeRegex.test(schedule.fromTime) ||
+        !timeRegex.test(schedule.toTime)
+      ) {
+        return errorResponse(
+          res,
+          `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
+          null,
+          400,
+        );
+      }
+
+      // Check that daysOfEvent matches the number of schedules
+      if (daysOfEvent && schedule.days > daysOfEvent) {
+        return errorResponse(
+          res,
+          `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
+          null,
+          400,
+        );
+      }
+    }
+
+    // Check if the number of schedules matches daysOfEvent
+    if (daysOfEvent && dailySchedule.length !== daysOfEvent) {
       return errorResponse(
         res,
-        `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
+        `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
+        null,
         400,
       );
     }
-  }
 
-  // Check if the number of schedules matches daysOfEvent
-  if (daysOfEvent && dailySchedule.length !== daysOfEvent) {
-    return errorResponse(
-      res,
-      `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
-      400,
-    );
-  }
-
-  // Check for duplicate day numbers
-  const dayNumbers = dailySchedule.map((s) => s.days);
-  const hasDuplicates = new Set(dayNumbers).size !== dayNumbers.length;
-  if (hasDuplicates) {
-    return errorResponse(
-      res,
-      "Duplicate day numbers found in dailySchedule",
-      400,
-    );
-  }
-
-  // Check that day numbers are sequential starting from 1
-  const sortedDays = [...dayNumbers].sort((a, b) => a - b);
-  for (let i = 0; i < sortedDays.length; i++) {
-    if (sortedDays[i] !== i + 1) {
+    // Check for duplicate day numbers
+    const dayNumbers = dailySchedule.map((s) => s.days);
+    const hasDuplicates = new Set(dayNumbers).size !== dayNumbers.length;
+    if (hasDuplicates) {
       return errorResponse(
         res,
-        `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
+        "Duplicate day numbers found in dailySchedule",
+        null,
         400,
       );
     }
-  }
 
-  // ─────────────────────────────────────────────
-  // ORDER NOTE
-  // ─────────────────────────────────────────────
+    // Check that day numbers are sequential starting from 1
+    const sortedDays = [...dayNumbers].sort((a, b) => a - b);
+    for (let i = 0; i < sortedDays.length; i++) {
+      if (sortedDays[i] !== i + 1) {
+        return errorResponse(
+          res,
+          `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
+          null,
+          400,
+        );
+      }
+    }
 
-  const uploadedFiles = req.files?.orderNoteFiles || [];
+    // ─────────────────────────────────────────────
+    // ORDER NOTE
+    // ─────────────────────────────────────────────
 
-  const orderNote = {
-    text: orderNoteText || "",
-    files: uploadedFiles.map((file) => ({
-      originalName: file.originalname,
-      fileName: file.filename,
-      filePath: file.path,
-      mimeType: file.mimetype,
-      size: file.size,
-      fileType: getFileCategory(file.mimetype),
-    })),
-  };
+    const uploadedFiles = req.files?.orderNoteFiles || [];
 
-  // If no files uploaded but order_notes text exists
-  if (!uploadedFiles.length && orderNoteText) {
-    orderNote.files = [];
-  }
-
-  // ─────────────────────────────────────────────
-  // VALIDATE APARTMENT ID
-  // ─────────────────────────────────────────────
-
-  if (!apartmentId || !mongoose.Types.ObjectId.isValid(apartmentId)) {
-    return errorResponse(
-      res,
-      !apartmentId ? "apartmentId is required" : "Invalid apartmentId",
-      400,
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // VALIDATE EVENT ID
-  // ─────────────────────────────────────────────
-
-  if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
-    return errorResponse(
-      res,
-      !eventId ? "eventId is required" : "Invalid eventId",
-      400,
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // VALIDATE PHONE NUMBER
-  // ─────────────────────────────────────────────
-
-  const contactPersonPhoneNumber = customerDetails?.contactPersonPhoneNumber;
-  if (!contactPersonPhoneNumber) {
-    return errorResponse(
-      res,
-      "customerDetails.contactPersonPhoneNumber is required",
-      400,
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // VALIDATE DATES
-  // ─────────────────────────────────────────────
-
-  if (!fromDate || !toDate) {
-    return errorResponse(
-      res,
-      !fromDate ? "fromDate is required" : "toDate is required",
-      400,
-    );
-  }
-
-  const parsedFromDate = new Date(fromDate);
-  const parsedToDate = new Date(toDate);
-
-  if (isNaN(parsedFromDate.getTime())) {
-    return errorResponse(res, "Invalid fromDate", 400);
-  }
-
-  if (isNaN(parsedToDate.getTime())) {
-    return errorResponse(res, "Invalid toDate", 400);
-  }
-
-  if (parsedToDate < parsedFromDate) {
-    return errorResponse(res, "toDate must be on or after fromDate", 400);
-  }
-
-  // Calculate total days
-  const totalDays =
-    Math.ceil((parsedToDate - parsedFromDate) / (1000 * 60 * 60 * 24)) + 1;
-
-  // Use provided daysOfEvent or calculate from dates
-  let eventDays = daysOfEvent;
-  if (!eventDays) {
-    eventDays = totalDays;
-  }
-
-  // ─────────────────────────────────────────────
-  // FETCH APARTMENT & EVENT
-  // ─────────────────────────────────────────────
-
-  const [apartment, event] = await Promise.all([
-    Apartment.findById(apartmentId).lean(),
-    EventBook.findById(eventId).lean(),
-  ]);
-
-  if (!apartment) {
-    return errorResponse(res, "Apartment not found", 400);
-  }
-
-  if (!event) {
-    return errorResponse(res, "Event not found", 404);
-  }
-
-  // ─────────────────────────────────────────────
-  // STORE SNAPSHOT DETAILS
-  // ─────────────────────────────────────────────
-
-  const apartmentDetails = {
-    _id: apartment._id,
-    apartmentName: apartment.ApartmentName,
-    apartmentAddress: apartment.ApartmentAddress,
-    city: apartment.City,
-    location: apartment.Location,
-    perDayRent: apartment.PerDayRent,
-    contactPersonName: apartment.ContactPersonName,
-    contactPersonPhone: apartment.ContactPersonPhone,
-  };
-
-  const eventDetails = {
-    _id: event._id,
-    eventName: event.eventName,
-    amount: event.amount,
-    description: event.description,
-  };
-
-  // ─────────────────────────────────────────────
-  // CHECK OVERLAPPING BOOKINGS (excluding current booking)
-  // ─────────────────────────────────────────────
-
-  const overlappingBooking = await orderBooking.findOne({
-    _id: { $ne: existingCustomerBooking?._id },
-    apartmentId,
-    fromDate: { $lte: parsedToDate },
-    toDate: { $gte: parsedFromDate },
-  });
-
-  if (overlappingBooking) {
-    return errorResponse(
-      res,
-      `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
-      409,
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // CALCULATE AMOUNTS
-  // ─────────────────────────────────────────────
-
-  // const apartmentAmount = Math.floor(
-  //   (apartment.perDayRent || 0) * (eventDays || 0),
-  // );
-
-  // const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
-  const apartmentAmount = Math.floor(
-    (apartment.PerDayRent || 0) * (sqfet || 1) * (eventDays || 0),
-  );
-
-  const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
-
-  let promoterTotal = 0;
-  // OLD CODE
-  // const promotersWithAmount = (promoters || []).map((p) => {
-  //   const promoterAmount = Math.floor(
-  //     (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
-  //   );
-  //   promoterTotal += promoterAmount;
-  //   return {
-  //     ...p,
-  //     promoterAmount,
-  //   };
-  // });
-  // NEW CODE
-  const PROMOTER_PER_DAY_CHARGE =
-    Number(process.env.PROMOTER_PER_DAY_CHARGE) || 1500;
-
-  const promotersWithAmount = (promoters || []).map((p) => {
-    const promoterAmount = Math.floor(
-      PROMOTER_PER_DAY_CHARGE * (p.promoterDays || 0), // 👈 .env value, ignore p.promoterPerDayCharge
-    );
-    promoterTotal += promoterAmount;
-    return {
-      ...p,
-      promoterPerDayCharge: PROMOTER_PER_DAY_CHARGE, // 👈 overwrite with .env value before saving
-      promoterAmount,
+    const orderNote = {
+      text: orderNoteText || "",
+      files: uploadedFiles.map((file) => ({
+        originalName: file.originalname,
+        fileName: file.filename,
+        filePath: file.path,
+        mimeType: file.mimetype,
+        size: file.size,
+        fileType: getFileCategory(file.mimetype),
+      })),
     };
-  });
-  // Calculate subTotal including items and gifts
-  const subTotal = Math.floor(
-    apartmentAmount + eventAmount + promoterTotal + itemsAndGiftsTotal,
-  );
 
-  let discountAmount = 0;
+    // If no files uploaded but order_notes text exists
+    if (!uploadedFiles.length && orderNoteText) {
+      orderNote.files = [];
+    }
 
-  // discountType: 1 = Percentage, 2 = Flat
-  if (discountType === 1) {
-    discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
-  } else if (discountType === 2) {
-    discountAmount = Math.floor(discountPercentage || 0);
-  }
+    // ─────────────────────────────────────────────
+    // VALIDATE APARTMENT ID
+    // ─────────────────────────────────────────────
 
-  const taxableAmount = Math.floor(subTotal - discountAmount);
-  const gstAmount = Math.floor((taxableAmount * 18) / 100);
-  const finalTotalAmount = Math.floor(taxableAmount + gstAmount);
+    if (!apartmentId || !mongoose.Types.ObjectId.isValid(apartmentId)) {
+      return errorResponse(
+        res,
+        !apartmentId ? "apartmentId is required" : "Invalid apartmentId",
+        null,
+        400,
+      );
+    }
 
-  // ─────────────────────────────────────────────
-  // UPDATE EXISTING BOOKING
-  // ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────
+    // VALIDATE EVENT ID
+    // ─────────────────────────────────────────────
 
-  if (existingCustomerBooking) {
-    existingCustomerBooking.fromDate = parsedFromDate;
-    existingCustomerBooking.toDate = parsedToDate;
-    existingCustomerBooking.daysOfEvent = eventDays;
-    existingCustomerBooking.sqfet = sqfet;
-    existingCustomerBooking.promoterRequired = promoterRequired;
-    existingCustomerBooking.stageRequired = stageRequired;
-    existingCustomerBooking.promoterCount = promoterCount;
-    existingCustomerBooking.promoters = promotersWithAmount;
-    existingCustomerBooking.customerDetails = customerDetails;
-    existingCustomerBooking.discountPercentage = discountPercentage;
-    existingCustomerBooking.discountType = discountType;
-    existingCustomerBooking.apartmentAmount = apartmentAmount;
-    // existingCustomerBooking.sqfetAmount = sqfetAmount;
-    existingCustomerBooking.eventAmount = eventAmount;
-    existingCustomerBooking.promoterTotal = promoterTotal;
-    existingCustomerBooking.subTotal = subTotal;
-    existingCustomerBooking.discountAmount = discountAmount;
-    existingCustomerBooking.taxableAmount = taxableAmount;
-    existingCustomerBooking.gstAmount = gstAmount;
-    existingCustomerBooking.totalAmount = finalTotalAmount;
-    existingCustomerBooking.apartmentDetails = apartmentDetails;
-    existingCustomerBooking.eventDetails = eventDetails;
-    existingCustomerBooking.orderNote = orderNote;
-    existingCustomerBooking.dailySchedule = dailySchedule;
+    if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+      return errorResponse(
+        res,
+        !eventId ? "eventId is required" : "Invalid eventId",
+        null,
+        400,
+      );
+    }
 
-    // Add items and gifts to existing booking
-    if (orderItems.length > 0) existingCustomerBooking.items = orderItems;
-    if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
-    existingCustomerBooking.items_total = items_total;
-    existingCustomerBooking.gifts_total = gifts_total;
-    existingCustomerBooking.itemsAndGiftsTotal = itemsAndGiftsTotal;
+    // ─────────────────────────────────────────────
+    // VALIDATE PHONE NUMBER
+    // ─────────────────────────────────────────────
 
-    existingCustomerBooking.updatedBy = req.user?.name;
+    const contactPersonPhoneNumber = customerDetails?.contactPersonPhoneNumber;
+    if (!contactPersonPhoneNumber) {
+      return errorResponse(
+        res,
+        "customerDetails.contactPersonPhoneNumber is required",
+        null,
+        400,
+      );
+    }
 
-    await existingCustomerBooking.save();
+    // ─────────────────────────────────────────────
+    // VALIDATE DATES
+    // ─────────────────────────────────────────────
+
+    if (!fromDate || !toDate) {
+      return errorResponse(
+        res,
+        !fromDate ? "fromDate is required" : "toDate is required",
+        null,
+        400,
+      );
+    }
+
+    const parsedFromDate = new Date(fromDate);
+    const parsedToDate = new Date(toDate);
+
+    if (isNaN(parsedFromDate.getTime())) {
+      return errorResponse(res, "Invalid fromDate", null, 400);
+    }
+
+    if (isNaN(parsedToDate.getTime())) {
+      return errorResponse(res, "Invalid toDate", null, 400);
+    }
+
+    if (parsedToDate < parsedFromDate) {
+      return errorResponse(
+        res,
+        "toDate must be on or after fromDate",
+        null,
+        400,
+      );
+    }
+
+    // Calculate total days
+    const totalDays =
+      Math.ceil((parsedToDate - parsedFromDate) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Use provided daysOfEvent or calculate from dates
+    let eventDays = daysOfEvent;
+    if (!eventDays) {
+      eventDays = totalDays;
+    }
+
+    // ─────────────────────────────────────────────
+    // FETCH APARTMENT & EVENT
+    // ─────────────────────────────────────────────
+
+    const [apartment, event] = await Promise.all([
+      Apartment.findById(apartmentId).lean(),
+      EventBook.findById(eventId).lean(),
+    ]);
+
+    if (!apartment) {
+      return errorResponse(res, "Apartment not found", null, 400);
+    }
+
+    if (!event) {
+      return errorResponse(res, "Event not found", null, 404);
+    }
+
+    // ─────────────────────────────────────────────
+    // STORE SNAPSHOT DETAILS
+    // ─────────────────────────────────────────────
+
+    const apartmentDetails = {
+      _id: apartment._id,
+      apartmentName: apartment.ApartmentName,
+      apartmentAddress: apartment.ApartmentAddress,
+      city: apartment.City,
+      location: apartment.Location,
+      perDayRent: apartment.PerDayRent,
+      contactPersonName: apartment.ContactPersonName,
+      contactPersonPhone: apartment.ContactPersonPhone,
+    };
+
+    const eventDetails = {
+      _id: event._id,
+      eventName: event.eventName,
+      amount: event.amount,
+      description: event.description,
+    };
+
+    // ─────────────────────────────────────────────
+    // CHECK OVERLAPPING BOOKINGS (excluding current booking)
+    // ─────────────────────────────────────────────
+
+    const overlappingBooking = await orderBooking.findOne({
+      _id: { $ne: existingCustomerBooking?._id },
+      apartmentId,
+      fromDate: { $lte: parsedToDate },
+      toDate: { $gte: parsedFromDate },
+    });
+
+    if (overlappingBooking) {
+      return errorResponse(
+        res,
+        `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
+        null,
+        409,
+      );
+    }
+
+    // ─────────────────────────────────────────────
+    // CALCULATE AMOUNTS
+    // ─────────────────────────────────────────────
+
+    // const apartmentAmount = Math.floor(
+    //   (apartment.perDayRent || 0) * (eventDays || 0),
+    // );
+
+    // const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
+    const apartmentAmount = Math.floor(
+      (apartment.PerDayRent || 0) * (sqfet || 1) * (eventDays || 0),
+    );
+
+    const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
+
+    let promoterTotal = 0;
+    // OLD CODE
+    // const promotersWithAmount = (promoters || []).map((p) => {
+    //   const promoterAmount = Math.floor(
+    //     (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
+    //   );
+    //   promoterTotal += promoterAmount;
+    //   return {
+    //     ...p,
+    //     promoterAmount,
+    //   };
+    // });
+    // NEW CODE
+    const PROMOTER_PER_DAY_CHARGE =
+      Number(process.env.PROMOTER_PER_DAY_CHARGE) || 1500;
+
+    const promotersWithAmount = (promoters || []).map((p) => {
+      const promoterAmount = Math.floor(
+        PROMOTER_PER_DAY_CHARGE * (p.promoterDays || 0), // 👈 .env value, ignore p.promoterPerDayCharge
+      );
+      promoterTotal += promoterAmount;
+      return {
+        ...p,
+        promoterPerDayCharge: PROMOTER_PER_DAY_CHARGE, // 👈 overwrite with .env value before saving
+        promoterAmount,
+      };
+    });
+    // Calculate subTotal including items and gifts
+    const subTotal = Math.floor(
+      apartmentAmount + eventAmount + promoterTotal + itemsAndGiftsTotal,
+    );
+
+    let discountAmount = 0;
+
+    // discountType: 1 = Percentage, 2 = Flat
+    if (discountType === 1) {
+      discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
+    } else if (discountType === 2) {
+      discountAmount = Math.floor(discountPercentage || 0);
+    }
+
+    const taxableAmount = Math.floor(subTotal - discountAmount);
+    const gstAmount = Math.floor((taxableAmount * 18) / 100);
+    const finalTotalAmount = Math.floor(taxableAmount + gstAmount);
+
+    // ─────────────────────────────────────────────
+    // UPDATE EXISTING BOOKING
+    // ─────────────────────────────────────────────
+
+    if (existingCustomerBooking) {
+      existingCustomerBooking.fromDate = parsedFromDate;
+      existingCustomerBooking.toDate = parsedToDate;
+      existingCustomerBooking.daysOfEvent = eventDays;
+      existingCustomerBooking.sqfet = sqfet;
+      existingCustomerBooking.promoterRequired = promoterRequired;
+      existingCustomerBooking.stageRequired = stageRequired;
+      existingCustomerBooking.promoterCount = promoterCount;
+      existingCustomerBooking.promoters = promotersWithAmount;
+      existingCustomerBooking.customerDetails = customerDetails;
+      existingCustomerBooking.discountPercentage = discountPercentage;
+      existingCustomerBooking.discountType = discountType;
+      existingCustomerBooking.apartmentAmount = apartmentAmount;
+      // existingCustomerBooking.sqfetAmount = sqfetAmount;
+      existingCustomerBooking.eventAmount = eventAmount;
+      existingCustomerBooking.promoterTotal = promoterTotal;
+      existingCustomerBooking.subTotal = subTotal;
+      existingCustomerBooking.discountAmount = discountAmount;
+      existingCustomerBooking.taxableAmount = taxableAmount;
+      existingCustomerBooking.gstAmount = gstAmount;
+      existingCustomerBooking.totalAmount = finalTotalAmount;
+      existingCustomerBooking.apartmentDetails = apartmentDetails;
+      existingCustomerBooking.eventDetails = eventDetails;
+      existingCustomerBooking.orderNote = orderNote;
+      existingCustomerBooking.dailySchedule = dailySchedule;
+
+      // Add items and gifts to existing booking
+      if (orderItems.length > 0) existingCustomerBooking.items = orderItems;
+      if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
+      existingCustomerBooking.items_total = items_total;
+      existingCustomerBooking.gifts_total = gifts_total;
+      existingCustomerBooking.itemsAndGiftsTotal = itemsAndGiftsTotal;
+
+      existingCustomerBooking.updatedBy = req.user?.name;
+
+      await existingCustomerBooking.save();
+
+      return successResponse(res, "Booking updated successfully");
+    }
+
+    // ─────────────────────────────────────────────
+    // GENERATE ORDER ID
+    // ─────────────────────────────────────────────
+
+    const orderId = await generateAdminOrderId();
+
+    // ─────────────────────────────────────────────
+    // CREATE NEW BOOKING
+    // ─────────────────────────────────────────────
+    const initialHistoryEntry = {
+      fromStatus: null,
+      fromStatusText: null,
+      toStatus: 1,
+      toStatusText: "Enquiry",
+      changedBy: req.user?.name || "Admin",
+      changedAt: new Date(),
+      additionalNotes: [],
+      statusDocument: [],
+      voiceDocument: [],
+    };
+    const booking = await orderBooking.create({
+      orderId,
+      apartmentId,
+      eventId,
+      apartmentDetails,
+      eventDetails,
+      fromDate: parsedFromDate,
+      toDate: parsedToDate,
+      daysOfEvent: eventDays,
+      sqfet,
+      promoterRequired,
+      stageRequired,
+      promoterCount,
+      promoters: promotersWithAmount,
+      customerDetails,
+      discountPercentage,
+      discountType,
+      apartmentAmount,
+      // sqfetAmount,
+      eventAmount,
+      promoterTotal,
+      subTotal,
+      discountAmount,
+      taxableAmount,
+      gstAmount,
+      totalAmount: finalTotalAmount,
+      orderNote,
+      dailySchedule,
+      items: orderItems,
+      gifts: orderGifts,
+      items_total: items_total,
+      gifts_total: gifts_total,
+      itemsAndGiftsTotal: itemsAndGiftsTotal,
+      orderStatus: 1,
+      orderHistory: [initialHistoryEntry],
+      createdBy: req.user?.name,
+      updatedBy: req.user?.name,
+    });
 
     return successResponse(
       res,
-      "Booking updated successfully",
-      //   {
-      //   _id: existingCustomerBooking._id,
-      //   orderId: existingCustomerBooking.orderId,
+      "Booking created successfully",
+      "Success",
+      201,
+      // {
+      //   _id: booking._id,
+      //   orderId: booking.orderId,
       //   bookingDetails: {
-      //     fromDate: existingCustomerBooking.fromDate,
-      //     toDate: existingCustomerBooking.toDate,
-      //     daysOfEvent: existingCustomerBooking.daysOfEvent,
+      //     fromDate: booking.fromDate,
+      //     toDate: booking.toDate,
+      //     daysOfEvent: booking.daysOfEvent,
       //     subTotal,
       //     discountAmount,
       //     taxableAmount,
@@ -596,95 +696,18 @@ const createBooking = asyncHandler(async (req, res) => {
       //     gifts_total,
       //     gifts: orderGifts,
       //   },
-      // }
+      // },
+    );
+  } catch (error) {
+    // Global error handler for any unexpected errors
+    console.error("Unexpected error in createBooking:", error);
+    return errorResponse(
+      res,
+      "An unexpected error occurred: " + error.message,
+      null,
+      500,
     );
   }
-
-  // ─────────────────────────────────────────────
-  // GENERATE ORDER ID
-  // ─────────────────────────────────────────────
-
-  const orderId = await generateAdminOrderId();
-
-  // ─────────────────────────────────────────────
-  // CREATE NEW BOOKING
-  // ─────────────────────────────────────────────
-  const initialHistoryEntry = {
-    fromStatus: null,
-    fromStatusText: null,
-    toStatus: 1,
-    toStatusText: "Enquiry",
-    changedBy: req.user?.name || "Admin",
-    changedAt: new Date(),
-    additionalNotes: [],
-    statusDocument: [],
-    voiceDocument: [],
-  };
-  const booking = await orderBooking.create({
-    orderId,
-    apartmentId,
-    eventId,
-    apartmentDetails,
-    eventDetails,
-    fromDate: parsedFromDate,
-    toDate: parsedToDate,
-    daysOfEvent: eventDays,
-    sqfet,
-    promoterRequired,
-    stageRequired,
-    promoterCount,
-    promoters: promotersWithAmount,
-    customerDetails,
-    discountPercentage,
-    discountType,
-    apartmentAmount,
-    // sqfetAmount,
-    eventAmount,
-    promoterTotal,
-    subTotal,
-    discountAmount,
-    taxableAmount,
-    gstAmount,
-    totalAmount: finalTotalAmount,
-    orderNote,
-    dailySchedule,
-    items: orderItems,
-    gifts: orderGifts,
-    items_total: items_total,
-    gifts_total: gifts_total,
-    itemsAndGiftsTotal: itemsAndGiftsTotal,
-    orderStatus: 1,
-    orderHistory: [initialHistoryEntry],
-    createdBy: req.user?.name,
-    updatedBy: req.user?.name,
-  });
-
-  return successResponse(
-    res,
-    "Booking created successfully",
-    // {
-    //   _id: booking._id,
-    //   orderId: booking.orderId,
-    //   bookingDetails: {
-    //     fromDate: booking.fromDate,
-    //     toDate: booking.toDate,
-    //     daysOfEvent: booking.daysOfEvent,
-    //     subTotal,
-    //     discountAmount,
-    //     taxableAmount,
-    //     gstAmount,
-    //     totalAmount: finalTotalAmount,
-    //   },
-    //   itemsDetails: {
-    //     items_total,
-    //     items: orderItems,
-    //   },
-    //   giftsDetails: {
-    //     gifts_total,
-    //     gifts: orderGifts,
-    //   },
-    // },
-  );
 });
 const parseDate = (dateString) => {
   if (!dateString) return null;
@@ -845,119 +868,138 @@ const getOrderStatusCounts = async (filter = {}) => {
   return counts;
 };
 const listAllBookings = asyncHandler(async (req, res) => {
-  const { pageNumber, count } = req.body || {};
-  if (!pageNumber || !count) {
-    return errorResponse(res, "pageNumber and count are required", 400);
-  }
-  const page = parseInt(pageNumber);
-  const limit = parseInt(count);
-  const skip = (page - 1) * limit;
-  const filterResult = await buildBookingFilters(req.body);
-  if (filterResult.error) {
-    return errorResponse(res, filterResult.error, 400);
-  }
-  const filter = filterResult.filter;
-  // =====================================================
-  // ROLE BASED FILTER
-  // Admin (userType = 1) -> Show All Bookings
-  // Staff (userType = 2) -> Show Only Assigned Bookings
-  // =====================================================
-  if (req.user?.userType === 2) {
-    filter["assignment.assignedUserId"] = new mongoose.Types.ObjectId(
-      req.user.id,
+  try {
+    const { pageNumber, count } = req.body || {};
+    if (!pageNumber || !count) {
+      return errorResponse(res, "pageNumber and count are required", null, 400);
+    }
+    const page = parseInt(pageNumber);
+    const limit = parseInt(count);
+    const skip = (page - 1) * limit;
+    const filterResult = await buildBookingFilters(req.body);
+    if (filterResult.error) {
+      return errorResponse(res, filterResult.error, null, 400);
+    }
+    const filter = filterResult.filter;
+    // =====================================================
+    // ROLE BASED FILTER
+    // Admin (userType = 1) -> Show All Bookings
+    // Staff (userType = 2) -> Show Only Assigned Bookings
+    // =====================================================
+    if (req.user?.userType === 2) {
+      filter["assignment.assignedUserId"] = new mongoose.Types.ObjectId(
+        req.user.id,
+      );
+    }
+    // Get status counts
+    const statusCounts = await getOrderStatusCounts(filter);
+
+    if (filterResult.noMatch) {
+      return successResponse(
+        res,
+        "Bookings fetched successfully",
+        {
+          pageNumber: page,
+          count: limit,
+          totalCount: 0,
+          totalPages: 0,
+          bookings: [],
+          statusCounts,
+        },
+        200,
+      );
+    }
+
+    const [totalCount, bookings] = await Promise.all([
+      orderBooking.countDocuments(filter),
+      orderBooking
+        .find(filter)
+        .populate({ path: "apartmentId", select: "ApartmentName" })
+        .populate({ path: "eventId", select: "eventName" })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+    // FIXED: Properly remove unwanted fields using destructuring
+    const formattedBookings = bookings.map((item) => {
+      // Destructure to exclude unwanted fields
+      const {
+        items,
+        gifts,
+        items_total,
+        gifts_total,
+        dailySchedule,
+        promoters,
+        eventDetails,
+        apartmentAmount,
+        eventAmount,
+        promoterTotal,
+        itemsAndGiftsTotal,
+        subTotal,
+        discountAmount,
+        taxableAmount,
+        gstAmount,
+        orderHistory,
+        customerDetails,
+        apartmentDetails,
+        discountType,
+        discountPercentage,
+        finalAmount,
+        sqfet,
+        poDocument,
+        document,
+        voiceNote,
+        orderNote,
+        promoterRequired,
+        stageRequired,
+        promoterCount,
+        ...rest
+      } = item;
+
+      return {
+        ...rest,
+        orderStatusText: getStatusText(item.orderStatus),
+        apartmentId: item.apartmentId?._id || null,
+        apartmentName: item.apartmentId?.ApartmentName || "",
+        eventId: item.eventId?._id || null,
+        eventName: item.eventId?.eventName || "",
+
+        customerDetails: {
+          brandOrCompanyName: customerDetails?.brandOrCompanyName || "",
+        },
+        assignment: item.assignment
+          ? {
+              assignedUserId: item.assignment.assignedUserId || null,
+              assignedUserName: item.assignment.assignedUserName || "",
+              assignedById: item.assignment.assignedById || null,
+              assignedByName: item.assignment.assignedByName || "",
+              assignedAt: item.assignment.assignedAt || "",
+            }
+          : null,
+      };
+    });
+    return successResponse(
+      res,
+      "Bookings fetched successfully",
+      {
+        pageNumber: page,
+        count: limit,
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+        bookings: formattedBookings,
+        statusCounts,
+      },
+      200,
+    );
+  } catch (error) {
+    return errorResponse(
+      res,
+      "An unexpected error occurred: " + error.message,
+      null,
+      500,
     );
   }
-  // Get status counts
-  const statusCounts = await getOrderStatusCounts(filter);
-
-  if (filterResult.noMatch) {
-    return successResponse(res, "Bookings fetched successfully", {
-      pageNumber: page,
-      count: limit,
-      totalCount: 0,
-      totalPages: 0,
-      bookings: [],
-      statusCounts,
-    });
-  }
-
-  const [totalCount, bookings] = await Promise.all([
-    orderBooking.countDocuments(filter),
-    orderBooking
-      .find(filter)
-      .populate({ path: "apartmentId", select: "ApartmentName" })
-      .populate({ path: "eventId", select: "eventName" })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean(),
-  ]);
-  // FIXED: Properly remove unwanted fields using destructuring
-  const formattedBookings = bookings.map((item) => {
-    // Destructure to exclude unwanted fields
-    const {
-      items,
-      gifts,
-      items_total,
-      gifts_total,
-      dailySchedule,
-      promoters,
-      eventDetails,
-      apartmentAmount,
-      eventAmount,
-      promoterTotal,
-      itemsAndGiftsTotal,
-      subTotal,
-      discountAmount,
-      taxableAmount,
-      gstAmount,
-      orderHistory,
-      customerDetails,
-      apartmentDetails,
-      discountType,
-      discountPercentage,
-      finalAmount,
-      sqfet,
-      poDocument,
-      document,
-      voiceNote,
-      orderNote,
-      promoterRequired,
-      stageRequired,
-      promoterCount,
-      ...rest
-    } = item;
-
-    return {
-      ...rest,
-      orderStatusText: getStatusText(item.orderStatus),
-      apartmentId: item.apartmentId?._id || null,
-      apartmentName: item.apartmentId?.ApartmentName || "",
-      eventId: item.eventId?._id || null,
-      eventName: item.eventId?.eventName || "",
-
-      customerDetails: {
-        brandOrCompanyName: customerDetails?.brandOrCompanyName || "",
-      },
-      assignment: item.assignment
-        ? {
-            assignedUserId: item.assignment.assignedUserId || null,
-            assignedUserName: item.assignment.assignedUserName || "",
-            assignedById: item.assignment.assignedById || null,
-            assignedByName: item.assignment.assignedByName || "",
-            assignedAt: item.assignment.assignedAt || "",
-          }
-        : null,
-    };
-  });
-  return successResponse(res, "Bookings fetched successfully", {
-    pageNumber: page,
-    count: limit,
-    totalCount,
-    totalPages: Math.ceil(totalCount / limit),
-    bookings: formattedBookings,
-    statusCounts,
-  });
 });
 // ─── apartment GET BOOKINGS ──────────────────────────────────────────────────
 
@@ -966,7 +1008,7 @@ const apartmentEventGet = async (req, res) => {
     const { apartmentId } = req.query;
 
     if (!apartmentId) {
-      return errorResponse(res, "apartmentId is required", 400);
+      return errorResponse(res, "apartmentId is required", null, 400);
     }
 
     const [apartment, events, items, gifts] = await Promise.all([
@@ -977,7 +1019,7 @@ const apartmentEventGet = async (req, res) => {
     ]);
 
     if (!apartment) {
-      return errorResponse(res, "Apartment not found", 404);
+      return errorResponse(res, "Apartment not found", null, 404);
     }
     // ================= SQ FEET CHARGES =================
     const sqFeetAmount = [
@@ -1053,259 +1095,449 @@ const apartmentEventGet = async (req, res) => {
         elementsDetails: Object.values(groupedData),
         giftsDetails: groupedGifts,
       },
+      200,
     );
   } catch (error) {
-    return errorResponse(res, "Internal server error", 400);
+    return errorResponse(res, "Internal server error", null, 400);
   }
 };
 
 // ─── Status Update ──────────────────────────────────────────────────
 const updateOrderStatusOnly = asyncHandler(async (req, res) => {
-  const { orderId } = req.query;
-  const {
-    status,
-    additionalNotes,
-    closeLossReason,
-    poDocument,
-    statusDocument,
-    voiceDocument,
-  } = req.body;
-  // ─────────────────────────────────────────────
-  // VALIDATIONS
-  // ─────────────────────────────────────────────
-  if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
-    return errorResponse(
-      res,
-      !orderId ? "orderId is required" : "Invalid orderId",
-      400,
-    );
-  }
-
-  if (status === undefined || status === null) {
-    return errorResponse(res, "status is required", 400);
-  }
-
-  const newStatus = Number(status);
-  if (![1, 2, 3, 4, 5, 6].includes(newStatus)) {
-    return errorResponse(
-      res,
-      "Invalid status value. Allowed values: 1,2,3,4,5,6",
-      400,
-    );
-  }
-
-  // FIND ORDER
-  const order = await orderBooking.findById(orderId);
-  if (!order) {
-    return errorResponse(res, "Order not found", 400);
-  }
-
-  const currentStatus = order.orderStatus;
-
-  // ─────────────────────────────────────────────
-  // HELPER: Safely convert any value to array
-  // ─────────────────────────────────────────────
-  const toNotesArray = (value) => {
-    if (Array.isArray(value)) return value;
-    if (value && typeof value === "string" && value.trim() !== "")
-      return [value.trim()];
-    return [];
-  };
-
-  // ─────────────────────────────────────────────
-  // NORMALIZE additionalNotes TO ARRAY
-  // ─────────────────────────────────────────────
-  let normalizedNotes = [];
-  if (additionalNotes) {
-    if (Array.isArray(additionalNotes)) {
-      normalizedNotes = additionalNotes.filter(
-        (n) => n && String(n).trim() !== "",
-      );
-    } else if (
-      typeof additionalNotes === "string" &&
-      additionalNotes.trim() !== ""
-    ) {
-      normalizedNotes = [additionalNotes.trim()];
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // HELPER: Process uploaded document
-  // ─────────────────────────────────────────────
-  const processUploadedDocument = (uploadedFile, documentData) => {
-    let resolvedDocument = null;
-
-    if (uploadedFile) {
-      const { getFileUrl } = require("../../../middleware/orderNoteFileUpload");
-
-      resolvedDocument = {
-        originalName: uploadedFile.originalname,
-        fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
-        filePath: getFileUrl(req, uploadedFile),
-        mimeType: uploadedFile.mimetype,
-        size: uploadedFile.size,
-        fileType: getFileCategory(uploadedFile.mimetype),
-        uploadedAt: new Date(),
-      };
-    } else if (documentData) {
-      resolvedDocument = documentData;
-    }
-
-    return resolvedDocument;
-  };
-
-  // ─────────────────────────────────────────────
-  // PROCESS STATUS DOCUMENT (Optional)
-  // ─────────────────────────────────────────────
-  let resolvedStatusDocument = null;
-  const uploadedStatusFile = req.files?.statusDocument?.[0];
-
-  if (uploadedStatusFile || statusDocument) {
-    resolvedStatusDocument = processUploadedDocument(
-      uploadedStatusFile,
-      statusDocument,
-    );
-
-    if (resolvedStatusDocument) {
-      if (
-        !resolvedStatusDocument.originalName ||
-        !resolvedStatusDocument.fileName ||
-        !resolvedStatusDocument.filePath
-      ) {
-        return errorResponse(
-          res,
-          "statusDocument must contain originalName, fileName, and filePath",
-          400,
-        );
-      }
-    }
-  }
-
-  // ─────────────────────────────────────────────
-  // HELPER: Process voice note
-  // ─────────────────────────────────────────────
-  const processVoiceNote = (uploadedFile, voiceNoteData) => {
-    let resolvedVoiceNote = null;
-
-    if (uploadedFile) {
-      const { getFileUrl } = require("../../../middleware/orderNoteFileUpload");
-
-      if (!uploadedFile.mimetype.startsWith("audio/")) {
-        throw new Error("Uploaded file is not an audio file");
-      }
-
-      resolvedVoiceNote = {
-        originalName: uploadedFile.originalname,
-        fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
-        filePath: getFileUrl(req, uploadedFile),
-        mimeType: uploadedFile.mimetype,
-        size: uploadedFile.size,
-        fileType: "audio",
-        duration: null,
-        uploadedAt: new Date(),
-      };
-    } else if (voiceNoteData) {
-      resolvedVoiceNote = voiceNoteData;
-
-      if (
-        resolvedVoiceNote &&
-        !resolvedVoiceNote.mimeType?.startsWith("audio/")
-      ) {
-        throw new Error("Voice note must be an audio file");
-      }
-    }
-
-    return resolvedVoiceNote;
-  };
-
-  // ─────────────────────────────────────────────
-  // PROCESS VOICE NOTE (Optional)
-  // ─────────────────────────────────────────────
-  let resolvedVoiceNote = null;
-  const uploadedVoiceFile = req.files?.voiceDocument?.[0];
-
   try {
-    if (uploadedVoiceFile || voiceDocument) {
-      resolvedVoiceNote = processVoiceNote(uploadedVoiceFile, voiceDocument);
+    const { orderId } = req.query;
+    const {
+      status,
+      additionalNotes,
+      closeLossReason,
+      poDocument,
+      statusDocument,
+      voiceDocument,
+    } = req.body;
+    // ─────────────────────────────────────────────
+    // VALIDATIONS
+    // ─────────────────────────────────────────────
+    if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+      return errorResponse(
+        res,
+        !orderId ? "orderId is required" : "Invalid orderId",
+        null,
+        400,
+      );
+    }
 
-      if (resolvedVoiceNote) {
+    if (status === undefined || status === null) {
+      return errorResponse(res, "status is required", null, 400);
+    }
+
+    const newStatus = Number(status);
+    if (![1, 2, 3, 4, 5, 6].includes(newStatus)) {
+      return errorResponse(
+        res,
+        "Invalid status value. Allowed values: 1,2,3,4,5,6",
+        null,
+        400,
+      );
+    }
+
+    // FIND ORDER
+    const order = await orderBooking.findById(orderId);
+    if (!order) {
+      return errorResponse(res, "Order not found", null, 400);
+    }
+
+    const currentStatus = order.orderStatus;
+
+    // ─────────────────────────────────────────────
+    // HELPER: Safely convert any value to array
+    // ─────────────────────────────────────────────
+    const toNotesArray = (value) => {
+      if (Array.isArray(value)) return value;
+      if (value && typeof value === "string" && value.trim() !== "")
+        return [value.trim()];
+      return [];
+    };
+
+    // ─────────────────────────────────────────────
+    // NORMALIZE additionalNotes TO ARRAY
+    // ─────────────────────────────────────────────
+    let normalizedNotes = [];
+    if (additionalNotes) {
+      if (Array.isArray(additionalNotes)) {
+        normalizedNotes = additionalNotes.filter(
+          (n) => n && String(n).trim() !== "",
+        );
+      } else if (
+        typeof additionalNotes === "string" &&
+        additionalNotes.trim() !== ""
+      ) {
+        normalizedNotes = [additionalNotes.trim()];
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // HELPER: Process uploaded document
+    // ─────────────────────────────────────────────
+    const processUploadedDocument = (uploadedFile, documentData) => {
+      let resolvedDocument = null;
+
+      if (uploadedFile) {
+        const {
+          getFileUrl,
+        } = require("../../../middleware/orderNoteFileUpload");
+
+        resolvedDocument = {
+          originalName: uploadedFile.originalname,
+          fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+          filePath: getFileUrl(req, uploadedFile),
+          mimeType: uploadedFile.mimetype,
+          size: uploadedFile.size,
+          fileType: getFileCategory(uploadedFile.mimetype),
+          uploadedAt: new Date(),
+        };
+      } else if (documentData) {
+        resolvedDocument = documentData;
+      }
+
+      return resolvedDocument;
+    };
+
+    // ─────────────────────────────────────────────
+    // PROCESS STATUS DOCUMENT (Optional)
+    // ─────────────────────────────────────────────
+    let resolvedStatusDocument = null;
+    const uploadedStatusFile = req.files?.statusDocument?.[0];
+
+    if (uploadedStatusFile || statusDocument) {
+      resolvedStatusDocument = processUploadedDocument(
+        uploadedStatusFile,
+        statusDocument,
+      );
+
+      if (resolvedStatusDocument) {
         if (
-          !resolvedVoiceNote.originalName ||
-          !resolvedVoiceNote.fileName ||
-          !resolvedVoiceNote.filePath ||
-          !resolvedVoiceNote.mimeType
+          !resolvedStatusDocument.originalName ||
+          !resolvedStatusDocument.fileName ||
+          !resolvedStatusDocument.filePath
         ) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "voiceNote must contain originalName, fileName, filePath, and mimeType",
-          });
+          return errorResponse(
+            res,
+            "statusDocument must contain originalName, fileName, and filePath",
+            null,
+            400,
+          );
         }
       }
     }
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+
+    // ─────────────────────────────────────────────
+    // HELPER: Process voice note
+    // ─────────────────────────────────────────────
+    const processVoiceNote = (uploadedFile, voiceNoteData) => {
+      let resolvedVoiceNote = null;
+
+      if (uploadedFile) {
+        const {
+          getFileUrl,
+        } = require("../../../middleware/orderNoteFileUpload");
+
+        if (!uploadedFile.mimetype.startsWith("audio/")) {
+          throw new Error("Uploaded file is not an audio file");
+        }
+
+        resolvedVoiceNote = {
+          originalName: uploadedFile.originalname,
+          fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+          filePath: getFileUrl(req, uploadedFile),
+          mimeType: uploadedFile.mimetype,
+          size: uploadedFile.size,
+          fileType: "audio",
+          duration: null,
+          uploadedAt: new Date(),
+        };
+      } else if (voiceNoteData) {
+        resolvedVoiceNote = voiceNoteData;
+
+        if (
+          resolvedVoiceNote &&
+          !resolvedVoiceNote.mimeType?.startsWith("audio/")
+        ) {
+          throw new Error("Voice note must be an audio file");
+        }
+      }
+
+      return resolvedVoiceNote;
+    };
+
+    // ─────────────────────────────────────────────
+    // PROCESS VOICE NOTE (Optional)
+    // ─────────────────────────────────────────────
+    let resolvedVoiceNote = null;
+    const uploadedVoiceFile = req.files?.voiceDocument?.[0];
+
+    try {
+      if (uploadedVoiceFile || voiceDocument) {
+        resolvedVoiceNote = processVoiceNote(uploadedVoiceFile, voiceDocument);
+
+        if (resolvedVoiceNote) {
+          if (
+            !resolvedVoiceNote.originalName ||
+            !resolvedVoiceNote.fileName ||
+            !resolvedVoiceNote.filePath ||
+            !resolvedVoiceNote.mimeType
+          ) {
+            return errorResponse(
+              res,
+              "voiceNote must contain originalName, fileName, filePath, and mimeType",
+              null,
+              500,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      return errorResponse(res, error.message, null, 500);
+    }
+  let resolvedPoDocument = null;
+    if (newStatus === 5) {
+      // let resolvedPoDocument = null;
+      // const uploadedPoFile = req.files?.poDocument?.[0];
+
+      // if (uploadedPoFile) {
+      //   const {
+      //     getFileUrl,
+      //   } = require("../../../middleware/orderNoteFileUpload");
+
+      //   resolvedPoDocument = {
+      //     originalName: uploadedPoFile.originalname,
+      //     fileName:
+      //       uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
+      //     filePath: getFileUrl(req, uploadedPoFile),
+      //     mimeType: uploadedPoFile.mimetype,
+      //     size: uploadedPoFile.size,
+      //     fileType: getFileCategory(uploadedPoFile.mimetype),
+      //     uploadedAt: new Date(),
+      //   };
+      // } else if (poDocument) {
+      //   resolvedPoDocument = poDocument;
+      // }
+
+      // if (!resolvedPoDocument) {
+      //   return errorResponse(
+      //     res,
+      //     "poDocument is mandatory when moving to Close Won",
+      //     null,
+      //     400,
+      //   );
+      // }
+
+      // if (
+      //   !resolvedPoDocument.originalName ||
+      //   !resolvedPoDocument.fileName ||
+      //   !resolvedPoDocument.filePath
+      // ) {
+      //   return errorResponse(
+      //     res,
+      //     "poDocument must contain originalName, fileName, and filePath",
+      //     null,
+      //     400,
+      //   );
+      // }
+      // PROCESS PO DOCUMENT (Mandatory)
+     
+      const uploadedPoFile = req.files?.poDocument?.[0];
+
+      if (uploadedPoFile) {
+        const {
+          getFileUrl,
+        } = require("../../../middleware/orderNoteFileUpload");
+
+        resolvedPoDocument = {
+          originalName: uploadedPoFile.originalname,
+          fileName:
+            uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
+          filePath: getFileUrl(req, uploadedPoFile),
+          mimeType: uploadedPoFile.mimetype,
+          size: uploadedPoFile.size,
+          fileType: getFileCategory(uploadedPoFile.mimetype),
+          uploadedAt: new Date(),
+        };
+      } else if (poDocument) {
+        resolvedPoDocument = poDocument;
+      }
+
+      // Validation
+      if (!resolvedPoDocument) {
+        return errorResponse(
+          res,
+          "poDocument is mandatory when moving to Close Won",
+          null,
+          400,
+        );
+      }
+
+      if (
+        !resolvedPoDocument.originalName ||
+        !resolvedPoDocument.fileName ||
+        !resolvedPoDocument.filePath
+      ) {
+        return errorResponse(
+          res,
+          "poDocument must contain originalName, fileName, and filePath",
+          null,
+          400,
+        );
+      }
+      // historyEntry.poDocument = resolvedPoDocument;
+      // order.poDocument = resolvedPoDocument;
+    }
+    // ─────────────────────────────────────────────
+    // ENSURE orderHistory EXISTS
+    // ─────────────────────────────────────────────
+    if (!order.orderHistory) order.orderHistory = [];
+
+    // ─────────────────────────────────────────────
+    // CHECK IF SAME TRANSITION ENTRY ALREADY EXISTS
+    // If same fromStatus → toStatus: push notes & documents into it
+    // ─────────────────────────────────────────────
+    // const existingEntryIndex = order.orderHistory.findIndex(
+    //   (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
+    // );
+    // ─────────────────────────────────────────────
+    // CHECK IF SAME STATUS (fromStatus === newStatus)
+    // Don't create new entry — push into the existing toStatus entry
+    // ─────────────────────────────────────────────
+    const isSameStatus = currentStatus === newStatus;
+
+    const existingEntryIndex = order.orderHistory.findIndex((h) =>
+      isSameStatus
+        ? h.toStatus === newStatus
+        : h.fromStatus === currentStatus && h.toStatus === newStatus,
+    );
+
+    if (existingEntryIndex !== -1) {
+      const existingEntry = order.orderHistory[existingEntryIndex];
+
+      // Push new notes into existing entry
+      if (normalizedNotes.length > 0) {
+        existingEntry.additionalNotes = [
+          ...toNotesArray(existingEntry.additionalNotes),
+          ...normalizedNotes,
+        ];
+      }
+if (resolvedPoDocument) {
+  if (!Array.isArray(existingEntry.poDocument)) {
+    // Migrate old single object to array if needed
+    existingEntry.poDocument = existingEntry.poDocument
+      ? [existingEntry.poDocument]
+      : [];
   }
-
-  // ─────────────────────────────────────────────
-  // ENSURE orderHistory EXISTS
-  // ─────────────────────────────────────────────
-  if (!order.orderHistory) order.orderHistory = [];
-
-  // ─────────────────────────────────────────────
-  // CHECK IF SAME TRANSITION ENTRY ALREADY EXISTS
-  // If same fromStatus → toStatus: push notes & documents into it
-  // ─────────────────────────────────────────────
-  // const existingEntryIndex = order.orderHistory.findIndex(
-  //   (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
-  // );
-  // ─────────────────────────────────────────────
-  // CHECK IF SAME STATUS (fromStatus === newStatus)
-  // Don't create new entry — push into the existing toStatus entry
-  // ─────────────────────────────────────────────
-  const isSameStatus = currentStatus === newStatus;
-
-  const existingEntryIndex = order.orderHistory.findIndex((h) =>
-    isSameStatus
-      ? h.toStatus === newStatus
-      : h.fromStatus === currentStatus && h.toStatus === newStatus,
-  );
-
-  if (existingEntryIndex !== -1) {
-    const existingEntry = order.orderHistory[existingEntryIndex];
-
-    // Push new notes into existing entry
-    if (normalizedNotes.length > 0) {
-      existingEntry.additionalNotes = [
-        ...toNotesArray(existingEntry.additionalNotes),
-        ...normalizedNotes,
-      ];
-    }
-
-    // Push new statusDocument into existing entry's statusDocument array
-    if (resolvedStatusDocument) {
-      if (!Array.isArray(existingEntry.statusDocument)) {
-        // Migrate old single object to array if needed
-        existingEntry.statusDocument = existingEntry.statusDocument
-          ? [existingEntry.statusDocument]
-          : [];
+  existingEntry.poDocument.push(resolvedPoDocument);
+}
+      // Push new statusDocument into existing entry's statusDocument array
+      if (resolvedStatusDocument) {
+        if (!Array.isArray(existingEntry.statusDocument)) {
+          // Migrate old single object to array if needed
+          existingEntry.statusDocument = existingEntry.statusDocument
+            ? [existingEntry.statusDocument]
+            : [];
+        }
+        existingEntry.statusDocument.push(resolvedStatusDocument);
       }
-      existingEntry.statusDocument.push(resolvedStatusDocument);
+
+      // Push new voiceDocument into existing entry (keep latest)
+      if (resolvedVoiceNote) {
+        if (!Array.isArray(existingEntry.voiceDocument)) {
+          // Migrate old single object to array if needed
+          existingEntry.voiceDocument = existingEntry.voiceDocument
+            ? [existingEntry.voiceDocument]
+            : [];
+        }
+        existingEntry.voiceDocument.push(resolvedVoiceNote);
+      }
+
+      // Update order-level additionalNotes safely
+      if (normalizedNotes.length > 0) {
+        order.additionalNotes = [
+          ...toNotesArray(order.additionalNotes),
+          ...normalizedNotes,
+        ];
+      }
+  if (newStatus === 5 && resolvedPoDocument) {
+        order.poDocument = resolvedPoDocument;
+      }
+      order.markModified("orderHistory");
+      await order.save();
+
+      return successResponse(
+        res,
+        `Updated existing history entry for ${getStatusText(currentStatus)} → ${getStatusText(newStatus)}`,
+        {
+          orderId: order._id,
+          orderNo: order.orderId,
+          previousStatus: getStatusText(currentStatus),
+          currentStatus: getStatusText(newStatus),
+          hasAdditionalNotes: normalizedNotes.length > 0,
+          hasDocument: !!resolvedStatusDocument,
+          hasVoiceNote: !!resolvedVoiceNote,
+          updatedAt: new Date(),
+        },
+        200,
+      );
     }
 
-    // Push new voiceDocument into existing entry (keep latest)
-    if (resolvedVoiceNote) {
-      if (!Array.isArray(existingEntry.voiceDocument)) {
-        // Migrate old single object to array if needed
-        existingEntry.voiceDocument = existingEntry.voiceDocument
-          ? [existingEntry.voiceDocument]
-          : [];
+    // ─────────────────────────────────────────────
+    // NEW HISTORY ENTRY
+    // ─────────────────────────────────────────────
+    let historyEntry = {
+      fromStatus: currentStatus,
+      fromStatusText: getStatusText(currentStatus),
+      toStatus: newStatus,
+      toStatusText: getStatusText(newStatus),
+      changedBy: req.user?.name || "Admin",
+      changedAt: new Date(),
+      additionalNotes: normalizedNotes,
+      poDocument:resolvedPoDocument ? [resolvedPoDocument] : [],
+      // statusDocument is now array
+      statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [],
+      voiceDocument: resolvedVoiceNote,
+    };
+
+    // ─────────────────────────────────────────────
+    // STATUS 5: Close Won — poDocument mandatory
+    // ─────────────────────────────────────────────
+   
+
+    // ─────────────────────────────────────────────
+    // STATUS 6: Closed Loss — closeLossReason mandatory
+    // ─────────────────────────────────────────────
+    if (newStatus === 6) {
+      if (!closeLossReason || closeLossReason.trim() === "") {
+        return errorResponse(
+          res,
+          "closeLossReason is required when moving to Closed Loss",
+          null,
+          400,
+        );
       }
-      existingEntry.voiceDocument.push(resolvedVoiceNote);
+
+      historyEntry.closeLossReason = closeLossReason;
+      order.closeLossReason = closeLossReason;
     }
+
+    // ─────────────────────────────────────────────
+    // HANDLE REOPENING LOGIC
+    // ─────────────────────────────────────────────
+    if (
+      (currentStatus === 5 || currentStatus === 6) &&
+      newStatus !== currentStatus
+    ) {
+      historyEntry.remarks = `Order reopened from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}`;
+    }
+
+    // ─────────────────────────────────────────────
+    // COMMON UPDATES
+    // ─────────────────────────────────────────────
 
     // Update order-level additionalNotes safely
     if (normalizedNotes.length > 0) {
@@ -1315,13 +1547,27 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       ];
     }
 
-    order.markModified("orderHistory");
+       // Update order-level poDocument for status 5
+    if (newStatus === 5 && resolvedPoDocument) {
+      order.poDocument = resolvedPoDocument;
+    }
+    // ─────────────────────────────────────────────
+    // UPDATE ORDER
+    // ─────────────────────────────────────────────
+    order.orderStatus = newStatus;
+    order.updatedBy = req.user?.name;
+    order.orderHistory.push(historyEntry);
+
     await order.save();
 
-    return res.status(200).json({
-      success: true,
-      message: `Updated existing history entry for ${getStatusText(currentStatus)} → ${getStatusText(newStatus)}`,
-      data: {
+    // ─────────────────────────────────────────────
+    // RESPONSE
+    // ─────────────────────────────────────────────
+
+    return successResponse(
+      res,
+      `Order status updated from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)} successfully`,
+      {
         orderId: order._id,
         orderNo: order.orderId,
         previousStatus: getStatusText(currentStatus),
@@ -1331,134 +1577,11 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
         hasVoiceNote: !!resolvedVoiceNote,
         updatedAt: new Date(),
       },
-    });
+      200,
+    );
+  } catch (error) {
+    return errorResponse(res, error.message, null, 500);
   }
-
-  // ─────────────────────────────────────────────
-  // NEW HISTORY ENTRY
-  // ─────────────────────────────────────────────
-  let historyEntry = {
-    fromStatus: currentStatus,
-    fromStatusText: getStatusText(currentStatus),
-    toStatus: newStatus,
-    toStatusText: getStatusText(newStatus),
-    changedBy: req.user?.name || "Admin",
-    changedAt: new Date(),
-    additionalNotes: normalizedNotes,
-    // statusDocument is now array
-    statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [],
-    voiceDocument: resolvedVoiceNote,
-  };
-
-  // ─────────────────────────────────────────────
-  // STATUS 5: Close Won — poDocument mandatory
-  // ─────────────────────────────────────────────
-  if (newStatus === 5) {
-    let resolvedPoDocument = null;
-    const uploadedPoFile = req.files?.poDocument?.[0];
-
-    if (uploadedPoFile) {
-      const { getFileUrl } = require("../../../middleware/orderNoteFileUpload");
-
-      resolvedPoDocument = {
-        originalName: uploadedPoFile.originalname,
-        fileName:
-          uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
-        filePath: getFileUrl(req, uploadedPoFile),
-        mimeType: uploadedPoFile.mimetype,
-        size: uploadedPoFile.size,
-        fileType: getFileCategory(uploadedPoFile.mimetype),
-        uploadedAt: new Date(),
-      };
-    } else if (poDocument) {
-      resolvedPoDocument = poDocument;
-    }
-
-    if (!resolvedPoDocument) {
-      return res.status(400).json({
-        success: false,
-        message: "poDocument is mandatory when moving to Close Won",
-      });
-    }
-
-    if (
-      !resolvedPoDocument.originalName ||
-      !resolvedPoDocument.fileName ||
-      !resolvedPoDocument.filePath
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "poDocument must contain originalName, fileName, and filePath",
-      });
-    }
-
-    historyEntry.poDocument = resolvedPoDocument;
-    order.poDocument = resolvedPoDocument;
-  }
-
-  // ─────────────────────────────────────────────
-  // STATUS 6: Closed Loss — closeLossReason mandatory
-  // ─────────────────────────────────────────────
-  else if (newStatus === 6) {
-    if (!closeLossReason || closeLossReason.trim() === "") {
-      return res.status(400).json({
-        success: false,
-        message: "closeLossReason is required when moving to Closed Loss",
-      });
-    }
-
-    historyEntry.closeLossReason = closeLossReason;
-    order.closeLossReason = closeLossReason;
-  }
-
-  // ─────────────────────────────────────────────
-  // HANDLE REOPENING LOGIC
-  // ─────────────────────────────────────────────
-  if (
-    (currentStatus === 5 || currentStatus === 6) &&
-    newStatus !== currentStatus
-  ) {
-    historyEntry.remarks = `Order reopened from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}`;
-  }
-
-  // ─────────────────────────────────────────────
-  // COMMON UPDATES
-  // ─────────────────────────────────────────────
-
-  // Update order-level additionalNotes safely
-  if (normalizedNotes.length > 0) {
-    order.additionalNotes = [
-      ...toNotesArray(order.additionalNotes),
-      ...normalizedNotes,
-    ];
-  }
-
-  // ─────────────────────────────────────────────
-  // UPDATE ORDER
-  // ─────────────────────────────────────────────
-  order.orderStatus = newStatus;
-  order.updatedBy = req.user?.name;
-  order.orderHistory.push(historyEntry);
-
-  await order.save();
-
-  // ─────────────────────────────────────────────
-  // RESPONSE
-  // ─────────────────────────────────────────────
-  return res.status(200).json({
-    success: true,
-    message: `Order status updated from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)} successfully`,
-    data: {
-      orderId: order._id,
-      orderNo: order.orderId,
-      previousStatus: getStatusText(currentStatus),
-      currentStatus: getStatusText(newStatus),
-      hasAdditionalNotes: normalizedNotes.length > 0,
-      hasDocument: !!resolvedStatusDocument,
-      hasVoiceNote: !!resolvedVoiceNote,
-      updatedAt: new Date(),
-    },
-  });
 });
 
 // ─── GET SINGLE ORDER DETAILS ──────────────────────────────────
@@ -1470,6 +1593,7 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     return errorResponse(
       res,
       !orderId ? "orderId is required" : "Invalid orderId",
+      null,
       400,
     );
   }
@@ -1484,7 +1608,7 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     .lean();
 
   if (!order) {
-    return errorResponse(res, "Order not found", 400);
+    return errorResponse(res, "Order not found", null, 400);
   }
   const formattedOrderHistory =
     order.orderHistory?.map((history) => ({
@@ -1511,7 +1635,12 @@ const getOrderDetails = asyncHandler(async (req, res) => {
     orderStatusText: getStatusText(order.orderStatus),
     orderHistory: formattedOrderHistory,
   };
-  return successResponse(res, "Order fetched successfully", formattedOrder);
+  return successResponse(
+    res,
+    "Order fetched successfully",
+    formattedOrder,
+    200,
+  );
 });
 
 // ─────────────────────────────────────────────
@@ -1526,7 +1655,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     // ─────────────────────────────────────────────
 
     if (!orderId) {
-      return errorResponse(res, "orderId is required", 400);
+      return errorResponse(res, "orderId is required", null, 400);
     }
 
     // ─────────────────────────────────────────────
@@ -1538,7 +1667,7 @@ const sendOrderMail = asyncHandler(async (req, res) => {
     });
 
     if (!orderData) {
-      return errorResponse(res, "Order not found", 400);
+      return errorResponse(res, "Order not found", null, 400);
     }
 
     if (orderData.isMailSent === true) {
@@ -1740,43 +1869,44 @@ const assignBookingUser = async (req, res) => {
 
     // Only Admin can assign
     if (req.user.userType !== 1) {
-      return errorResponse(res, "Only Admin can assign bookings", 403);
+      return errorResponse(res, "Only Admin can assign bookings", null, 403);
     }
 
     // Validation
     if (!orderId) {
-      return errorResponse(res, "orderId is required", 400);
+      return errorResponse(res, "orderId is required", null, 400);
     }
 
     if (!userId) {
-      return errorResponse(res, "userId is required", 400);
+      return errorResponse(res, "userId is required", null, 400);
     }
 
     if (!assignedToType) {
-      return errorResponse(res, "assignedToType is required", 400);
+      return errorResponse(res, "assignedToType is required", null, 400);
     }
 
     if (![1, 2].includes(Number(assignedToType))) {
       return errorResponse(
         res,
         "assignedToType must be 1 (Admin) or 2 (Staff Admin)",
+        null,
         400,
       );
     }
 
     if (!mongoose.Types.ObjectId.isValid(orderId)) {
-      return errorResponse(res, "Invalid orderId", 400);
+      return errorResponse(res, "Invalid orderId", null, 400);
     }
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return errorResponse(res, "Invalid userId", 400);
+      return errorResponse(res, "Invalid userId", null, 400);
     }
 
     // Find Booking
     const booking = await orderBooking.findById(orderId);
 
     if (!booking) {
-      return errorResponse(res, "Booking not found", 400);
+      return errorResponse(res, "Booking not found", null, 400);
     }
 
     // Prevent Reassignment
@@ -1784,6 +1914,7 @@ const assignBookingUser = async (req, res) => {
       return errorResponse(
         res,
         `This booking is already assigned to ${booking.assignment.assignedUserName}`,
+        null,
         400,
       );
     }
@@ -1800,7 +1931,7 @@ const assignBookingUser = async (req, res) => {
     }
 
     if (!assignedUser) {
-      return errorResponse(res, "Assigned user not found", 404);
+      return errorResponse(res, "Assigned user not found", null, 404);
     }
 
     // Format Date Time
@@ -1838,9 +1969,9 @@ const assignBookingUser = async (req, res) => {
 
     await booking.save();
 
-    return successResponse(res, "Booking assigned successfully", booking);
+    return successResponse(res, "Booking assigned successfully", booking, 200);
   } catch (error) {
-    return errorResponse(res, "Internal Server Error", 400);
+    return errorResponse(res, "Internal Server Error", null, 400);
   }
 };
 

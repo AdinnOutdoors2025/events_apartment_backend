@@ -37,18 +37,22 @@ const OrderHistorySchema = new mongoose.Schema(
 
     closeLossReason: { type: String, trim: true },
     poDocument: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["image", "pdf"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
+      type: [
+        {
+          originalName: { type: String },
+          fileName: { type: String },
+          filePath: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          fileType: {
+            type: String,
+            enum: ["image", "pdf"],
+          },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
     },
-
     // statusDocument: {
     //   // Generic document for any status change (optional)
     //   originalName: { type: String },
@@ -449,32 +453,32 @@ const OrderBookingSchema = new mongoose.Schema(
     // additionalNotes: { type: String, trim: true, default: "" },
     additionalNotes: { type: [String], default: [] },
     closeLossReason: { type: String, trim: true, default: "" },
-    poDocument: { type: PODocumentSchema, default: null },
+    // poDocument: { type: PODocumentSchema, default: null },
 
-    document: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["image", "audio", "pdf", "excel", "word", "other"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
-    },
-    voiceNote: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["audio"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
-    },
+    // document: {
+    //   originalName: { type: String },
+    //   fileName: { type: String },
+    //   filePath: { type: String },
+    //   mimeType: { type: String },
+    //   size: { type: Number },
+    //   fileType: {
+    //     type: String,
+    //     enum: ["image", "audio", "pdf", "excel", "word", "other"],
+    //   },
+    //   uploadedAt: { type: Date, default: Date.now },
+    // },
+    // voiceNote: {
+    //   originalName: { type: String },
+    //   fileName: { type: String },
+    //   filePath: { type: String },
+    //   mimeType: { type: String },
+    //   size: { type: Number },
+    //   fileType: {
+    //     type: String,
+    //     enum: ["audio"],
+    //   },
+    //   uploadedAt: { type: Date, default: Date.now },
+    // },
     // Order Notes
     orderNote: {
       text: { type: String, default: "" },

@@ -121,26 +121,36 @@ const registerSendOtp = async (req, res) => {
   try {
     // ================= VALIDATION =================
 
-    if (!userName || !userPhone || !categoryType) {
-      return errorResponse(res, "All fields are required",null, 400);
+    if (!userName) {
+      return errorResponse(res, "User name is required", null, 400);
     }
 
+    if (!userPhone) {
+      return errorResponse(res, "Mobile number is required", null, 400);
+    }
+    const normalizedPhone = String(userPhone).trim();
     // ================= CHECK PHONE =================
 
     const existingPhone = await User.findOne({
-      userPhone,
+      userPhone: normalizedPhone,
     });
 
     if (existingPhone) {
-      return errorResponse(res, "Phone number already registered",null, 400);
+      return errorResponse(
+        res,
+        "This mobile number is already registered. Please log in.",
+        null,
+        400,
+      );
     }
 
     // ================= GENERATE OTP =================
 
-    const otp = generateAndStoreOtp(userPhone, {
+    const otp = generateAndStoreOtp(normalizedPhone, {
       userName,
       userEmail,
-      userPhone,
+      userPhone: normalizedPhone,
+      customerType,
     });
 
     // ================= SMS MESSAGE =================
@@ -151,27 +161,36 @@ const registerSendOtp = async (req, res) => {
 
     if (IS_PRODUCTION) {
       const smsSent = await sendSms(
-        userPhone,
+        normalizedPhone,
         message,
         NETTYFISH_TEMPLATE_ID_REGISTER,
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to send OTP",null, 400);
+        // Clean up OTP if SMS fails
+        delete otpStore[normalizedPhone];
+        return errorResponse(
+          res,
+          "Unable to send OTP. Please try again.",
+          null,
+          500,
+        );
       }
 
-     
-       return successResponse(res, "OTP sent to mobile number", 200);
-    } else {
-    
-      return successResponse(res, "OTP sent successfully",{
-        testOtp: otp
-      }, 200);
+      return successResponse(res, "OTP sent successfully", null, 200);
     }
+    return successResponse(
+      res,
+      "OTP sent successfully",
+      {
+        testOtp: otp,
+      },
+      200,
+    );
   } catch (err) {
     console.log("Register Send OTP Error:", err);
 
-    return errorResponse(res, "Server error",null, 500);
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -182,7 +201,7 @@ const verifyRegisterOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone || !otp) {
-      return errorResponse(res, "Phone number and OTP are required",null, 400);
+      return errorResponse(res, "Phone number and OTP are required", null, 400);
     }
 
     // ================= VERIFY OTP =================
@@ -190,7 +209,7 @@ const verifyRegisterOtp = async (req, res) => {
     const otpError = validateOtp(userPhone, otp);
 
     if (otpError) {
-      return errorResponse(res, otpError,null, 400);
+      return errorResponse(res, otpError, null, 400);
     }
 
     // ================= GET STORED DATA =================
@@ -198,10 +217,10 @@ const verifyRegisterOtp = async (req, res) => {
     const storedData = otpStore[userPhone];
 
     if (!storedData) {
-      return errorResponse(res, "OTP data not found",null, 400);
+      return errorResponse(res, "OTP data not found", null, 400);
     }
 
-    const { userName, userEmail } = storedData.userData;
+    const { userName, userEmail, customerType } = storedData.userData;
 
     // ================= CREATE USER =================
 
@@ -237,7 +256,7 @@ const verifyRegisterOtp = async (req, res) => {
   } catch (err) {
     console.log("Verify Register OTP Error:", err);
 
-    return errorResponse(res, "Server error",null, 400);
+    return errorResponse(res, "Server error", null, 400);
   }
 };
 
@@ -248,20 +267,53 @@ const resendRegisterOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone) {
-      return errorResponse(res, "Phone number is required",null, 400);
+      return errorResponse(res, "Phone number is required", null, 400);
     }
+    const normalizedPhone = String(userPhone).trim();
 
+    // ================= CHECK IF USER ALREADY EXISTS =================
+    const existingUser = await User.findOne({
+      userPhone: normalizedPhone,
+    });
+
+    if (existingUser) {
+      return errorResponse(
+        res,
+        "This mobile number is already registered. Please log in instead.",
+        null,
+        400,
+      );
+    }
     // ================= CHECK OTP STORE =================
 
     const storedData = otpStore[userPhone];
 
     if (!storedData) {
-      return errorResponse(res, "No registration request found",null, 400);
+      return errorResponse(
+        res,
+        "No active registration request found. Please start the registration process again.",
+        null,
+        400,
+      );
+    }
+    // Check if userData exists and has required fields
+    if (!storedData.userData || !storedData.userData.userName) {
+      // Clean up invalid entry
+      delete otpStore[normalizedPhone];
+      return errorResponse(
+        res,
+        "Invalid registration data. Please start over.",
+        null,
+        400,
+      );
     }
 
     // ================= GENERATE NEW OTP =================
+    // Preserve the existing userData
+    const userData = storedData.userData;
+    // ================= GENERATE NEW OTP =================
 
-    const newOtp = generateAndStoreOtp(userPhone, storedData.userData);
+    const newOtp = generateAndStoreOtp(normalizedPhone, storedData.userData);
 
     // ================= SMS MESSAGE =================
 
@@ -271,13 +323,13 @@ const resendRegisterOtp = async (req, res) => {
 
     if (IS_PRODUCTION) {
       const smsSent = await sendSms(
-        userPhone,
+        normalizedPhone,
         message,
         NETTYFISH_TEMPLATE_ID_RESEND,
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to resend OTP",null, 500);
+        return errorResponse(res, "Failed to resend OTP", null, 500);
       }
 
       return successResponse(res, "OTP resent successfully", 200);
@@ -289,12 +341,20 @@ const resendRegisterOtp = async (req, res) => {
       // });
       // console.log("==================================");
 
-      return successResponse(res, "OTP resent successfully", 200);
+      return successResponse(
+        res,
+        "OTP resent successfully",
+        {
+          userPhone: normalizedPhone,
+          testOtp: newOtp,
+        },
+        200,
+      );
     }
   } catch (err) {
     console.log("Resend OTP Error:", err);
 
-    return errorResponse(res, "Server error",null, 500);
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -303,9 +363,9 @@ const loginSendOtp = async (req, res) => {
 
   try {
     if (!userPhone) {
-      return errorResponse(res, "Phone number is required",null, 400);
+      return errorResponse(res, "Phone number is required", null, 400);
     }
-
+    const normalizedPhone = String(userPhone).trim();
     // ================= FIND USER =================
 
     const user = await User.findOne({
@@ -313,13 +373,15 @@ const loginSendOtp = async (req, res) => {
     });
 
     if (!user) {
-      return errorResponse(res, "User not found",null, 404);
+      return errorResponse(res, "User not found", null, 404);
     }
 
     // ================= GENERATE OTP =================
 
-    const otp = generateAndStoreOtp(userPhone, {
+    const otp = generateAndStoreOtp(normalizedPhone, {
+      userId: user._id,
       login: true,
+      userPhone: normalizedPhone,
     });
 
     const message = `Your ADINN Campaign Code is ${otp}. Use it to access your campaign dashboard. Valid for 5 minutes. Do not share this code.`;
@@ -327,13 +389,13 @@ const loginSendOtp = async (req, res) => {
 
     if (IS_PRODUCTION) {
       const smsSent = await sendSms(
-        userPhone,
+        normalizedPhone,
         message,
         NETTYFISH_TEMPLATE_ID_LOGIN,
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to send login OTP",null, 500);
+        return errorResponse(res, "Failed to send login OTP", null, 500);
       }
 
       return successResponse(res, "Login OTP sent successfully", 200);
@@ -345,12 +407,20 @@ const loginSendOtp = async (req, res) => {
       // });
       // console.log("==================================");
 
-      return successResponse(res, "Login OTP sent successfully", 200);
+      return successResponse(
+        res,
+        "Login OTP sent successfully",
+        {
+          userPhone: normalizedPhone,
+          testOtp: otp,
+        },
+        200,
+      );
     }
   } catch (err) {
     console.log("Login Send OTP Error:", err);
 
-    return errorResponse(res, "Server error",null, 500);
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -359,7 +429,7 @@ const loginVerifyOtp = async (req, res) => {
 
   try {
     if (!userPhone || !otp) {
-      return errorResponse(res, "Phone and OTP required",null, 400);
+      return errorResponse(res, "Phone and OTP required", null, 400);
     }
 
     // ================= VALIDATE OTP =================
@@ -367,7 +437,7 @@ const loginVerifyOtp = async (req, res) => {
     const otpError = validateOtp(userPhone, otp);
 
     if (otpError) {
-      return errorResponse(res, otpError,null, 400);
+      return errorResponse(res, otpError, null, 400);
     }
 
     // ================= FIND USER =================
@@ -377,7 +447,7 @@ const loginVerifyOtp = async (req, res) => {
     });
 
     if (!user) {
-      return errorResponse(res, "User not found",null, 404);
+      return errorResponse(res, "User not found", null, 404);
     }
 
     // ================= DELETE OTP =================
@@ -400,7 +470,7 @@ const loginVerifyOtp = async (req, res) => {
   } catch (err) {
     console.log("Login Verify OTP Error:", err);
 
-    return errorResponse(res, "Server error",null, 500);
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -411,24 +481,45 @@ const resendLoginOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone) {
-      return errorResponse(res, "Phone number is required",null, 400);
+      return errorResponse(res, "Phone number is required", null, 400);
+    }
+
+    const normalizedPhone = String(userPhone).trim();
+
+    // ================= VERIFY USER EXISTS =================
+
+    const user = await User.findOne({
+      userPhone: normalizedPhone,
+    });
+
+    if (!user) {
+      return errorResponse(
+        res,
+        "User not found. Please register first.",
+        null,
+        404,
+      );
     }
 
     // ================= CHECK OTP STORE =================
 
-    const storedData = otpStore[userPhone];
+    let newOtp;
+
+    // ================= CHECK OTP STORE =================
+
+    const storedData = otpStore[normalizedPhone];
 
     if (!storedData) {
-      return errorResponse(
-        res,
-        "No login request found. Please login again",null,
-        400,
-      );
+      // Create new OTP session
+      newOtp = generateAndStoreOtp(normalizedPhone, {
+        userId: user._id,
+        login: true,
+        userPhone: normalizedPhone,
+      });
+    } else {
+      // Regenerate OTP using existing session data
+      newOtp = generateAndStoreOtp(normalizedPhone, storedData.userData);
     }
-
-    // ================= GENERATE NEW OTP =================
-
-    const newOtp = generateAndStoreOtp(userPhone, storedData.userData);
 
     // ================= SMS MESSAGE =================
 
@@ -438,25 +529,26 @@ const resendLoginOtp = async (req, res) => {
 
     if (IS_PRODUCTION) {
       const smsSent = await sendSms(
-        userPhone,
+        normalizedPhone,
         message,
         NETTYFISH_TEMPLATE_ID_RESEND,
       );
 
       if (!smsSent) {
-        return errorResponse(res, "Failed to resend login OTP",null, 500);
+        return errorResponse(res, "Failed to resend login OTP", null, 500);
       }
 
       return successResponse(res, "Login OTP resent successfully", 200);
     } else {
       return successResponse(res, "Login OTP resent successfully", {
+        userPhone: normalizedPhone,
         testOtp: newOtp,
       });
     }
   } catch (err) {
     console.log("Resend Login OTP Error:", err);
 
-    return errorResponse(res, "Server error",null, 500);
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 // const listUsers = async (req, res) => {
@@ -508,7 +600,7 @@ const listUsers = async (req, res) => {
     const allUsers = [...formattedAdmins, ...formattedUsers];
 
     if (allUsers.length === 0) {
-      return errorResponse(res, "No users found",null, 404);
+      return errorResponse(res, "No users found", null, 404);
     }
 
     return successResponse(res, "Users retrieved successfully", {
@@ -517,7 +609,7 @@ const listUsers = async (req, res) => {
     });
   } catch (err) {
     console.error("List Users Error:", err);
-    return errorResponse(res, "Server error while fetching users",null, 500);
+    return errorResponse(res, "Server error while fetching users", null, 500);
   }
 };
 module.exports = {

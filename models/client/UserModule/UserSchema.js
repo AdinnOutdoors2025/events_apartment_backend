@@ -3,12 +3,7 @@ const mongoose = require("mongoose");
 const userSchema = new mongoose.Schema(
   {
     userName: { type: String, required: true },
-    userEmail: {
-      type: String,
-      sparse: true, // Allows multiple null/undefined values but unique for non-null
-      
-      default: null,
-    },
+    userEmail: { type: String },
     userPhone: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
     customerType: {

@@ -524,7 +524,7 @@ const listApartments = async (req, res) => {
       }
       return {
         ...apt,
-            ApartmentName: properApartmentName,
+        ApartmentName: properApartmentName,
         // PerDayRent: apt.PerDayRent
         //   ? Number(apt.PerDayRent).toLocaleString("en-IN")
         //   : "0",
@@ -663,7 +663,7 @@ const getApartmentById = async (req, res) => {
 };
 
 // const createOrUpdateParticularApartment = async (req, res) => {
-  
+
 //     const {
 //       apartmentId,
 //       ApartmentName,
@@ -831,7 +831,7 @@ const getApartmentById = async (req, res) => {
 // };
 const createOrUpdateParticularApartment = async (req, res) => {
   const {
-    id,  // Changed from apartmentId to _id
+    id, // Changed from apartmentId to _id
     ApartmentName,
     ApartmentGroupName,
     City,
@@ -858,7 +858,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
     UpiID,
     isActive,
   } = req.body;
-  
+
   try {
     // =====================================================
     // VALIDATION
@@ -934,7 +934,7 @@ const createOrUpdateParticularApartment = async (req, res) => {
             "bankDetails.UpiID": bankDetails.UpiID,
           },
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
 
       return res.status(200).json({
@@ -949,10 +949,10 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // =====================================================
 
     // ✅ Check if apartment with same name already exists (optional but recommended)
-    const existingApartmentByName = await Apartment.findOne({ 
-      ApartmentName: ApartmentName 
+    const existingApartmentByName = await Apartment.findOne({
+      ApartmentName: ApartmentName,
     });
-    
+
     if (existingApartmentByName) {
       return res.status(400).json({
         success: false,
@@ -986,9 +986,11 @@ const updateApartmentStatus = async (req, res) => {
     if (!apartmentId) {
       return errorResponse(res, "Apartment ID is required", 400);
     }
-
-    const apartment = await Apartment.findOneAndUpdate(
-      { apartmentId },
+    if (!mongoose.Types.ObjectId.isValid(apartmentId)) {
+      return errorResponse(res, "Invalid Apartment ID", 400);
+    }
+    const apartment = await Apartment.findByIdAndUpdate(
+      apartmentId,
       {
         $set: {
           isActive,

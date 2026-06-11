@@ -1103,6 +1103,486 @@ const apartmentEventGet = async (req, res) => {
 };
 
 // ─── Status Update ──────────────────────────────────────────────────
+// const updateOrderStatusOnly = asyncHandler(async (req, res) => {
+//   try {
+//     const { orderId } = req.query;
+//     const {
+//       status,
+//       additionalNotes,
+//       closeLossReason,
+//       poDocument,
+//       statusDocument,
+//       voiceDocument,
+//     } = req.body;
+//     // ─────────────────────────────────────────────
+//     // VALIDATIONS
+//     // ─────────────────────────────────────────────
+//     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
+//       return errorResponse(
+//         res,
+//         !orderId ? "orderId is required" : "Invalid orderId",
+//         null,
+//         400,
+//       );
+//     }
+
+//     if (status === undefined || status === null) {
+//       return errorResponse(res, "status is required", null, 400);
+//     }
+
+//     const newStatus = Number(status);
+//     if (![1, 2, 3, 4, 5, 6].includes(newStatus)) {
+//       return errorResponse(
+//         res,
+//         "Invalid status value. Allowed values: 1,2,3,4,5,6",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // FIND ORDER
+//     const order = await orderBooking.findById(orderId);
+//     if (!order) {
+//       return errorResponse(res, "Order not found", null, 400);
+//     }
+
+//     const currentStatus = order.orderStatus;
+
+//     // ─────────────────────────────────────────────
+//     // HELPER: Safely convert any value to array
+//     // ─────────────────────────────────────────────
+//     const toNotesArray = (value) => {
+//       if (Array.isArray(value)) return value;
+//       if (value && typeof value === "string" && value.trim() !== "")
+//         return [value.trim()];
+//       return [];
+//     };
+
+//     // ─────────────────────────────────────────────
+//     // NORMALIZE additionalNotes TO ARRAY
+//     // ─────────────────────────────────────────────
+//     let normalizedNotes = [];
+//     if (additionalNotes) {
+//       if (Array.isArray(additionalNotes)) {
+//         normalizedNotes = additionalNotes.filter(
+//           (n) => n && String(n).trim() !== "",
+//         );
+//       } else if (
+//         typeof additionalNotes === "string" &&
+//         additionalNotes.trim() !== ""
+//       ) {
+//         normalizedNotes = [additionalNotes.trim()];
+//       }
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // HELPER: Process uploaded document
+//     // ─────────────────────────────────────────────
+//     const processUploadedDocument = (uploadedFile, documentData) => {
+//       let resolvedDocument = null;
+
+//       if (uploadedFile) {
+//         const {
+//           getFileUrl,
+//         } = require("../../../middleware/orderNoteFileUpload");
+
+//         resolvedDocument = {
+//           originalName: uploadedFile.originalname,
+//           fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+//           filePath: getFileUrl(req, uploadedFile),
+//           mimeType: uploadedFile.mimetype,
+//           size: uploadedFile.size,
+//           fileType: getFileCategory(uploadedFile.mimetype),
+//           uploadedAt: new Date(),
+//         };
+//       } else if (documentData) {
+//         resolvedDocument = documentData;
+//       }
+
+//       return resolvedDocument;
+//     };
+
+//     // ─────────────────────────────────────────────
+//     // PROCESS STATUS DOCUMENT (Optional)
+//     // ─────────────────────────────────────────────
+//     let resolvedStatusDocument = null;
+//     const uploadedStatusFile = req.files?.statusDocument?.[0];
+
+//     if (uploadedStatusFile || statusDocument) {
+//       resolvedStatusDocument = processUploadedDocument(
+//         uploadedStatusFile,
+//         statusDocument,
+//       );
+
+//       if (resolvedStatusDocument) {
+//         if (
+//           !resolvedStatusDocument.originalName ||
+//           !resolvedStatusDocument.fileName ||
+//           !resolvedStatusDocument.filePath
+//         ) {
+//           return errorResponse(
+//             res,
+//             "statusDocument must contain originalName, fileName, and filePath",
+//             null,
+//             400,
+//           );
+//         }
+//       }
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // HELPER: Process voice note
+//     // ─────────────────────────────────────────────
+//     const processVoiceNote = (uploadedFile, voiceNoteData) => {
+//       let resolvedVoiceNote = null;
+
+//       if (uploadedFile) {
+//         const {
+//           getFileUrl,
+//         } = require("../../../middleware/orderNoteFileUpload");
+
+//         if (!uploadedFile.mimetype.startsWith("audio/")) {
+//           throw new Error("Uploaded file is not an audio file");
+//         }
+
+//         resolvedVoiceNote = {
+//           originalName: uploadedFile.originalname,
+//           fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+//           filePath: getFileUrl(req, uploadedFile),
+//           mimeType: uploadedFile.mimetype,
+//           size: uploadedFile.size,
+//           fileType: "audio",
+//           duration: null,
+//           uploadedAt: new Date(),
+//         };
+//       } else if (voiceNoteData) {
+//         resolvedVoiceNote = voiceNoteData;
+
+//         if (
+//           resolvedVoiceNote &&
+//           !resolvedVoiceNote.mimeType?.startsWith("audio/")
+//         ) {
+//           throw new Error("Voice note must be an audio file");
+//         }
+//       }
+
+//       return resolvedVoiceNote;
+//     };
+
+//     // ─────────────────────────────────────────────
+//     // PROCESS VOICE NOTE (Optional)
+//     // ─────────────────────────────────────────────
+//     let resolvedVoiceNote = null;
+//     const uploadedVoiceFile = req.files?.voiceDocument?.[0];
+
+//     try {
+//       if (uploadedVoiceFile || voiceDocument) {
+//         resolvedVoiceNote = processVoiceNote(uploadedVoiceFile, voiceDocument);
+
+//         if (resolvedVoiceNote) {
+//           if (
+//             !resolvedVoiceNote.originalName ||
+//             !resolvedVoiceNote.fileName ||
+//             !resolvedVoiceNote.filePath ||
+//             !resolvedVoiceNote.mimeType
+//           ) {
+//             return errorResponse(
+//               res,
+//               "voiceNote must contain originalName, fileName, filePath, and mimeType",
+//               null,
+//               500,
+//             );
+//           }
+//         }
+//       }
+//     } catch (error) {
+//       return errorResponse(res, error.message, null, 500);
+//     }
+//   let resolvedPoDocument = null;
+//     if (newStatus === 5) {
+//       // let resolvedPoDocument = null;
+//       // const uploadedPoFile = req.files?.poDocument?.[0];
+
+//       // if (uploadedPoFile) {
+//       //   const {
+//       //     getFileUrl,
+//       //   } = require("../../../middleware/orderNoteFileUpload");
+
+//       //   resolvedPoDocument = {
+//       //     originalName: uploadedPoFile.originalname,
+//       //     fileName:
+//       //       uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
+//       //     filePath: getFileUrl(req, uploadedPoFile),
+//       //     mimeType: uploadedPoFile.mimetype,
+//       //     size: uploadedPoFile.size,
+//       //     fileType: getFileCategory(uploadedPoFile.mimetype),
+//       //     uploadedAt: new Date(),
+//       //   };
+//       // } else if (poDocument) {
+//       //   resolvedPoDocument = poDocument;
+//       // }
+
+//       // if (!resolvedPoDocument) {
+//       //   return errorResponse(
+//       //     res,
+//       //     "poDocument is mandatory when moving to Close Won",
+//       //     null,
+//       //     400,
+//       //   );
+//       // }
+
+//       // if (
+//       //   !resolvedPoDocument.originalName ||
+//       //   !resolvedPoDocument.fileName ||
+//       //   !resolvedPoDocument.filePath
+//       // ) {
+//       //   return errorResponse(
+//       //     res,
+//       //     "poDocument must contain originalName, fileName, and filePath",
+//       //     null,
+//       //     400,
+//       //   );
+//       // }
+//       // PROCESS PO DOCUMENT (Mandatory)
+     
+//       const uploadedPoFile = req.files?.poDocument?.[0];
+
+//       if (uploadedPoFile) {
+//         const {
+//           getFileUrl,
+//         } = require("../../../middleware/orderNoteFileUpload");
+
+//         resolvedPoDocument = {
+//           originalName: uploadedPoFile.originalname,
+//           fileName:
+//             uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
+//           filePath: getFileUrl(req, uploadedPoFile),
+//           mimeType: uploadedPoFile.mimetype,
+//           size: uploadedPoFile.size,
+//           fileType: getFileCategory(uploadedPoFile.mimetype),
+//           uploadedAt: new Date(),
+//         };
+//       } else if (poDocument) {
+//         resolvedPoDocument = poDocument;
+//       }
+
+//       // Validation
+//       if (!resolvedPoDocument) {
+//         return errorResponse(
+//           res,
+//           "poDocument is mandatory when moving to Close Won",
+//           null,
+//           400,
+//         );
+//       }
+
+//       if (
+//         !resolvedPoDocument.originalName ||
+//         !resolvedPoDocument.fileName ||
+//         !resolvedPoDocument.filePath
+//       ) {
+//         return errorResponse(
+//           res,
+//           "poDocument must contain originalName, fileName, and filePath",
+//           null,
+//           400,
+//         );
+//       }
+//       // historyEntry.poDocument = resolvedPoDocument;
+//       // order.poDocument = resolvedPoDocument;
+//     }
+//     // ─────────────────────────────────────────────
+//     // ENSURE orderHistory EXISTS
+//     // ─────────────────────────────────────────────
+//     if (!order.orderHistory) order.orderHistory = [];
+
+//     // ─────────────────────────────────────────────
+//     // CHECK IF SAME TRANSITION ENTRY ALREADY EXISTS
+//     // If same fromStatus → toStatus: push notes & documents into it
+//     // ─────────────────────────────────────────────
+//     // const existingEntryIndex = order.orderHistory.findIndex(
+//     //   (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
+//     // );
+//     // ─────────────────────────────────────────────
+//     // CHECK IF SAME STATUS (fromStatus === newStatus)
+//     // Don't create new entry — push into the existing toStatus entry
+//     // ─────────────────────────────────────────────
+//     const isSameStatus = currentStatus === newStatus;
+
+//     const existingEntryIndex = order.orderHistory.findIndex((h) =>
+//       isSameStatus
+//         ? h.toStatus === newStatus
+//         : h.fromStatus === currentStatus && h.toStatus === newStatus,
+//     );
+
+//     if (existingEntryIndex !== -1) {
+//       const existingEntry = order.orderHistory[existingEntryIndex];
+
+//       // Push new notes into existing entry
+//       if (normalizedNotes.length > 0) {
+//         existingEntry.additionalNotes = [
+//           ...toNotesArray(existingEntry.additionalNotes),
+//           ...normalizedNotes,
+//         ];
+//       }
+// if (resolvedPoDocument) {
+//   if (!Array.isArray(existingEntry.poDocument)) {
+//     // Migrate old single object to array if needed
+//     existingEntry.poDocument = existingEntry.poDocument
+//       ? [existingEntry.poDocument]
+//       : [];
+//   }
+//   existingEntry.poDocument.push(resolvedPoDocument);
+// }
+//       // Push new statusDocument into existing entry's statusDocument array
+//       if (resolvedStatusDocument) {
+//         if (!Array.isArray(existingEntry.statusDocument)) {
+//           // Migrate old single object to array if needed
+//           existingEntry.statusDocument = existingEntry.statusDocument
+//             ? [existingEntry.statusDocument]
+//             : [];
+//         }
+//         existingEntry.statusDocument.push(resolvedStatusDocument);
+//       }
+
+//       // Push new voiceDocument into existing entry (keep latest)
+//       if (resolvedVoiceNote) {
+//         if (!Array.isArray(existingEntry.voiceDocument)) {
+//           // Migrate old single object to array if needed
+//           existingEntry.voiceDocument = existingEntry.voiceDocument
+//             ? [existingEntry.voiceDocument]
+//             : [];
+//         }
+//         existingEntry.voiceDocument.push(resolvedVoiceNote);
+//       }
+
+//       // Update order-level additionalNotes safely
+//       if (normalizedNotes.length > 0) {
+//         order.additionalNotes = [
+//           ...toNotesArray(order.additionalNotes),
+//           ...normalizedNotes,
+//         ];
+//       }
+//   if (newStatus === 5 && resolvedPoDocument) {
+//         order.poDocument = resolvedPoDocument;
+//       }
+//       order.markModified("orderHistory");
+//       await order.save();
+
+//       return successResponse(
+//         res,
+//         `Updated existing history entry for ${getStatusText(currentStatus)} → ${getStatusText(newStatus)}`,
+//         {
+//           orderId: order._id,
+//           orderNo: order.orderId,
+//           previousStatus: getStatusText(currentStatus),
+//           currentStatus: getStatusText(newStatus),
+//           hasAdditionalNotes: normalizedNotes.length > 0,
+//           hasDocument: !!resolvedStatusDocument,
+//           hasVoiceNote: !!resolvedVoiceNote,
+//           updatedAt: new Date(),
+//         },
+//         200,
+//       );
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // NEW HISTORY ENTRY
+//     // ─────────────────────────────────────────────
+//     let historyEntry = {
+//       fromStatus: currentStatus,
+//       fromStatusText: getStatusText(currentStatus),
+//       toStatus: newStatus,
+//       toStatusText: getStatusText(newStatus),
+//       changedBy: req.user?.name || "Admin",
+//       changedAt: new Date(),
+//       additionalNotes: normalizedNotes,
+//       poDocument:resolvedPoDocument ? [resolvedPoDocument] : [],
+//       // statusDocument is now array
+//       statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [],
+//       voiceDocument: resolvedVoiceNote,
+//     };
+
+//     // ─────────────────────────────────────────────
+//     // STATUS 5: Close Won — poDocument mandatory
+//     // ─────────────────────────────────────────────
+   
+
+//     // ─────────────────────────────────────────────
+//     // STATUS 6: Closed Loss — closeLossReason mandatory
+//     // ─────────────────────────────────────────────
+//     if (newStatus === 6) {
+//       if (!closeLossReason || closeLossReason.trim() === "") {
+//         return errorResponse(
+//           res,
+//           "closeLossReason is required when moving to Closed Loss",
+//           null,
+//           400,
+//         );
+//       }
+
+//       historyEntry.closeLossReason = closeLossReason;
+//       order.closeLossReason = closeLossReason;
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // HANDLE REOPENING LOGIC
+//     // ─────────────────────────────────────────────
+//     if (
+//       (currentStatus === 5 || currentStatus === 6) &&
+//       newStatus !== currentStatus
+//     ) {
+//       historyEntry.remarks = `Order reopened from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}`;
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // COMMON UPDATES
+//     // ─────────────────────────────────────────────
+
+//     // Update order-level additionalNotes safely
+//     if (normalizedNotes.length > 0) {
+//       order.additionalNotes = [
+//         ...toNotesArray(order.additionalNotes),
+//         ...normalizedNotes,
+//       ];
+//     }
+
+//        // Update order-level poDocument for status 5
+//     if (newStatus === 5 && resolvedPoDocument) {
+//       order.poDocument = resolvedPoDocument;
+//     }
+//     // ─────────────────────────────────────────────
+//     // UPDATE ORDER
+//     // ─────────────────────────────────────────────
+//     order.orderStatus = newStatus;
+//     order.updatedBy = req.user?.name;
+//     order.orderHistory.push(historyEntry);
+
+//     await order.save();
+
+//     // ─────────────────────────────────────────────
+//     // RESPONSE
+//     // ─────────────────────────────────────────────
+
+//     return successResponse(
+//       res,
+//       `Order status updated from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)} successfully`,
+//       {
+//         orderId: order._id,
+//         orderNo: order.orderId,
+//         previousStatus: getStatusText(currentStatus),
+//         currentStatus: getStatusText(newStatus),
+//         hasAdditionalNotes: normalizedNotes.length > 0,
+//         hasDocument: !!resolvedStatusDocument,
+//         hasVoiceNote: !!resolvedVoiceNote,
+//         updatedAt: new Date(),
+//       },
+//       200,
+//     );
+//   } catch (error) {
+//     return errorResponse(res, error.message, null, 500);
+//   }
+// });
 const updateOrderStatusOnly = asyncHandler(async (req, res) => {
   try {
     const { orderId } = req.query;
@@ -1113,10 +1593,10 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       poDocument,
       statusDocument,
       voiceDocument,
+      finalDiscoundAmount,
     } = req.body;
-    // ─────────────────────────────────────────────
+
     // VALIDATIONS
-    // ─────────────────────────────────────────────
     if (!orderId || !mongoose.Types.ObjectId.isValid(orderId)) {
       return errorResponse(
         res,
@@ -1148,9 +1628,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
 
     const currentStatus = order.orderStatus;
 
-    // ─────────────────────────────────────────────
     // HELPER: Safely convert any value to array
-    // ─────────────────────────────────────────────
     const toNotesArray = (value) => {
       if (Array.isArray(value)) return value;
       if (value && typeof value === "string" && value.trim() !== "")
@@ -1158,9 +1636,30 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       return [];
     };
 
-    // ─────────────────────────────────────────────
+    // ✅ HELPER: Parse field — handles JSON string (multipart) or plain object (json)
+    const parseField = (field) => {
+      if (!field) return null;
+      if (typeof field === "string") {
+        try {
+          return JSON.parse(field);
+        } catch (e) {
+          return null;
+        }
+      }
+      if (typeof field === "object") return field;
+      return null;
+    };
+
+    // ✅ HELPER: Parse field to array — handles single object or array
+    const parseFieldToArray = (field) => {
+      if (!field) return [];
+      let parsed = parseField(field);
+      if (!parsed) return [];
+      if (Array.isArray(parsed)) return parsed;
+      return [parsed]; // single object → wrap in array
+    };
+
     // NORMALIZE additionalNotes TO ARRAY
-    // ─────────────────────────────────────────────
     let normalizedNotes = [];
     if (additionalNotes) {
       if (Array.isArray(additionalNotes)) {
@@ -1175,18 +1674,13 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────
     // HELPER: Process uploaded document
-    // ─────────────────────────────────────────────
     const processUploadedDocument = (uploadedFile, documentData) => {
-      let resolvedDocument = null;
-
       if (uploadedFile) {
         const {
           getFileUrl,
         } = require("../../../middleware/orderNoteFileUpload");
-
-        resolvedDocument = {
+        return {
           originalName: uploadedFile.originalname,
           fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
           filePath: getFileUrl(req, uploadedFile),
@@ -1196,15 +1690,13 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
           uploadedAt: new Date(),
         };
       } else if (documentData) {
-        resolvedDocument = documentData;
+        // ✅ Parse handles both JSON string and plain object
+        return parseField(documentData);
       }
-
-      return resolvedDocument;
+      return null;
     };
 
-    // ─────────────────────────────────────────────
     // PROCESS STATUS DOCUMENT (Optional)
-    // ─────────────────────────────────────────────
     let resolvedStatusDocument = null;
     const uploadedStatusFile = req.files?.statusDocument?.[0];
 
@@ -1230,12 +1722,8 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       }
     }
 
-    // ─────────────────────────────────────────────
     // HELPER: Process voice note
-    // ─────────────────────────────────────────────
     const processVoiceNote = (uploadedFile, voiceNoteData) => {
-      let resolvedVoiceNote = null;
-
       if (uploadedFile) {
         const {
           getFileUrl,
@@ -1245,7 +1733,7 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
           throw new Error("Uploaded file is not an audio file");
         }
 
-        resolvedVoiceNote = {
+        return {
           originalName: uploadedFile.originalname,
           fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
           filePath: getFileUrl(req, uploadedFile),
@@ -1256,22 +1744,17 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
           uploadedAt: new Date(),
         };
       } else if (voiceNoteData) {
-        resolvedVoiceNote = voiceNoteData;
-
-        if (
-          resolvedVoiceNote &&
-          !resolvedVoiceNote.mimeType?.startsWith("audio/")
-        ) {
+        // ✅ Parse handles both JSON string and plain object
+        const resolved = parseField(voiceNoteData);
+        if (resolved && !resolved.mimeType?.startsWith("audio/")) {
           throw new Error("Voice note must be an audio file");
         }
+        return resolved;
       }
-
-      return resolvedVoiceNote;
+      return null;
     };
 
-    // ─────────────────────────────────────────────
     // PROCESS VOICE NOTE (Optional)
-    // ─────────────────────────────────────────────
     let resolvedVoiceNote = null;
     const uploadedVoiceFile = req.files?.voiceDocument?.[0];
 
@@ -1290,68 +1773,54 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
               res,
               "voiceNote must contain originalName, fileName, filePath, and mimeType",
               null,
-              500,
+              400,
             );
           }
         }
       }
     } catch (error) {
-      return errorResponse(res, error.message, null, 500);
+      return errorResponse(res, error.message, null, 400);
     }
-  let resolvedPoDocument = null;
+
+    let resolvedPoDocument = null;
+    let previousTotalAmount = null;
+
     if (newStatus === 5) {
-      // let resolvedPoDocument = null;
-      // const uploadedPoFile = req.files?.poDocument?.[0];
+      // Validate finalDiscoundAmount
+      if (finalDiscoundAmount === undefined || finalDiscoundAmount === null) {
+        return errorResponse(
+          res,
+          "finalDiscoundAmount is mandatory when moving to Close Won",
+          null,
+          400,
+        );
+      }
 
-      // if (uploadedPoFile) {
-      //   const {
-      //     getFileUrl,
-      //   } = require("../../../middleware/orderNoteFileUpload");
+      if (isNaN(Number(finalDiscoundAmount))) {
+        return errorResponse(
+          res,
+          "finalDiscoundAmount must be a valid number",
+          null,
+          400,
+        );
+      }
 
-      //   resolvedPoDocument = {
-      //     originalName: uploadedPoFile.originalname,
-      //     fileName:
-      //       uploadedPoFile.filename || uploadedPoFile.key?.split("/").pop(),
-      //     filePath: getFileUrl(req, uploadedPoFile),
-      //     mimeType: uploadedPoFile.mimetype,
-      //     size: uploadedPoFile.size,
-      //     fileType: getFileCategory(uploadedPoFile.mimetype),
-      //     uploadedAt: new Date(),
-      //   };
-      // } else if (poDocument) {
-      //   resolvedPoDocument = poDocument;
-      // }
+      if (Number(finalDiscoundAmount) < 0) {
+        return errorResponse(
+          res,
+          "finalDiscoundAmount cannot be negative",
+          null,
+          400,
+        );
+      }
 
-      // if (!resolvedPoDocument) {
-      //   return errorResponse(
-      //     res,
-      //     "poDocument is mandatory when moving to Close Won",
-      //     null,
-      //     400,
-      //   );
-      // }
-
-      // if (
-      //   !resolvedPoDocument.originalName ||
-      //   !resolvedPoDocument.fileName ||
-      //   !resolvedPoDocument.filePath
-      // ) {
-      //   return errorResponse(
-      //     res,
-      //     "poDocument must contain originalName, fileName, and filePath",
-      //     null,
-      //     400,
-      //   );
-      // }
-      // PROCESS PO DOCUMENT (Mandatory)
-     
+      // PROCESS PO DOCUMENT (Mandatory for status 5)
       const uploadedPoFile = req.files?.poDocument?.[0];
 
       if (uploadedPoFile) {
         const {
           getFileUrl,
         } = require("../../../middleware/orderNoteFileUpload");
-
         resolvedPoDocument = {
           originalName: uploadedPoFile.originalname,
           fileName:
@@ -1363,10 +1832,10 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
           uploadedAt: new Date(),
         };
       } else if (poDocument) {
-        resolvedPoDocument = poDocument;
+        // ✅ Parse handles both JSON string and plain object
+        resolvedPoDocument = parseField(poDocument);
       }
 
-      // Validation
       if (!resolvedPoDocument) {
         return errorResponse(
           res,
@@ -1388,25 +1857,18 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
           400,
         );
       }
-      // historyEntry.poDocument = resolvedPoDocument;
-      // order.poDocument = resolvedPoDocument;
+
+      // ✅ Capture OLD totalAmount BEFORE overwriting
+      previousTotalAmount = order.totalAmount;
+
+      order.finalDiscoundAmount = Number(finalDiscoundAmount);
+      // ✅ totalAmount = existing totalAmount - finalDiscountAmount
+      order.totalAmount = previousTotalAmount - order.finalDiscoundAmount;
     }
-    // ─────────────────────────────────────────────
+
     // ENSURE orderHistory EXISTS
-    // ─────────────────────────────────────────────
     if (!order.orderHistory) order.orderHistory = [];
 
-    // ─────────────────────────────────────────────
-    // CHECK IF SAME TRANSITION ENTRY ALREADY EXISTS
-    // If same fromStatus → toStatus: push notes & documents into it
-    // ─────────────────────────────────────────────
-    // const existingEntryIndex = order.orderHistory.findIndex(
-    //   (h) => h.fromStatus === currentStatus && h.toStatus === newStatus,
-    // );
-    // ─────────────────────────────────────────────
-    // CHECK IF SAME STATUS (fromStatus === newStatus)
-    // Don't create new entry — push into the existing toStatus entry
-    // ─────────────────────────────────────────────
     const isSameStatus = currentStatus === newStatus;
 
     const existingEntryIndex = order.orderHistory.findIndex((h) =>
@@ -1418,26 +1880,26 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     if (existingEntryIndex !== -1) {
       const existingEntry = order.orderHistory[existingEntryIndex];
 
-      // Push new notes into existing entry
       if (normalizedNotes.length > 0) {
         existingEntry.additionalNotes = [
           ...toNotesArray(existingEntry.additionalNotes),
           ...normalizedNotes,
         ];
       }
-if (resolvedPoDocument) {
-  if (!Array.isArray(existingEntry.poDocument)) {
-    // Migrate old single object to array if needed
-    existingEntry.poDocument = existingEntry.poDocument
-      ? [existingEntry.poDocument]
-      : [];
-  }
-  existingEntry.poDocument.push(resolvedPoDocument);
-}
-      // Push new statusDocument into existing entry's statusDocument array
+
+      // ✅ poDocument — push into array
+      if (resolvedPoDocument) {
+        if (!Array.isArray(existingEntry.poDocument)) {
+          existingEntry.poDocument = existingEntry.poDocument
+            ? [existingEntry.poDocument]
+            : [];
+        }
+        existingEntry.poDocument.push(resolvedPoDocument);
+      }
+
+      // ✅ statusDocument — push into array
       if (resolvedStatusDocument) {
         if (!Array.isArray(existingEntry.statusDocument)) {
-          // Migrate old single object to array if needed
           existingEntry.statusDocument = existingEntry.statusDocument
             ? [existingEntry.statusDocument]
             : [];
@@ -1445,10 +1907,9 @@ if (resolvedPoDocument) {
         existingEntry.statusDocument.push(resolvedStatusDocument);
       }
 
-      // Push new voiceDocument into existing entry (keep latest)
+      // ✅ voiceDocument — push into array
       if (resolvedVoiceNote) {
         if (!Array.isArray(existingEntry.voiceDocument)) {
-          // Migrate old single object to array if needed
           existingEntry.voiceDocument = existingEntry.voiceDocument
             ? [existingEntry.voiceDocument]
             : [];
@@ -1456,16 +1917,21 @@ if (resolvedPoDocument) {
         existingEntry.voiceDocument.push(resolvedVoiceNote);
       }
 
-      // Update order-level additionalNotes safely
       if (normalizedNotes.length > 0) {
         order.additionalNotes = [
           ...toNotesArray(order.additionalNotes),
           ...normalizedNotes,
         ];
       }
-  if (newStatus === 5 && resolvedPoDocument) {
-        order.poDocument = resolvedPoDocument;
+
+      if (newStatus === 5) {
+        existingEntry.finalDiscoundAmount = order.finalDiscoundAmount;
+        existingEntry.taxableAmount = order.taxableAmount;
+        existingEntry.previousTotalAmount = previousTotalAmount;
+        existingEntry.updatedTotalAmount = order.totalAmount;
+        existingEntry.discountApplied = true;
       }
+
       order.markModified("orderHistory");
       await order.save();
 
@@ -1486,9 +1952,7 @@ if (resolvedPoDocument) {
       );
     }
 
-    // ─────────────────────────────────────────────
     // NEW HISTORY ENTRY
-    // ─────────────────────────────────────────────
     let historyEntry = {
       fromStatus: currentStatus,
       fromStatusText: getStatusText(currentStatus),
@@ -1497,20 +1961,21 @@ if (resolvedPoDocument) {
       changedBy: req.user?.name || "Admin",
       changedAt: new Date(),
       additionalNotes: normalizedNotes,
-      poDocument:resolvedPoDocument ? [resolvedPoDocument] : [],
-      // statusDocument is now array
-      statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [],
-      voiceDocument: resolvedVoiceNote,
+      poDocument: resolvedPoDocument ? [resolvedPoDocument] : [],       // ✅ array
+      statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [], // ✅ array
+      voiceDocument: resolvedVoiceNote ? [resolvedVoiceNote] : [],      // ✅ array
     };
 
-    // ─────────────────────────────────────────────
-    // STATUS 5: Close Won — poDocument mandatory
-    // ─────────────────────────────────────────────
-   
+    // STATUS 5: Add financial details to history entry
+    if (newStatus === 5) {
+      historyEntry.finalDiscoundAmount = order.finalDiscoundAmount;
+      historyEntry.previousTotalAmount = previousTotalAmount;  // ✅ old value
+      historyEntry.updatedTotalAmount = order.totalAmount;     // ✅ new value
+      historyEntry.taxableAmount = order.taxableAmount;
+      historyEntry.discountApplied = true;
+    }
 
-    // ─────────────────────────────────────────────
-    // STATUS 6: Closed Loss — closeLossReason mandatory
-    // ─────────────────────────────────────────────
+    // STATUS 6: Closed Loss
     if (newStatus === 6) {
       if (!closeLossReason || closeLossReason.trim() === "") {
         return errorResponse(
@@ -1520,14 +1985,11 @@ if (resolvedPoDocument) {
           400,
         );
       }
-
       historyEntry.closeLossReason = closeLossReason;
       order.closeLossReason = closeLossReason;
     }
 
-    // ─────────────────────────────────────────────
     // HANDLE REOPENING LOGIC
-    // ─────────────────────────────────────────────
     if (
       (currentStatus === 5 || currentStatus === 6) &&
       newStatus !== currentStatus
@@ -1535,11 +1997,7 @@ if (resolvedPoDocument) {
       historyEntry.remarks = `Order reopened from ${getStatusText(currentStatus)} to ${getStatusText(newStatus)}`;
     }
 
-    // ─────────────────────────────────────────────
-    // COMMON UPDATES
-    // ─────────────────────────────────────────────
-
-    // Update order-level additionalNotes safely
+    // Update order-level additionalNotes
     if (normalizedNotes.length > 0) {
       order.additionalNotes = [
         ...toNotesArray(order.additionalNotes),
@@ -1547,22 +2005,12 @@ if (resolvedPoDocument) {
       ];
     }
 
-       // Update order-level poDocument for status 5
-    if (newStatus === 5 && resolvedPoDocument) {
-      order.poDocument = resolvedPoDocument;
-    }
-    // ─────────────────────────────────────────────
     // UPDATE ORDER
-    // ─────────────────────────────────────────────
     order.orderStatus = newStatus;
     order.updatedBy = req.user?.name;
     order.orderHistory.push(historyEntry);
 
     await order.save();
-
-    // ─────────────────────────────────────────────
-    // RESPONSE
-    // ─────────────────────────────────────────────
 
     return successResponse(
       res,
@@ -1583,7 +2031,6 @@ if (resolvedPoDocument) {
     return errorResponse(res, error.message, null, 500);
   }
 });
-
 // ─── GET SINGLE ORDER DETAILS ──────────────────────────────────
 
 const getOrderDetails = asyncHandler(async (req, res) => {

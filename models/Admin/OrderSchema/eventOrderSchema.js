@@ -442,6 +442,7 @@ const OrderBookingSchema = new mongoose.Schema(
     taxableAmount: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
+    finalDiscoundAmount: { type: Number, default: 0 },
 
     // Order Status 1. Enquiry 2. Need analysis 3. Proposal & Price Quote 4. Negotiation & Review 5. Close Won  6. Closed loss 7. Project Code Creation
     orderStatus: {

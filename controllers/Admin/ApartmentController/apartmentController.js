@@ -831,7 +831,7 @@ const getApartmentById = async (req, res) => {
 // };
 const createOrUpdateParticularApartment = async (req, res) => {
   const {
-    _id,  // Changed from apartmentId to _id
+    id,  // Changed from apartmentId to _id
     ApartmentName,
     ApartmentGroupName,
     City,
@@ -907,22 +907,22 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // =====================================================
     // UPDATE by _id ONLY
     // =====================================================
-    const isValidId = _id && mongoose.Types.ObjectId.isValid(_id);
+    const isValidId = id && mongoose.Types.ObjectId.isValid(id);
 
     if (isValidId) {
       // Find existing apartment by _id
-      const existingApartment = await Apartment.findById(_id);
+      const existingApartment = await Apartment.findById(id);
 
       if (!existingApartment) {
         return res.status(404).json({
           success: false,
-          message: "Apartment not found with the provided _id",
+          message: "Apartment not found with the provided id",
         });
       }
 
       // ✅ Update using findByIdAndUpdate
       const updatedApartment = await Apartment.findByIdAndUpdate(
-        _id,
+        id,
         {
           $set: {
             ...apartmentData,

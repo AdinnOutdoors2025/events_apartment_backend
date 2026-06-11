@@ -91,7 +91,7 @@ function generateAndStoreOtp(key, userData) {
 
   otpStore[key] = {
     otp,
-    expiresAt: Date.now() + 5 * 60 * 1000,
+    expiresAt: Date.now() + 30 * 1000, // 30 seconds
     userData,
   };
 
@@ -469,6 +469,7 @@ const loginVerifyOtp = async (req, res) => {
         userEmail: user.userEmail,
         userPhone: user.userPhone,
         userType: user.userType,
+        profileCompleted: profile?.profileCompleted ?? 1,
       },
     });
   } catch (err) {

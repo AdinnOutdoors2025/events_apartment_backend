@@ -47,15 +47,678 @@ function getFileCategory(mimeType) {
   return "other";
 }
 
+// const createBooking = asyncHandler(async (req, res) => {
+//   try {
+//     const {
+//       id,
+//       apartmentId,
+//       eventId,
+//       fromDate,
+//       toDate,
+//       daysOfEvent,
+//       promoterRequired,
+//       stageRequired,
+//       promoterCount,
+//       promoters,
+//       customerDetails,
+//       discountType,
+//       discountPercentage,
+//       sqfet,
+//       dailySchedule,
+//       items = [],
+//       gifts = [],
+//       orderNoteText,
+//       orderNoteFiles,
+//     } = req.body;
+
+//     // ─────────────────────────────────────────────
+//     // VALIDATE ITEMS & GIFTS
+//     // ─────────────────────────────────────────────
+
+//     // Note: items and gifts are optional now
+//     let items_total = 0;
+//     let gifts_total = 0;
+//     let itemsAndGiftsTotal = 0;
+//     let orderItems = [];
+//     let orderGifts = [];
+
+//     // Process items if provided
+//     if (items && items.length > 0) {
+//       // Validate items array entries
+//       for (let i = 0; i < items.length; i++) {
+//         const { item_id, quantity } = items[i];
+//         if (!item_id) {
+//           return errorResponse(
+//             res,
+//             `items[${i}]: item_id is required`,
+//             null,
+//             400,
+//           );
+//         }
+//         if (
+//           !quantity ||
+//           !Number.isInteger(Number(quantity)) ||
+//           Number(quantity) < 1
+//         ) {
+//           return errorResponse(
+//             res,
+//             `items[${i}]: quantity must be a positive integer`,
+//             null,
+//             400,
+//           );
+//         }
+//       }
+
+//       // Fetch all Items from DB
+//       const itemIds = [...new Set(items.map((i) => i.item_id))];
+//       const dbItems = await ItemMaster.find({
+//         _id: { $in: itemIds },
+//         item_status: 1,
+//       });
+//       const dbItemMap = {};
+//       dbItems.forEach((doc) => {
+//         dbItemMap[doc._id.toString()] = doc;
+//       });
+
+//       // Verify every requested item was found
+//       for (let i = 0; i < items.length; i++) {
+//         if (!dbItemMap[items[i].item_id]) {
+//           return errorResponse(
+//             res,
+//             `items[${i}]: item with id "${items[i].item_id}" not found or is disabled`,
+//             null,
+//             404,
+//           );
+//         }
+//       }
+
+//       // Build order items + accumulate items_total
+//       orderItems = items.map(({ item_id, quantity }) => {
+//         const doc = dbItemMap[item_id];
+//         const parsedCount = Number(quantity);
+//         const item_amount = doc.amount * parsedCount;
+//         items_total += item_amount;
+
+//         return {
+//           item_id: doc._id,
+//           item_name: doc.item_name,
+//           state: doc.state,
+//           item_type: doc.item_type,
+//           quantity: parsedCount,
+//           unit_amount: doc.amount,
+//           amount_unit: doc.amount_unit,
+//           item_amount,
+//         };
+//       });
+//     }
+
+//     // Process gifts if provided
+//     if (gifts && gifts.length > 0) {
+//       // Validate gifts array entries
+//       for (let i = 0; i < gifts.length; i++) {
+//         const { gift_id, quantity } = gifts[i];
+//         if (!gift_id) {
+//           return errorResponse(
+//             res,
+//             `gifts[${i}]: gift_id is required`,
+//             null,
+//             400,
+//           );
+//         }
+//         if (
+//           !quantity ||
+//           !Number.isInteger(Number(quantity)) ||
+//           Number(quantity) < 1
+//         ) {
+//           return errorResponse(
+//             res,
+//             `gifts[${i}]: quantity must be a positive integer`,
+//             null,
+//             400,
+//           );
+//         }
+//       }
+
+//       // Fetch all Gifts from DB
+//       const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
+//       const dbGifts = await GiftMaster.find({
+//         _id: { $in: giftIds },
+//         status: 1,
+//       });
+//       const dbGiftMap = {};
+//       dbGifts.forEach((doc) => {
+//         dbGiftMap[doc._id.toString()] = doc;
+//       });
+
+//       // Verify every requested gift was found
+//       for (let i = 0; i < gifts.length; i++) {
+//         if (!dbGiftMap[gifts[i].gift_id]) {
+//           return errorResponse(
+//             res,
+//             `gifts[${i}]: gift with id "${gifts[i].gift_id}" not found or is disabled`,
+//             null,
+//             404,
+//           );
+//         }
+//       }
+
+//       // Build order gifts + accumulate gifts_total
+//       orderGifts = gifts.map(({ gift_id, quantity }) => {
+//         const doc = dbGiftMap[gift_id];
+//         const parsedCount = Number(quantity);
+//         const gift_amount = doc.price * parsedCount;
+//         gifts_total += gift_amount;
+
+//         return {
+//           gift_id: doc._id,
+//           gift_name: doc.giftName,
+//           gift_type: doc.giftType,
+//           quantity: parsedCount,
+//           unit_price: doc.price,
+//           price_type: doc.priceType,
+//           gift_amount,
+//         };
+//       });
+//     }
+
+//     itemsAndGiftsTotal = items_total + gifts_total;
+
+//     // ─────────────────────────────────────────────
+//     // FIND EXISTING BOOKING BY _id (if provided)
+//     // ─────────────────────────────────────────────
+
+//     let existingCustomerBooking = null;
+
+//     if (id) {
+//       if (!mongoose.Types.ObjectId.isValid(id)) {
+//         return errorResponse(res, "Invalid booking id", null, 400);
+//       }
+
+//       existingCustomerBooking = await orderBooking.findById(id);
+
+//       if (!existingCustomerBooking) {
+//         return errorResponse(res, "Booking not found", null, 400);
+//       }
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // VALIDATE DAILY SCHEDULE
+//     // ─────────────────────────────────────────────
+
+//     if (
+//       !dailySchedule ||
+//       !Array.isArray(dailySchedule) ||
+//       dailySchedule.length === 0
+//     ) {
+//       return errorResponse(
+//         res,
+//         "dailySchedule is required with at least one day schedule",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // Validate each day's schedule
+//     for (const schedule of dailySchedule) {
+//       if (!schedule.days) {
+//         return errorResponse(res, "Each schedule must have a days", null, 400);
+//       }
+
+//       if (!schedule.fromTime) {
+//         return errorResponse(
+//           res,
+//           `fromTime is required for day ${schedule.days}`,
+//           null,
+//           400,
+//         );
+//       }
+
+//       if (!schedule.toTime) {
+//         return errorResponse(
+//           res,
+//           `toTime is required for day ${schedule.days}`,
+//           null,
+//           400,
+//         );
+//       }
+
+//       // Validate time format (HH:MM AM/PM)
+//       const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
+//       if (
+//         !timeRegex.test(schedule.fromTime) ||
+//         !timeRegex.test(schedule.toTime)
+//       ) {
+//         return errorResponse(
+//           res,
+//           `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
+//           null,
+//           400,
+//         );
+//       }
+
+//       // Check that daysOfEvent matches the number of schedules
+//       if (daysOfEvent && schedule.days > daysOfEvent) {
+//         return errorResponse(
+//           res,
+//           `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
+//           null,
+//           400,
+//         );
+//       }
+//     }
+
+//     // Check if the number of schedules matches daysOfEvent
+//     if (daysOfEvent && dailySchedule.length !== daysOfEvent) {
+//       return errorResponse(
+//         res,
+//         `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
+//         null,
+//         400,
+//       );
+//     }
+
+//     // Check for duplicate day numbers
+//     const dayNumbers = dailySchedule.map((s) => s.days);
+//     const hasDuplicates = new Set(dayNumbers).size !== dayNumbers.length;
+//     if (hasDuplicates) {
+//       return errorResponse(
+//         res,
+//         "Duplicate day numbers found in dailySchedule",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // Check that day numbers are sequential starting from 1
+//     const sortedDays = [...dayNumbers].sort((a, b) => a - b);
+//     for (let i = 0; i < sortedDays.length; i++) {
+//       if (sortedDays[i] !== i + 1) {
+//         return errorResponse(
+//           res,
+//           `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
+//           null,
+//           400,
+//         );
+//       }
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // ORDER NOTE
+//     // ─────────────────────────────────────────────
+
+//     const uploadedFiles = req.files?.orderNoteFiles || [];
+
+//     const orderNote = {
+//       text: orderNoteText || "",
+//       files: uploadedFiles.map((file) => ({
+//         originalName: file.originalname,
+//         fileName: file.filename,
+//         filePath: file.path,
+//         mimeType: file.mimetype,
+//         size: file.size,
+//         fileType: getFileCategory(file.mimetype),
+//       })),
+//     };
+
+//     // If no files uploaded but order_notes text exists
+//     if (!uploadedFiles.length && orderNoteText) {
+//       orderNote.files = [];
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // VALIDATE APARTMENT ID
+//     // ─────────────────────────────────────────────
+
+//     if (!apartmentId || !mongoose.Types.ObjectId.isValid(apartmentId)) {
+//       return errorResponse(
+//         res,
+//         !apartmentId ? "apartmentId is required" : "Invalid apartmentId",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // VALIDATE EVENT ID
+//     // ─────────────────────────────────────────────
+
+//     if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
+//       return errorResponse(
+//         res,
+//         !eventId ? "eventId is required" : "Invalid eventId",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // VALIDATE PHONE NUMBER
+//     // ─────────────────────────────────────────────
+
+//     const contactPersonPhoneNumber = customerDetails?.contactPersonPhoneNumber;
+//     if (!contactPersonPhoneNumber) {
+//       return errorResponse(
+//         res,
+//         "customerDetails.contactPersonPhoneNumber is required",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // VALIDATE DATES
+//     // ─────────────────────────────────────────────
+
+//     if (!fromDate || !toDate) {
+//       return errorResponse(
+//         res,
+//         !fromDate ? "fromDate is required" : "toDate is required",
+//         null,
+//         400,
+//       );
+//     }
+
+//     const parsedFromDate = new Date(fromDate);
+//     const parsedToDate = new Date(toDate);
+
+//     if (isNaN(parsedFromDate.getTime())) {
+//       return errorResponse(res, "Invalid fromDate", null, 400);
+//     }
+
+//     if (isNaN(parsedToDate.getTime())) {
+//       return errorResponse(res, "Invalid toDate", null, 400);
+//     }
+
+//     if (parsedToDate < parsedFromDate) {
+//       return errorResponse(
+//         res,
+//         "toDate must be on or after fromDate",
+//         null,
+//         400,
+//       );
+//     }
+
+//     // Calculate total days
+//     const totalDays =
+//       Math.ceil((parsedToDate - parsedFromDate) / (1000 * 60 * 60 * 24)) + 1;
+
+//     // Use provided daysOfEvent or calculate from dates
+//     let eventDays = daysOfEvent;
+//     if (!eventDays) {
+//       eventDays = totalDays;
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // FETCH APARTMENT & EVENT
+//     // ─────────────────────────────────────────────
+
+//     const [apartment, event] = await Promise.all([
+//       Apartment.findById(apartmentId).lean(),
+//       EventBook.findById(eventId).lean(),
+//     ]);
+
+//     if (!apartment) {
+//       return errorResponse(res, "Apartment not found", null, 400);
+//     }
+
+//     if (!event) {
+//       return errorResponse(res, "Event not found", null, 404);
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // STORE SNAPSHOT DETAILS
+//     // ─────────────────────────────────────────────
+
+//     const apartmentDetails = {
+//       _id: apartment._id,
+//       apartmentName: apartment.ApartmentName,
+//       apartmentAddress: apartment.ApartmentAddress,
+//       city: apartment.City,
+//       location: apartment.Location,
+//       perDayRent: apartment.PerDayRent,
+//       contactPersonName: apartment.ContactPersonName,
+//       contactPersonPhone: apartment.ContactPersonPhone,
+//     };
+
+//     const eventDetails = {
+//       _id: event._id,
+//       eventName: event.eventName,
+//       amount: event.amount,
+//       description: event.description,
+//     };
+
+//     // ─────────────────────────────────────────────
+//     // CHECK OVERLAPPING BOOKINGS (excluding current booking)
+//     // ─────────────────────────────────────────────
+
+//     const overlappingBooking = await orderBooking.findOne({
+//       _id: { $ne: existingCustomerBooking?._id },
+//       apartmentId,
+//       fromDate: { $lte: parsedToDate },
+//       toDate: { $gte: parsedFromDate },
+//     });
+
+//     if (overlappingBooking) {
+//       return errorResponse(
+//         res,
+//         `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
+//         null,
+//         409,
+//       );
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // CALCULATE AMOUNTS
+//     // ─────────────────────────────────────────────
+
+//     // const apartmentAmount = Math.floor(
+//     //   (apartment.perDayRent || 0) * (eventDays || 0),
+//     // );
+
+//     // const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
+//     const apartmentAmount = Math.floor(
+//       (apartment.PerDayRent || 0) * (sqfet || 1) * (eventDays || 0),
+//     );
+
+//     const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
+
+//     let promoterTotal = 0;
+//     // OLD CODE
+//     // const promotersWithAmount = (promoters || []).map((p) => {
+//     //   const promoterAmount = Math.floor(
+//     //     (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
+//     //   );
+//     //   promoterTotal += promoterAmount;
+//     //   return {
+//     //     ...p,
+//     //     promoterAmount,
+//     //   };
+//     // });
+//     // NEW CODE
+//     const PROMOTER_PER_DAY_CHARGE =
+//       Number(process.env.PROMOTER_PER_DAY_CHARGE) || 1500;
+
+//     const promotersWithAmount = (promoters || []).map((p) => {
+//       const promoterAmount = Math.floor(
+//         PROMOTER_PER_DAY_CHARGE * (p.promoterDays || 0), // 👈 .env value, ignore p.promoterPerDayCharge
+//       );
+//       promoterTotal += promoterAmount;
+//       return {
+//         ...p,
+//         promoterPerDayCharge: PROMOTER_PER_DAY_CHARGE, // 👈 overwrite with .env value before saving
+//         promoterAmount,
+//       };
+//     });
+//     // Calculate subTotal including items and gifts
+//     const subTotal = Math.floor(
+//       apartmentAmount + eventAmount + promoterTotal + itemsAndGiftsTotal,
+//     );
+
+//     let discountAmount = 0;
+
+//     // discountType: 1 = Percentage, 2 = Flat
+//     if (discountType === 1) {
+//       discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
+//     } else if (discountType === 2) {
+//       discountAmount = Math.floor(discountPercentage || 0);
+//     }
+
+//     const taxableAmount = Math.floor(subTotal - discountAmount);
+//     const gstAmount = Math.floor((taxableAmount * 18) / 100);
+//     const finalTotalAmount = Math.floor(taxableAmount + gstAmount);
+
+//     // ─────────────────────────────────────────────
+//     // UPDATE EXISTING BOOKING
+//     // ─────────────────────────────────────────────
+
+//     if (existingCustomerBooking) {
+//       existingCustomerBooking.fromDate = parsedFromDate;
+//       existingCustomerBooking.toDate = parsedToDate;
+//       existingCustomerBooking.daysOfEvent = eventDays;
+//       existingCustomerBooking.sqfet = sqfet;
+//       existingCustomerBooking.promoterRequired = promoterRequired;
+//       existingCustomerBooking.stageRequired = stageRequired;
+//       existingCustomerBooking.promoterCount = promoterCount;
+//       existingCustomerBooking.promoters = promotersWithAmount;
+//       existingCustomerBooking.customerDetails = customerDetails;
+//       existingCustomerBooking.discountPercentage = discountPercentage;
+//       existingCustomerBooking.discountType = discountType;
+//       existingCustomerBooking.apartmentAmount = apartmentAmount;
+//       // existingCustomerBooking.sqfetAmount = sqfetAmount;
+//       existingCustomerBooking.eventAmount = eventAmount;
+//       existingCustomerBooking.promoterTotal = promoterTotal;
+//       existingCustomerBooking.subTotal = subTotal;
+//       existingCustomerBooking.discountAmount = discountAmount;
+//       existingCustomerBooking.taxableAmount = taxableAmount;
+//       existingCustomerBooking.gstAmount = gstAmount;
+//       existingCustomerBooking.totalAmount = finalTotalAmount;
+//       existingCustomerBooking.apartmentDetails = apartmentDetails;
+//       existingCustomerBooking.eventDetails = eventDetails;
+//       existingCustomerBooking.orderNote = orderNote;
+//       existingCustomerBooking.dailySchedule = dailySchedule;
+
+//       // Add items and gifts to existing booking
+//       if (orderItems.length > 0) existingCustomerBooking.items = orderItems;
+//       if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
+//       existingCustomerBooking.items_total = items_total;
+//       existingCustomerBooking.gifts_total = gifts_total;
+//       existingCustomerBooking.itemsAndGiftsTotal = itemsAndGiftsTotal;
+
+//       existingCustomerBooking.updatedBy = req.user?.name;
+//       existingCustomerBooking.userType = req.user?.userType;
+
+//       await existingCustomerBooking.save();
+
+//       return successResponse(res, "Booking updated successfully");
+//     }
+
+//     // ─────────────────────────────────────────────
+//     // GENERATE ORDER ID
+//     // ─────────────────────────────────────────────
+
+//     const orderId = await generateAdminOrderId();
+
+//     // ─────────────────────────────────────────────
+//     // CREATE NEW BOOKING
+//     // ─────────────────────────────────────────────
+//     const initialHistoryEntry = {
+//       fromStatus: null,
+//       fromStatusText: null,
+//       toStatus: 1,
+//       toStatusText: "Enquiry",
+//       changedBy: req.user?.name || "Admin",
+//       changedAt: new Date(),
+//       additionalNotes: [],
+//       statusDocument: [],
+//       voiceDocument: [],
+//     };
+//     const booking = await orderBooking.create({
+//       orderId,
+//       apartmentId,
+//       eventId,
+//       apartmentDetails,
+//       eventDetails,
+//       fromDate: parsedFromDate,
+//       toDate: parsedToDate,
+//       daysOfEvent: eventDays,
+//       sqfet,
+//       promoterRequired,
+//       stageRequired,
+//       promoterCount,
+//       promoters: promotersWithAmount,
+//       customerDetails,
+//       discountPercentage,
+//       discountType,
+//       apartmentAmount,
+//       // sqfetAmount,
+//       eventAmount,
+//       promoterTotal,
+//       subTotal,
+//       discountAmount,
+//       taxableAmount,
+//       gstAmount,
+//       totalAmount: finalTotalAmount,
+//       orderNote,
+//       dailySchedule,
+//       items: orderItems,
+//       gifts: orderGifts,
+//       items_total: items_total,
+//       gifts_total: gifts_total,
+//       itemsAndGiftsTotal: itemsAndGiftsTotal,
+//       orderStatus: 1,
+//       orderHistory: [initialHistoryEntry],
+//       createdBy: req.user?.name,
+//       updatedBy: req.user?.name,
+//       userType: req.user?.userType,
+//     });
+
+//     return successResponse(
+//       res,
+//       "Booking created successfully",
+//       "Success",
+//       201,
+//       // {
+//       //   _id: booking._id,
+//       //   orderId: booking.orderId,
+//       //   bookingDetails: {
+//       //     fromDate: booking.fromDate,
+//       //     toDate: booking.toDate,
+//       //     daysOfEvent: booking.daysOfEvent,
+//       //     subTotal,
+//       //     discountAmount,
+//       //     taxableAmount,
+//       //     gstAmount,
+//       //     totalAmount: finalTotalAmount,
+//       //   },
+//       //   itemsDetails: {
+//       //     items_total,
+//       //     items: orderItems,
+//       //   },
+//       //   giftsDetails: {
+//       //     gifts_total,
+//       //     gifts: orderGifts,
+//       //   },
+//       // },
+//     );
+//   } catch (error) {
+//     // Global error handler for any unexpected errors
+//     console.error("Unexpected error in createBooking:", error);
+//     return errorResponse(
+//       res,
+//       "An unexpected error occurred: " + error.message,
+//       null,
+//       500,
+//     );
+//   }
+// });
 const createBooking = asyncHandler(async (req, res) => {
   try {
     const {
       id,
       apartmentId,
       eventId,
-      fromDate,
-      toDate,
-      daysOfEvent,
+      dateRanges,           // NEW: array of { fromDate, toDate, daysOfEvent, dailySchedule }
+      totalDaysOfEvent,     // NEW: sum of all daysOfEvent across dateRanges
       promoterRequired,
       stageRequired,
       promoterCount,
@@ -64,7 +727,6 @@ const createBooking = asyncHandler(async (req, res) => {
       discountType,
       discountPercentage,
       sqfet,
-      dailySchedule,
       items = [],
       gifts = [],
       orderNoteText,
@@ -75,7 +737,6 @@ const createBooking = asyncHandler(async (req, res) => {
     // VALIDATE ITEMS & GIFTS
     // ─────────────────────────────────────────────
 
-    // Note: items and gifts are optional now
     let items_total = 0;
     let gifts_total = 0;
     let itemsAndGiftsTotal = 0;
@@ -84,43 +745,21 @@ const createBooking = asyncHandler(async (req, res) => {
 
     // Process items if provided
     if (items && items.length > 0) {
-      // Validate items array entries
       for (let i = 0; i < items.length; i++) {
         const { item_id, quantity } = items[i];
         if (!item_id) {
-          return errorResponse(
-            res,
-            `items[${i}]: item_id is required`,
-            null,
-            400,
-          );
+          return errorResponse(res, `items[${i}]: item_id is required`, null, 400);
         }
-        if (
-          !quantity ||
-          !Number.isInteger(Number(quantity)) ||
-          Number(quantity) < 1
-        ) {
-          return errorResponse(
-            res,
-            `items[${i}]: quantity must be a positive integer`,
-            null,
-            400,
-          );
+        if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+          return errorResponse(res, `items[${i}]: quantity must be a positive integer`, null, 400);
         }
       }
 
-      // Fetch all Items from DB
       const itemIds = [...new Set(items.map((i) => i.item_id))];
-      const dbItems = await ItemMaster.find({
-        _id: { $in: itemIds },
-        item_status: 1,
-      });
+      const dbItems = await ItemMaster.find({ _id: { $in: itemIds }, item_status: 1 });
       const dbItemMap = {};
-      dbItems.forEach((doc) => {
-        dbItemMap[doc._id.toString()] = doc;
-      });
+      dbItems.forEach((doc) => { dbItemMap[doc._id.toString()] = doc; });
 
-      // Verify every requested item was found
       for (let i = 0; i < items.length; i++) {
         if (!dbItemMap[items[i].item_id]) {
           return errorResponse(
@@ -132,13 +771,11 @@ const createBooking = asyncHandler(async (req, res) => {
         }
       }
 
-      // Build order items + accumulate items_total
       orderItems = items.map(({ item_id, quantity }) => {
         const doc = dbItemMap[item_id];
         const parsedCount = Number(quantity);
         const item_amount = doc.amount * parsedCount;
         items_total += item_amount;
-
         return {
           item_id: doc._id,
           item_name: doc.item_name,
@@ -154,43 +791,21 @@ const createBooking = asyncHandler(async (req, res) => {
 
     // Process gifts if provided
     if (gifts && gifts.length > 0) {
-      // Validate gifts array entries
       for (let i = 0; i < gifts.length; i++) {
         const { gift_id, quantity } = gifts[i];
         if (!gift_id) {
-          return errorResponse(
-            res,
-            `gifts[${i}]: gift_id is required`,
-            null,
-            400,
-          );
+          return errorResponse(res, `gifts[${i}]: gift_id is required`, null, 400);
         }
-        if (
-          !quantity ||
-          !Number.isInteger(Number(quantity)) ||
-          Number(quantity) < 1
-        ) {
-          return errorResponse(
-            res,
-            `gifts[${i}]: quantity must be a positive integer`,
-            null,
-            400,
-          );
+        if (!quantity || !Number.isInteger(Number(quantity)) || Number(quantity) < 1) {
+          return errorResponse(res, `gifts[${i}]: quantity must be a positive integer`, null, 400);
         }
       }
 
-      // Fetch all Gifts from DB
       const giftIds = [...new Set(gifts.map((g) => g.gift_id))];
-      const dbGifts = await GiftMaster.find({
-        _id: { $in: giftIds },
-        status: 1,
-      });
+      const dbGifts = await GiftMaster.find({ _id: { $in: giftIds }, status: 1 });
       const dbGiftMap = {};
-      dbGifts.forEach((doc) => {
-        dbGiftMap[doc._id.toString()] = doc;
-      });
+      dbGifts.forEach((doc) => { dbGiftMap[doc._id.toString()] = doc; });
 
-      // Verify every requested gift was found
       for (let i = 0; i < gifts.length; i++) {
         if (!dbGiftMap[gifts[i].gift_id]) {
           return errorResponse(
@@ -202,13 +817,11 @@ const createBooking = asyncHandler(async (req, res) => {
         }
       }
 
-      // Build order gifts + accumulate gifts_total
       orderGifts = gifts.map(({ gift_id, quantity }) => {
         const doc = dbGiftMap[gift_id];
         const parsedCount = Number(quantity);
         const gift_amount = doc.price * parsedCount;
         gifts_total += gift_amount;
-
         return {
           gift_id: doc._id,
           gift_name: doc.giftName,
@@ -233,114 +846,183 @@ const createBooking = asyncHandler(async (req, res) => {
       if (!mongoose.Types.ObjectId.isValid(id)) {
         return errorResponse(res, "Invalid booking id", null, 400);
       }
-
       existingCustomerBooking = await orderBooking.findById(id);
-
       if (!existingCustomerBooking) {
         return errorResponse(res, "Booking not found", null, 400);
       }
     }
 
     // ─────────────────────────────────────────────
-    // VALIDATE DAILY SCHEDULE
+    // VALIDATE DATE RANGES
     // ─────────────────────────────────────────────
 
-    if (
-      !dailySchedule ||
-      !Array.isArray(dailySchedule) ||
-      dailySchedule.length === 0
-    ) {
+    if (!dateRanges || !Array.isArray(dateRanges) || dateRanges.length === 0) {
+      return errorResponse(res, "dateRanges is required with at least one entry", null, 400);
+    }
+
+    const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
+    const parsedDateRanges = [];
+    let computedTotalDays = 0;
+
+    for (let r = 0; r < dateRanges.length; r++) {
+      const range = dateRanges[r];
+
+      // ── Validate fromDate / toDate ──
+      if (!range.fromDate) {
+        return errorResponse(res, `dateRanges[${r}]: fromDate is required`, null, 400);
+      }
+      if (!range.toDate) {
+        return errorResponse(res, `dateRanges[${r}]: toDate is required`, null, 400);
+      }
+
+      const parsedFrom = new Date(range.fromDate);
+      const parsedTo   = new Date(range.toDate);
+
+      if (isNaN(parsedFrom.getTime())) {
+        return errorResponse(res, `dateRanges[${r}]: invalid fromDate`, null, 400);
+      }
+      if (isNaN(parsedTo.getTime())) {
+        return errorResponse(res, `dateRanges[${r}]: invalid toDate`, null, 400);
+      }
+      if (parsedTo < parsedFrom) {
+        return errorResponse(res, `dateRanges[${r}]: toDate must be on or after fromDate`, null, 400);
+      }
+
+      // ── Validate daysOfEvent ──
+      if (!range.daysOfEvent || Number(range.daysOfEvent) < 1) {
+        return errorResponse(res, `dateRanges[${r}]: daysOfEvent must be at least 1`, null, 400);
+      }
+      const rangeDays = Number(range.daysOfEvent);
+      computedTotalDays += rangeDays;
+
+      // ── Validate dailySchedule ──
+      const schedule = range.dailySchedule;
+      if (!schedule || !Array.isArray(schedule) || schedule.length === 0) {
+        return errorResponse(
+          res,
+          `dateRanges[${r}]: dailySchedule is required with at least one entry`,
+          null,
+          400,
+        );
+      }
+
+      // Number of schedule entries must match daysOfEvent for this range
+      if (schedule.length !== rangeDays) {
+        return errorResponse(
+          res,
+          `dateRanges[${r}]: number of dailySchedule entries (${schedule.length}) must match daysOfEvent (${rangeDays})`,
+          null,
+          400,
+        );
+      }
+
+      // Validate each schedule entry inside this range
+      const scheduleDates = [];
+      for (let s = 0; s < schedule.length; s++) {
+        const slot = schedule[s];
+
+        if (!slot.date) {
+          return errorResponse(
+            res,
+            `dateRanges[${r}].dailySchedule[${s}]: date is required (YYYY-MM-DD)`,
+            null,
+            400,
+          );
+        }
+        if (!slot.fromTime) {
+          return errorResponse(
+            res,
+            `dateRanges[${r}].dailySchedule[${s}]: fromTime is required`,
+            null,
+            400,
+          );
+        }
+        if (!slot.toTime) {
+          return errorResponse(
+            res,
+            `dateRanges[${r}].dailySchedule[${s}]: toTime is required`,
+            null,
+            400,
+          );
+        }
+
+        // Validate time format
+        if (!timeRegex.test(slot.fromTime) || !timeRegex.test(slot.toTime)) {
+          return errorResponse(
+            res,
+            `dateRanges[${r}].dailySchedule[${s}]: invalid time format for date ${slot.date}. Use "10:00 AM" or "2:00 PM"`,
+            null,
+            400,
+          );
+        }
+
+        // Ensure the schedule date falls within the range's fromDate–toDate
+        const slotDate = new Date(slot.date);
+        if (isNaN(slotDate.getTime())) {
+          return errorResponse(
+            res,
+            `dateRanges[${r}].dailySchedule[${s}]: invalid date "${slot.date}"`,
+            null,
+            400,
+          );
+        }
+        if (slotDate < parsedFrom || slotDate > parsedTo) {
+          return errorResponse(
+            res,
+            `dateRanges[${r}].dailySchedule[${s}]: date "${slot.date}" is outside the range ${range.fromDate} – ${range.toDate}`,
+            null,
+            400,
+          );
+        }
+
+        scheduleDates.push(slot.date);
+      }
+
+      // No duplicate dates within the same range
+      if (new Set(scheduleDates).size !== scheduleDates.length) {
+        return errorResponse(
+          res,
+          `dateRanges[${r}]: duplicate dates found in dailySchedule`,
+          null,
+          400,
+        );
+      }
+
+      parsedDateRanges.push({
+        fromDate: parsedFrom,
+        toDate: parsedTo,
+        daysOfEvent: rangeDays,
+        dailySchedule: schedule,
+      });
+    }
+
+    // ── Validate that dateRanges do not overlap each other ──
+    for (let i = 0; i < parsedDateRanges.length; i++) {
+      for (let j = i + 1; j < parsedDateRanges.length; j++) {
+        const a = parsedDateRanges[i];
+        const b = parsedDateRanges[j];
+        if (a.fromDate <= b.toDate && b.fromDate <= a.toDate) {
+          return errorResponse(
+            res,
+            `dateRanges[${i}] and dateRanges[${j}] overlap each other`,
+            null,
+            400,
+          );
+        }
+      }
+    }
+
+    // ── Validate totalDaysOfEvent matches sum of individual daysOfEvent ──
+    if (totalDaysOfEvent && Number(totalDaysOfEvent) !== computedTotalDays) {
       return errorResponse(
         res,
-        "dailySchedule is required with at least one day schedule",
+        `totalDaysOfEvent (${totalDaysOfEvent}) does not match the sum of daysOfEvent across all dateRanges (${computedTotalDays})`,
         null,
         400,
       );
     }
 
-    // Validate each day's schedule
-    for (const schedule of dailySchedule) {
-      if (!schedule.days) {
-        return errorResponse(res, "Each schedule must have a days", null, 400);
-      }
-
-      if (!schedule.fromTime) {
-        return errorResponse(
-          res,
-          `fromTime is required for day ${schedule.days}`,
-          null,
-          400,
-        );
-      }
-
-      if (!schedule.toTime) {
-        return errorResponse(
-          res,
-          `toTime is required for day ${schedule.days}`,
-          null,
-          400,
-        );
-      }
-
-      // Validate time format (HH:MM AM/PM)
-      const timeRegex = /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/i;
-      if (
-        !timeRegex.test(schedule.fromTime) ||
-        !timeRegex.test(schedule.toTime)
-      ) {
-        return errorResponse(
-          res,
-          `Invalid time format for day ${schedule.days}. Use format like "10:00 AM" or "2:00 PM"`,
-          null,
-          400,
-        );
-      }
-
-      // Check that daysOfEvent matches the number of schedules
-      if (daysOfEvent && schedule.days > daysOfEvent) {
-        return errorResponse(
-          res,
-          `days ${schedule.days} exceeds daysOfEvent (${daysOfEvent})`,
-          null,
-          400,
-        );
-      }
-    }
-
-    // Check if the number of schedules matches daysOfEvent
-    if (daysOfEvent && dailySchedule.length !== daysOfEvent) {
-      return errorResponse(
-        res,
-        `Number of daily schedules (${dailySchedule.length}) must match daysOfEvent (${daysOfEvent})`,
-        null,
-        400,
-      );
-    }
-
-    // Check for duplicate day numbers
-    const dayNumbers = dailySchedule.map((s) => s.days);
-    const hasDuplicates = new Set(dayNumbers).size !== dayNumbers.length;
-    if (hasDuplicates) {
-      return errorResponse(
-        res,
-        "Duplicate day numbers found in dailySchedule",
-        null,
-        400,
-      );
-    }
-
-    // Check that day numbers are sequential starting from 1
-    const sortedDays = [...dayNumbers].sort((a, b) => a - b);
-    for (let i = 0; i < sortedDays.length; i++) {
-      if (sortedDays[i] !== i + 1) {
-        return errorResponse(
-          res,
-          `Day numbers must be sequential starting from 1. Missing day ${i + 1}`,
-          null,
-          400,
-        );
-      }
-    }
+    const finalTotalDaysOfEvent = computedTotalDays;
 
     // ─────────────────────────────────────────────
     // ORDER NOTE
@@ -360,7 +1042,6 @@ const createBooking = asyncHandler(async (req, res) => {
       })),
     };
 
-    // If no files uploaded but order_notes text exists
     if (!uploadedFiles.length && orderNoteText) {
       orderNote.files = [];
     }
@@ -406,49 +1087,6 @@ const createBooking = asyncHandler(async (req, res) => {
     }
 
     // ─────────────────────────────────────────────
-    // VALIDATE DATES
-    // ─────────────────────────────────────────────
-
-    if (!fromDate || !toDate) {
-      return errorResponse(
-        res,
-        !fromDate ? "fromDate is required" : "toDate is required",
-        null,
-        400,
-      );
-    }
-
-    const parsedFromDate = new Date(fromDate);
-    const parsedToDate = new Date(toDate);
-
-    if (isNaN(parsedFromDate.getTime())) {
-      return errorResponse(res, "Invalid fromDate", null, 400);
-    }
-
-    if (isNaN(parsedToDate.getTime())) {
-      return errorResponse(res, "Invalid toDate", null, 400);
-    }
-
-    if (parsedToDate < parsedFromDate) {
-      return errorResponse(
-        res,
-        "toDate must be on or after fromDate",
-        null,
-        400,
-      );
-    }
-
-    // Calculate total days
-    const totalDays =
-      Math.ceil((parsedToDate - parsedFromDate) / (1000 * 60 * 60 * 24)) + 1;
-
-    // Use provided daysOfEvent or calculate from dates
-    let eventDays = daysOfEvent;
-    if (!eventDays) {
-      eventDays = totalDays;
-    }
-
-    // ─────────────────────────────────────────────
     // FETCH APARTMENT & EVENT
     // ─────────────────────────────────────────────
 
@@ -460,7 +1098,6 @@ const createBooking = asyncHandler(async (req, res) => {
     if (!apartment) {
       return errorResponse(res, "Apartment not found", null, 400);
     }
-
     if (!event) {
       return errorResponse(res, "Event not found", null, 404);
     }
@@ -488,123 +1125,120 @@ const createBooking = asyncHandler(async (req, res) => {
     };
 
     // ─────────────────────────────────────────────
-    // CHECK OVERLAPPING BOOKINGS (excluding current booking)
+    // CHECK OVERLAPPING BOOKINGS IN DB
+    // Each dateRange in the new request must not conflict with any
+    // existing booking's dateRanges for the same apartment.
     // ─────────────────────────────────────────────
 
-    const overlappingBooking = await orderBooking.findOne({
-      _id: { $ne: existingCustomerBooking?._id },
-      apartmentId,
-      fromDate: { $lte: parsedToDate },
-      toDate: { $gte: parsedFromDate },
-    });
+    for (let r = 0; r < parsedDateRanges.length; r++) {
+      const { fromDate: rFrom, toDate: rTo } = parsedDateRanges[r];
 
-    if (overlappingBooking) {
-      return errorResponse(
-        res,
-        `Already booked from ${overlappingBooking.fromDate.toDateString()} to ${overlappingBooking.toDate.toDateString()}`,
-        null,
-        409,
-      );
+      const overlappingBooking = await orderBooking.findOne({
+        _id: { $ne: existingCustomerBooking?._id },
+        apartmentId,
+        dateRanges: {
+          $elemMatch: {
+            fromDate: { $lte: rTo },
+            toDate:   { $gte: rFrom },
+          },
+        },
+      });
+
+      if (overlappingBooking) {
+        const conflictRange = overlappingBooking.dateRanges.find(
+          (dr) => new Date(dr.fromDate) <= rTo && new Date(dr.toDate) >= rFrom,
+        );
+        return errorResponse(
+          res,
+          `dateRanges[${r}] overlaps with an existing booking` +
+            (conflictRange
+              ? ` (${new Date(conflictRange.fromDate).toDateString()} – ${new Date(conflictRange.toDate).toDateString()})`
+              : ""),
+          null,
+          409,
+        );
+      }
     }
 
     // ─────────────────────────────────────────────
     // CALCULATE AMOUNTS
+    // Uses finalTotalDaysOfEvent (sum of all range daysOfEvent)
     // ─────────────────────────────────────────────
 
-    // const apartmentAmount = Math.floor(
-    //   (apartment.perDayRent || 0) * (eventDays || 0),
-    // );
-
-    // const sqfetAmount = Math.floor((apartment.perDayRent || 0) * (sqfet || 0));
     const apartmentAmount = Math.floor(
-      (apartment.PerDayRent || 0) * (sqfet || 1) * (eventDays || 0),
+      (apartment.PerDayRent || 0) * (sqfet || 1) * (finalTotalDaysOfEvent || 0),
     );
 
-    const eventAmount = Math.floor((event.amount || 0) * (eventDays || 0));
+    const eventAmount = Math.floor(
+      (event.amount || 0) * (finalTotalDaysOfEvent || 0),
+    );
 
     let promoterTotal = 0;
-    // OLD CODE
-    // const promotersWithAmount = (promoters || []).map((p) => {
-    //   const promoterAmount = Math.floor(
-    //     (p.promoterPerDayCharge || 0) * (p.promoterDays || 0),
-    //   );
-    //   promoterTotal += promoterAmount;
-    //   return {
-    //     ...p,
-    //     promoterAmount,
-    //   };
-    // });
-    // NEW CODE
     const PROMOTER_PER_DAY_CHARGE =
       Number(process.env.PROMOTER_PER_DAY_CHARGE) || 1500;
 
     const promotersWithAmount = (promoters || []).map((p) => {
       const promoterAmount = Math.floor(
-        PROMOTER_PER_DAY_CHARGE * (p.promoterDays || 0), // 👈 .env value, ignore p.promoterPerDayCharge
+        PROMOTER_PER_DAY_CHARGE * (p.promoterDays || 0),
       );
       promoterTotal += promoterAmount;
       return {
         ...p,
-        promoterPerDayCharge: PROMOTER_PER_DAY_CHARGE, // 👈 overwrite with .env value before saving
+        promoterPerDayCharge: PROMOTER_PER_DAY_CHARGE,
         promoterAmount,
       };
     });
-    // Calculate subTotal including items and gifts
+
     const subTotal = Math.floor(
       apartmentAmount + eventAmount + promoterTotal + itemsAndGiftsTotal,
     );
 
     let discountAmount = 0;
-
-    // discountType: 1 = Percentage, 2 = Flat
     if (discountType === 1) {
       discountAmount = Math.floor((subTotal * (discountPercentage || 0)) / 100);
     } else if (discountType === 2) {
       discountAmount = Math.floor(discountPercentage || 0);
     }
 
-    const taxableAmount = Math.floor(subTotal - discountAmount);
-    const gstAmount = Math.floor((taxableAmount * 18) / 100);
-    const finalTotalAmount = Math.floor(taxableAmount + gstAmount);
+    const taxableAmount     = Math.floor(subTotal - discountAmount);
+    const gstAmount         = Math.floor((taxableAmount * 18) / 100);
+    const finalTotalAmount  = Math.floor(taxableAmount + gstAmount);
 
     // ─────────────────────────────────────────────
     // UPDATE EXISTING BOOKING
     // ─────────────────────────────────────────────
 
     if (existingCustomerBooking) {
-      existingCustomerBooking.fromDate = parsedFromDate;
-      existingCustomerBooking.toDate = parsedToDate;
-      existingCustomerBooking.daysOfEvent = eventDays;
-      existingCustomerBooking.sqfet = sqfet;
-      existingCustomerBooking.promoterRequired = promoterRequired;
-      existingCustomerBooking.stageRequired = stageRequired;
-      existingCustomerBooking.promoterCount = promoterCount;
-      existingCustomerBooking.promoters = promotersWithAmount;
-      existingCustomerBooking.customerDetails = customerDetails;
+      existingCustomerBooking.dateRanges         = parsedDateRanges;
+      existingCustomerBooking.totalDaysOfEvent   = finalTotalDaysOfEvent;
+      existingCustomerBooking.sqfet              = sqfet;
+      existingCustomerBooking.promoterRequired   = promoterRequired;
+      existingCustomerBooking.stageRequired      = stageRequired;
+      existingCustomerBooking.promoterCount      = promoterCount;
+      existingCustomerBooking.promoters          = promotersWithAmount;
+      existingCustomerBooking.customerDetails    = customerDetails;
       existingCustomerBooking.discountPercentage = discountPercentage;
-      existingCustomerBooking.discountType = discountType;
-      existingCustomerBooking.apartmentAmount = apartmentAmount;
-      // existingCustomerBooking.sqfetAmount = sqfetAmount;
-      existingCustomerBooking.eventAmount = eventAmount;
-      existingCustomerBooking.promoterTotal = promoterTotal;
-      existingCustomerBooking.subTotal = subTotal;
-      existingCustomerBooking.discountAmount = discountAmount;
-      existingCustomerBooking.taxableAmount = taxableAmount;
-      existingCustomerBooking.gstAmount = gstAmount;
-      existingCustomerBooking.totalAmount = finalTotalAmount;
-      existingCustomerBooking.apartmentDetails = apartmentDetails;
-      existingCustomerBooking.eventDetails = eventDetails;
-      existingCustomerBooking.orderNote = orderNote;
-      existingCustomerBooking.dailySchedule = dailySchedule;
+      existingCustomerBooking.discountType       = discountType;
+      existingCustomerBooking.apartmentAmount    = apartmentAmount;
+      existingCustomerBooking.eventAmount        = eventAmount;
+      existingCustomerBooking.promoterTotal      = promoterTotal;
+      existingCustomerBooking.subTotal           = subTotal;
+      existingCustomerBooking.discountAmount     = discountAmount;
+      existingCustomerBooking.taxableAmount      = taxableAmount;
+      existingCustomerBooking.gstAmount          = gstAmount;
+      existingCustomerBooking.totalAmount        = finalTotalAmount;
+      existingCustomerBooking.apartmentDetails   = apartmentDetails;
+      existingCustomerBooking.eventDetails       = eventDetails;
+      existingCustomerBooking.orderNote          = orderNote;
 
-      // Add items and gifts to existing booking
       if (orderItems.length > 0) existingCustomerBooking.items = orderItems;
       if (orderGifts.length > 0) existingCustomerBooking.gifts = orderGifts;
-      existingCustomerBooking.items_total = items_total;
-      existingCustomerBooking.gifts_total = gifts_total;
+      existingCustomerBooking.items_total        = items_total;
+      existingCustomerBooking.gifts_total        = gifts_total;
       existingCustomerBooking.itemsAndGiftsTotal = itemsAndGiftsTotal;
 
-      existingCustomerBooking.updatedBy = req.user?.name;
+      existingCustomerBooking.updatedBy          = req.user?.name;
+      existingCustomerBooking.userType           = req.user?.userType;
 
       await existingCustomerBooking.save();
 
@@ -620,6 +1254,7 @@ const createBooking = asyncHandler(async (req, res) => {
     // ─────────────────────────────────────────────
     // CREATE NEW BOOKING
     // ─────────────────────────────────────────────
+
     const initialHistoryEntry = {
       fromStatus: null,
       fromStatusText: null,
@@ -631,15 +1266,18 @@ const createBooking = asyncHandler(async (req, res) => {
       statusDocument: [],
       voiceDocument: [],
     };
+
     const booking = await orderBooking.create({
       orderId,
       apartmentId,
       eventId,
       apartmentDetails,
       eventDetails,
-      fromDate: parsedFromDate,
-      toDate: parsedToDate,
-      daysOfEvent: eventDays,
+
+      // ── NEW fields ──
+      dateRanges: parsedDateRanges,
+      totalDaysOfEvent: finalTotalDaysOfEvent,
+
       sqfet,
       promoterRequired,
       stageRequired,
@@ -649,7 +1287,6 @@ const createBooking = asyncHandler(async (req, res) => {
       discountPercentage,
       discountType,
       apartmentAmount,
-      // sqfetAmount,
       eventAmount,
       promoterTotal,
       subTotal,
@@ -658,48 +1295,20 @@ const createBooking = asyncHandler(async (req, res) => {
       gstAmount,
       totalAmount: finalTotalAmount,
       orderNote,
-      dailySchedule,
       items: orderItems,
       gifts: orderGifts,
-      items_total: items_total,
-      gifts_total: gifts_total,
-      itemsAndGiftsTotal: itemsAndGiftsTotal,
+      items_total,
+      gifts_total,
+      itemsAndGiftsTotal,
       orderStatus: 1,
       orderHistory: [initialHistoryEntry],
       createdBy: req.user?.name,
       updatedBy: req.user?.name,
+      userType: req.user?.userType,
     });
 
-    return successResponse(
-      res,
-      "Booking created successfully",
-      "Success",
-      201,
-      // {
-      //   _id: booking._id,
-      //   orderId: booking.orderId,
-      //   bookingDetails: {
-      //     fromDate: booking.fromDate,
-      //     toDate: booking.toDate,
-      //     daysOfEvent: booking.daysOfEvent,
-      //     subTotal,
-      //     discountAmount,
-      //     taxableAmount,
-      //     gstAmount,
-      //     totalAmount: finalTotalAmount,
-      //   },
-      //   itemsDetails: {
-      //     items_total,
-      //     items: orderItems,
-      //   },
-      //   giftsDetails: {
-      //     gifts_total,
-      //     gifts: orderGifts,
-      //   },
-      // },
-    );
+    return successResponse(res, "Booking created successfully", "Success", 201);
   } catch (error) {
-    // Global error handler for any unexpected errors
     console.error("Unexpected error in createBooking:", error);
     return errorResponse(
       res,
@@ -717,37 +1326,178 @@ const parseDate = (dateString) => {
   const parsedDate = new Date(`${year}-${month}-${day}`);
   return isNaN(parsedDate) ? null : parsedDate;
 };
+// const buildBookingFilters = async (body) => {
+//   const { apartmentId, orderStatus, fromDate, toDate, search } = body;
+//   let filter = {};
+//   if (apartmentId && mongoose.Types.ObjectId.isValid(apartmentId)) {
+//     filter.apartmentId = new mongoose.Types.ObjectId(apartmentId);
+//   }
+//   if (orderStatus !== undefined && orderStatus !== null && orderStatus !== "") {
+//     const statusValue = Number(orderStatus);
+//     if (statusValue !== 0) {
+//       filter.orderStatus = statusValue;
+//     }
+//   }
+//   if (fromDate || toDate) {
+//      const elemMatch = {};
+
+//     if (fromDate) {
+//       const startDate = parseDate(fromDate);
+//       if (!startDate)
+//         return { error: "Invalid fromDate format. Use DD-MM-YYYY" };
+//       // range must end on or after the filter start
+//       elemMatch.toDate = { $gte: startDate };
+//     }
+
+//     if (toDate) {
+//       const endDate = parseDate(toDate);
+//       if (!endDate)
+//         return { error: "Invalid toDate format. Use DD-MM-YYYY" };
+//       endDate.setHours(23, 59, 59, 999);
+//       // range must start on or before the filter end
+//       elemMatch.fromDate = { $lte: endDate };
+//     }
+
+//     filter.dateRanges = { $elemMatch: elemMatch };
+//   }
+//   if (search && search.trim() !== "") {
+//     const searchRegex = new RegExp(search.trim(), "i");
+//     const matchedApartments = await Apartment.find(
+//       { apartmentName: searchRegex },
+//       "_id",
+//     ).lean();
+//     const matchedEvents = await EventBook.find(
+//       { eventName: searchRegex },
+//       "_id",
+//     ).lean();
+//     const apartmentIds = matchedApartments.map((item) => item._id);
+//     const eventIds = matchedEvents.map((item) => item._id);
+//     let orConditions = [];
+//     if (apartmentIds.length > 0)
+//       orConditions.push({ apartmentId: { $in: apartmentIds } });
+//     if (eventIds.length > 0) orConditions.push({ eventId: { $in: eventIds } });
+//     if (orConditions.length === 0) return { noMatch: true, filter };
+//     filter.$or = orConditions;
+//   }
+//   return { filter };
+// };
+// Helper function to get status text
 const buildBookingFilters = async (body) => {
   const { apartmentId, orderStatus, fromDate, toDate, search } = body;
   let filter = {};
+
   if (apartmentId && mongoose.Types.ObjectId.isValid(apartmentId)) {
     filter.apartmentId = new mongoose.Types.ObjectId(apartmentId);
   }
+
   if (orderStatus !== undefined && orderStatus !== null && orderStatus !== "") {
     const statusValue = Number(orderStatus);
     if (statusValue !== 0) {
       filter.orderStatus = statusValue;
     }
   }
+
+  // ─── DATE FILTER - CORRECTED VERSION ─────────────────────────────────────────────────────────
   if (fromDate || toDate) {
-    filter.fromDate = {};
-    if (fromDate) {
-      const startDate = parseDate(fromDate);
-      if (!startDate)
+    const dateConditions = [];
+    
+    // Handle fromDate (single date or start date)
+    if (fromDate && !toDate) {
+      // Only fromDate provided - find bookings that include this specific date
+      const parts = fromDate.split("-");
+      if (!parts || parts.length !== 3) {
         return { error: "Invalid fromDate format. Use DD-MM-YYYY" };
-      filter.fromDate.$gte = startDate;
+      }
+      const [dd, mm, yyyy] = parts;
+      const startOfDay = new Date(Number(yyyy), Number(mm) - 1, Number(dd), 0, 0, 0, 0);
+      const endOfDay = new Date(Number(yyyy), Number(mm) - 1, Number(dd), 23, 59, 59, 999);
+      
+      if (isNaN(startOfDay.getTime())) {
+        return { error: "Invalid fromDate format. Use DD-MM-YYYY" };
+      }
+      
+      // Check if any date range in the array includes this specific date
+      dateConditions.push({
+        dateRanges: {
+          $elemMatch: {
+            fromDate: { $lte: endOfDay },
+            toDate: { $gte: startOfDay }
+          }
+        }
+      });
     }
-    if (toDate) {
-      const endDate = parseDate(toDate);
-      if (!endDate) return { error: "Invalid toDate format. Use DD-MM-YYYY" };
-      endDate.setHours(23, 59, 59, 999);
-      filter.fromDate.$lte = endDate;
+    // Handle toDate only
+    else if (!fromDate && toDate) {
+      // Only toDate provided - find bookings that include this specific date
+      const parts = toDate.split("-");
+      if (!parts || parts.length !== 3) {
+        return { error: "Invalid toDate format. Use DD-MM-YYYY" };
+      }
+      const [dd, mm, yyyy] = parts;
+      const startOfDay = new Date(Number(yyyy), Number(mm) - 1, Number(dd), 0, 0, 0, 0);
+      const endOfDay = new Date(Number(yyyy), Number(mm) - 1, Number(dd), 23, 59, 59, 999);
+      
+      if (isNaN(endOfDay.getTime())) {
+        return { error: "Invalid toDate format. Use DD-MM-YYYY" };
+      }
+      
+      dateConditions.push({
+        dateRanges: {
+          $elemMatch: {
+            fromDate: { $lte: endOfDay },
+            toDate: { $gte: startOfDay }
+          }
+        }
+      });
+    }
+    // Handle both fromDate and toDate (date range)
+    else if (fromDate && toDate) {
+      // Parse fromDate
+      const fromParts = fromDate.split("-");
+      if (!fromParts || fromParts.length !== 3) {
+        return { error: "Invalid fromDate format. Use DD-MM-YYYY" };
+      }
+      const [fromDD, fromMM, fromYYYY] = fromParts;
+      const fromDateObj = new Date(Number(fromYYYY), Number(fromMM) - 1, Number(fromDD), 0, 0, 0, 0);
+      
+      if (isNaN(fromDateObj.getTime())) {
+        return { error: "Invalid fromDate format. Use DD-MM-YYYY" };
+      }
+      
+      // Parse toDate
+      const toParts = toDate.split("-");
+      if (!toParts || toParts.length !== 3) {
+        return { error: "Invalid toDate format. Use DD-MM-YYYY" };
+      }
+      const [toDD, toMM, toYYYY] = toParts;
+      const toDateObj = new Date(Number(toYYYY), Number(toMM) - 1, Number(toDD), 23, 59, 59, 999);
+      
+      if (isNaN(toDateObj.getTime())) {
+        return { error: "Invalid toDate format. Use DD-MM-YYYY" };
+      }
+      
+      // Find bookings that overlap with the date range
+      dateConditions.push({
+        dateRanges: {
+          $elemMatch: {
+            fromDate: { $lte: toDateObj },
+            toDate: { $gte: fromDateObj }
+          }
+        }
+      });
+    }
+    
+    // Apply the date conditions
+    if (dateConditions.length > 0) {
+      filter.$and = dateConditions;
     }
   }
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (search && search.trim() !== "") {
     const searchRegex = new RegExp(search.trim(), "i");
     const matchedApartments = await Apartment.find(
-      { apartmentName: searchRegex },
+      { ApartmentName: searchRegex },
       "_id",
     ).lean();
     const matchedEvents = await EventBook.find(
@@ -759,13 +1509,19 @@ const buildBookingFilters = async (body) => {
     let orConditions = [];
     if (apartmentIds.length > 0)
       orConditions.push({ apartmentId: { $in: apartmentIds } });
-    if (eventIds.length > 0) orConditions.push({ eventId: { $in: eventIds } });
+    if (eventIds.length > 0)
+      orConditions.push({ eventId: { $in: eventIds } });
     if (orConditions.length === 0) return { noMatch: true, filter };
-    filter.$or = orConditions;
+    
+    if (filter.$and) {
+      filter.$and.push({ $or: orConditions });
+    } else {
+      filter.$or = orConditions;
+    }
   }
+
   return { filter };
 };
-// Helper function to get status text
 const getStatusText = (status) => {
   switch (Number(status)) {
     case 1:
@@ -1344,7 +2100,7 @@ const apartmentEventGet = async (req, res) => {
 //       //   );
 //       // }
 //       // PROCESS PO DOCUMENT (Mandatory)
-     
+
 //       const uploadedPoFile = req.files?.poDocument?.[0];
 
 //       if (uploadedPoFile) {
@@ -1506,7 +2262,6 @@ const apartmentEventGet = async (req, res) => {
 //     // ─────────────────────────────────────────────
 //     // STATUS 5: Close Won — poDocument mandatory
 //     // ─────────────────────────────────────────────
-   
 
 //     // ─────────────────────────────────────────────
 //     // STATUS 6: Closed Loss — closeLossReason mandatory
@@ -1784,35 +2539,37 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
 
     let resolvedPoDocument = null;
     let previousTotalAmount = null;
-
+    // ✅ FIX: Handle finalDiscoundAmount as OPTIONAL
+    let finalDiscoundAmountValue = null;
+    let discountApplied = false;
     if (newStatus === 5) {
       // Validate finalDiscoundAmount
-      if (finalDiscoundAmount === undefined || finalDiscoundAmount === null) {
-        return errorResponse(
-          res,
-          "finalDiscoundAmount is mandatory when moving to Close Won",
-          null,
-          400,
-        );
-      }
+      // if (finalDiscoundAmount === undefined || finalDiscoundAmount === null) {
+      //   return errorResponse(
+      //     res,
+      //     "finalDiscoundAmount is mandatory when moving to Close Won",
+      //     null,
+      //     400,
+      //   );
+      // }
 
-      if (isNaN(Number(finalDiscoundAmount))) {
-        return errorResponse(
-          res,
-          "finalDiscoundAmount must be a valid number",
-          null,
-          400,
-        );
-      }
+      // if (isNaN(Number(finalDiscoundAmount))) {
+      //   return errorResponse(
+      //     res,
+      //     "finalDiscoundAmount must be a valid number",
+      //     null,
+      //     400,
+      //   );
+      // }
 
-      if (Number(finalDiscoundAmount) < 0) {
-        return errorResponse(
-          res,
-          "finalDiscoundAmount cannot be negative",
-          null,
-          400,
-        );
-      }
+      // if (Number(finalDiscoundAmount) < 0) {
+      //   return errorResponse(
+      //     res,
+      //     "finalDiscoundAmount cannot be negative",
+      //     null,
+      //     400,
+      //   );
+      // }
 
       // PROCESS PO DOCUMENT (Mandatory for status 5)
       const uploadedPoFile = req.files?.poDocument?.[0];
@@ -1858,12 +2615,72 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
         );
       }
 
-      // ✅ Capture OLD totalAmount BEFORE overwriting
-      previousTotalAmount = order.totalAmount;
+      // ✅ Handle finalDiscoundAmount (OPTIONAL)
+      if (finalDiscoundAmount !== undefined && finalDiscoundAmount !== null) {
+        const parsedAmount = Number(finalDiscoundAmount);
 
-      order.finalDiscoundAmount = Number(finalDiscoundAmount);
-      // ✅ totalAmount = existing totalAmount - finalDiscountAmount
-      order.totalAmount = previousTotalAmount - order.finalDiscoundAmount;
+        // Only apply discount if it's a valid number
+        if (!isNaN(parsedAmount) && parsedAmount > 0) {
+          finalDiscoundAmountValue = parsedAmount;
+          discountApplied = true;
+
+          // Validate discount doesn't exceed total amount
+          if (finalDiscoundAmountValue < 0) {
+            return errorResponse(
+              res,
+              "finalDiscoundAmount cannot be negative",
+              null,
+              400,
+            );
+          }
+
+          // Capture OLD totalAmount BEFORE applying discount
+          previousTotalAmount = order.totalAmount;
+
+          // Ensure totalAmount is a number
+          const currentTotalAmount =
+            typeof order.totalAmount === "number"
+              ? order.totalAmount
+              : Number(order.totalAmount);
+
+          if (isNaN(currentTotalAmount)) {
+            return errorResponse(
+              res,
+              "Order totalAmount is invalid",
+              null,
+              400,
+            );
+          }
+
+          // Apply discount
+          order.finalDiscoundAmount = finalDiscoundAmountValue;
+          order.totalAmount = currentTotalAmount - finalDiscoundAmountValue;
+
+          // Prevent negative total amount
+          if (order.totalAmount < 0) {
+            return errorResponse(
+              res,
+              "Final discount amount cannot exceed the total amount",
+              null,
+              400,
+            );
+          }
+        } else if (parsedAmount < 0) {
+          return errorResponse(
+            res,
+            "finalDiscoundAmount cannot be negative",
+            null,
+            400,
+          );
+        }
+        // If parsedAmount is NaN or 0, ignore discount
+      }
+
+      // If no valid discount provided, keep original totalAmount
+      if (!discountApplied) {
+        previousTotalAmount = order.totalAmount;
+        // Don't modify totalAmount or set finalDiscoundAmount
+      }
     }
 
     // ENSURE orderHistory EXISTS
@@ -1961,16 +2778,16 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
       changedBy: req.user?.name || "Admin",
       changedAt: new Date(),
       additionalNotes: normalizedNotes,
-      poDocument: resolvedPoDocument ? [resolvedPoDocument] : [],       // ✅ array
+      poDocument: resolvedPoDocument ? [resolvedPoDocument] : [], // ✅ array
       statusDocument: resolvedStatusDocument ? [resolvedStatusDocument] : [], // ✅ array
-      voiceDocument: resolvedVoiceNote ? [resolvedVoiceNote] : [],      // ✅ array
+      voiceDocument: resolvedVoiceNote ? [resolvedVoiceNote] : [], // ✅ array
     };
 
     // STATUS 5: Add financial details to history entry
     if (newStatus === 5) {
       historyEntry.finalDiscoundAmount = order.finalDiscoundAmount;
-      historyEntry.previousTotalAmount = previousTotalAmount;  // ✅ old value
-      historyEntry.updatedTotalAmount = order.totalAmount;     // ✅ new value
+      historyEntry.previousTotalAmount = previousTotalAmount; // ✅ old value
+      historyEntry.updatedTotalAmount = order.totalAmount; // ✅ new value
       historyEntry.taxableAmount = order.taxableAmount;
       historyEntry.discountApplied = true;
     }
@@ -2095,11 +2912,11 @@ const getOrderDetails = asyncHandler(async (req, res) => {
 // ─────────────────────────────────────────────
 const getCloseWonPoDocument = (orderData) => {
   if (!orderData?.orderHistory) return null;
-  
+
   const closeWonEntry = orderData.orderHistory.find(
-    history => history.toStatus === 5 // Close Won status
+    (history) => history.toStatus === 5, // Close Won status
   );
-  
+
   return closeWonEntry?.poDocument || null;
 };
 const sendOrderMail = asyncHandler(async (req, res) => {
@@ -2175,7 +2992,8 @@ const sendOrderMail = asyncHandler(async (req, res) => {
         contactPersonPhoneNumber:
           orderData?.customerDetails?.contactPersonPhoneNumber || "",
         email: orderData?.customerDetails?.email || "",
-        additionalNotes: orderData?.customerDetails?.customerAdditionalNotes || "",
+        additionalNotes:
+          orderData?.customerDetails?.customerAdditionalNotes || "",
         gstNumber: orderData?.customerDetails?.gstNumber || "",
         designation: orderData?.customerDetails?.designation || "",
       },

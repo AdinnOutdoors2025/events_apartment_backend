@@ -206,14 +206,22 @@ const PODocumentSchema = new mongoose.Schema(
 // ─── Daily Schedule ─────────────────────────────────────
 const DailyScheduleSchema = new mongoose.Schema(
   {
-    days: { type: Number, required: true }, // 1, 2, 3, etc.
+    date: { type: String, required: true }, // 1, 2, 3, etc.
     fromTime: { type: String, required: true }, // "10:00 AM" format
     toTime: { type: String, required: true }, // "2:00 PM" format
     notes: { type: String, trim: true }, // Optional notes for this day
   },
   { _id: false },
 );
-
+const DateRangeSchema = new mongoose.Schema(
+  {
+    fromDate: { type: Date, required: true },
+    toDate: { type: Date, required: true },
+    daysOfEvent: { type: Number, required: true, min: 1 },
+    dailySchedule: { type: [DailyScheduleSchema], default: [] },
+  },
+  { _id: false },
+);
 // assignmentSchema
 const assignmentSchema = new mongoose.Schema(
   {
@@ -376,11 +384,11 @@ const OrderBookingSchema = new mongoose.Schema(
     gifts_total: { type: Number, default: 0, min: 0 }, // sum of all gift_amount
     itemsAndGiftsTotal: { type: Number, required: true, min: 0 }, // items_total + gifts_total
 
-    order_status: {
-      type: Number,
-      enum: [0, 1, 2], // 0=cancelled, 1=active, 2=completed
-      default: 1,
-    },
+    // order_status: {
+    //   type: Number,
+    //   enum: [0, 1, 2], // 0=cancelled, 1=active, 2=completed
+    //   default: 1,
+    // },
     orderId: { type: String, unique: true },
     apartmentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -404,11 +412,16 @@ const OrderBookingSchema = new mongoose.Schema(
     },
 
     // Date Information
-    fromDate: { type: Date },
-    toDate: { type: Date },
-    daysOfEvent: { type: Number, default: 0 },
-    // daysOfApartment: { type: Number, default: 0 },
-    dailySchedule: { type: [DailyScheduleSchema], default: [] },
+    // fromDate: { type: Date },
+    // toDate: { type: Date },
+    // daysOfEvent: { type: Number, default: 0 },
+    // // daysOfApartment: { type: Number, default: 0 },
+    // dailySchedule: { type: [DailyScheduleSchema], default: [] },
+      // ── NEW: multiple date ranges, each with its own daily schedule ──
+    dateRanges: { type: [DateRangeSchema], default: [] },
+ 
+    // Aggregated total across all dateRanges
+    totalDaysOfEvent: { type: Number, default: 0 },
     // Promoter Information
     promoterRequired: {
       type: Number,
@@ -514,6 +527,7 @@ const OrderBookingSchema = new mongoose.Schema(
     // Audit Fields
     createdBy: { type: String },
     updatedBy: { type: String },
+    userType: { type: Number, default: null },
   },
   {
     timestamps: true,

@@ -1759,6 +1759,104 @@ const listAllBookings = asyncHandler(async (req, res) => {
 });
 // ─── apartment GET BOOKINGS ──────────────────────────────────────────────────
 
+// const apartmentEventGet = async (req, res) => {
+//   try {
+//     const { apartmentId } = req.query;
+
+//     if (!apartmentId) {
+//       return errorResponse(res, "apartmentId is required", null, 400);
+//     }
+
+//     const [apartment, events, items, gifts] = await Promise.all([
+//       Apartment.findById(apartmentId),
+//       EventBook.find({ status: 1 }).sort({ createdAt: -1 }),
+//       ItemMaster.find({}).populate("category_id").sort({ createdAt: -1 }),
+//       GiftMaster.find({}).sort({ createdAt: -1 }).lean(),
+//     ]);
+
+//     if (!apartment) {
+//       return errorResponse(res, "Apartment not found", null, 404);
+//     }
+//     // ================= SQ FEET CHARGES =================
+//     const sqFeetAmount = [
+//       {
+//         size: "10x10",
+//         charge: apartment.PerDayRent,
+//       },
+//       {
+//         size: "10x20",
+//         charge: apartment.PerDayRent * 2,
+//       },
+//       {
+//         size: "10x30",
+//         charge: apartment.PerDayRent * 3,
+//       },
+//     ];
+
+//     const groupedData = {};
+
+//     items.forEach((item) => {
+//       const categoryKey = item.category_id
+//         ? item.category_id._id.toString()
+//         : "NO_CATEGORY";
+
+//       if (!groupedData[categoryKey]) {
+//         groupedData[categoryKey] = {
+//           // category_id: item.category_id || null,
+//           category_name: item.category_id
+//             ? item.category_id.category_name
+//             : "Uncategorized",
+//           itemsData: [],
+//         };
+//       }
+
+//       groupedData[categoryKey].itemsData.push({
+//         _id: item._id,
+//         state: item.state,
+//         item_name: item.item_name,
+//         item_type: item.item_type,
+//         amount: item.amount,
+
+//         amount_unit: item.amount_unit,
+//         quantity: item.quantity,
+//         item_status: item.item_status,
+//         item_notes: item.item_notes,
+//         createdAt: item.createdAt,
+//         updatedAt: item.updatedAt,
+//       });
+//     });
+
+//     // ================= GROUP GIFTS BY TYPE =================
+//     const groupedGifts = {
+//       normalGifts: [], // giftType 1
+//       liveCounterGifts: [], // giftType 2
+//     };
+
+//     gifts.forEach((gift) => {
+//       if (gift.giftType === 1) {
+//         groupedGifts.normalGifts.push(gift);
+//       } else if (gift.giftType === 2) {
+//         groupedGifts.liveCounterGifts.push(gift);
+//       }
+//     });
+//     return successResponse(
+//       res,
+//       "Apartment, Events, Items and Gifts fetched successfully",
+//       {
+//         apartment: {
+//           ...apartment.toObject(),
+//           sqFeetAmount,
+//         },
+//         events,
+//         elementsDetails: Object.values(groupedData),
+//         giftsDetails: groupedGifts,
+//       },
+//       200,
+//     );
+//   } catch (error) {
+//     return errorResponse(res, "Internal server error", null, 400);
+//   }
+// };
 const apartmentEventGet = async (req, res) => {
   try {
     const { apartmentId } = req.query;
@@ -1767,34 +1865,47 @@ const apartmentEventGet = async (req, res) => {
       return errorResponse(res, "apartmentId is required", null, 400);
     }
 
-    const [apartment, events, items, gifts] = await Promise.all([
+    const [apartment, events, items, gifts, existingBookings] = await Promise.all([
       Apartment.findById(apartmentId),
       EventBook.find({ status: 1 }).sort({ createdAt: -1 }),
       ItemMaster.find({}).populate("category_id").sort({ createdAt: -1 }),
       GiftMaster.find({}).sort({ createdAt: -1 }).lean(),
+      // ── NEW: fetch all bookings for this apartment ──
+      orderBooking
+        .find(
+          { apartmentId: new mongoose.Types.ObjectId(apartmentId) },
+          { dateRanges: 1, orderId: 1, orderStatus: 1, _id: 1 }, // only needed fields
+        )
+        .lean(),
     ]);
 
     if (!apartment) {
       return errorResponse(res, "Apartment not found", null, 404);
     }
+
+    // ─── BOOKED DATE RANGES ───────────────────────────────────────────────
+    // Flatten all dateRanges from all bookings into one array
+    const bookedDateRanges = existingBookings.flatMap((booking) =>
+      (booking.dateRanges || []).map((range) => ({
+        bookingId:   booking._id,
+        orderId:     booking.orderId,
+        orderStatus: booking.orderStatus,
+        fromDate:    range.fromDate,
+        toDate:      range.toDate,
+        daysOfEvent: range.daysOfEvent,
+      })),
+    );
+    // ─────────────────────────────────────────────────────────────────────
+
     // ================= SQ FEET CHARGES =================
     const sqFeetAmount = [
-      {
-        size: "10x10",
-        charge: apartment.PerDayRent,
-      },
-      {
-        size: "10x20",
-        charge: apartment.PerDayRent * 2,
-      },
-      {
-        size: "10x30",
-        charge: apartment.PerDayRent * 3,
-      },
+      { size: "10x10", charge: apartment.PerDayRent },
+      { size: "10x20", charge: apartment.PerDayRent * 2 },
+      { size: "10x30", charge: apartment.PerDayRent * 3 },
     ];
 
+    // ================= GROUP ITEMS BY CATEGORY =================
     const groupedData = {};
-
     items.forEach((item) => {
       const categoryKey = item.category_id
         ? item.category_id._id.toString()
@@ -1802,7 +1913,6 @@ const apartmentEventGet = async (req, res) => {
 
       if (!groupedData[categoryKey]) {
         groupedData[categoryKey] = {
-          // category_id: item.category_id || null,
           category_name: item.category_id
             ? item.category_id.category_name
             : "Uncategorized",
@@ -1811,34 +1921,31 @@ const apartmentEventGet = async (req, res) => {
       }
 
       groupedData[categoryKey].itemsData.push({
-        _id: item._id,
-        state: item.state,
-        item_name: item.item_name,
-        item_type: item.item_type,
-        amount: item.amount,
-
+        _id:         item._id,
+        state:       item.state,
+        item_name:   item.item_name,
+        item_type:   item.item_type,
+        amount:      item.amount,
         amount_unit: item.amount_unit,
-        quantity: item.quantity,
+        quantity:    item.quantity,
         item_status: item.item_status,
-        item_notes: item.item_notes,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
+        item_notes:  item.item_notes,
+        createdAt:   item.createdAt,
+        updatedAt:   item.updatedAt,
       });
     });
 
     // ================= GROUP GIFTS BY TYPE =================
     const groupedGifts = {
-      normalGifts: [], // giftType 1
+      normalGifts:     [], // giftType 1
       liveCounterGifts: [], // giftType 2
     };
 
     gifts.forEach((gift) => {
-      if (gift.giftType === 1) {
-        groupedGifts.normalGifts.push(gift);
-      } else if (gift.giftType === 2) {
-        groupedGifts.liveCounterGifts.push(gift);
-      }
+      if (gift.giftType === 1) groupedGifts.normalGifts.push(gift);
+      else if (gift.giftType === 2) groupedGifts.liveCounterGifts.push(gift);
     });
+
     return successResponse(
       res,
       "Apartment, Events, Items and Gifts fetched successfully",
@@ -1848,8 +1955,9 @@ const apartmentEventGet = async (req, res) => {
           sqFeetAmount,
         },
         events,
-        elementsDetails: Object.values(groupedData),
-        giftsDetails: groupedGifts,
+        elementsDetails:  Object.values(groupedData),
+        giftsDetails:     groupedGifts,
+        bookedDateRanges, // ── NEW
       },
       200,
     );
@@ -1857,7 +1965,6 @@ const apartmentEventGet = async (req, res) => {
     return errorResponse(res, "Internal server error", null, 400);
   }
 };
-
 // ─── Status Update ──────────────────────────────────────────────────
 // const updateOrderStatusOnly = asyncHandler(async (req, res) => {
 //   try {

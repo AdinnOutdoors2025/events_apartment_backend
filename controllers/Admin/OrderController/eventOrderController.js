@@ -717,8 +717,8 @@ const createBooking = asyncHandler(async (req, res) => {
       id,
       apartmentId,
       eventId,
-      dateRanges,           // NEW: array of { fromDate, toDate, daysOfEvent, dailySchedule }
-      totalDaysOfEvent,     // NEW: sum of all daysOfEvent across dateRanges
+      dateRanges,           
+      totalDaysOfEvent,     
       promoterRequired,
       stageRequired,
       promoterCount,
@@ -1150,7 +1150,7 @@ const createBooking = asyncHandler(async (req, res) => {
         );
         return errorResponse(
           res,
-          `dateRanges[${r}] overlaps with an existing booking` +
+          `Already booking for` +
             (conflictRange
               ? ` (${new Date(conflictRange.fromDate).toDateString()} – ${new Date(conflictRange.toDate).toDateString()})`
               : ""),

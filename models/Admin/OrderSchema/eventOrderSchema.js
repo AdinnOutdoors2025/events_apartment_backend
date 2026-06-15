@@ -32,9 +32,15 @@ const OrderHistorySchema = new mongoose.Schema(
     changedAt: { type: Date, default: Date.now },
     remarks: { type: String, trim: true },
     // additionalNotes: { type: String, trim: true },
-    additionalNotes: { type: [String], default: [] },
+    // additionalNotes: { type: [String], default: [] },
     // negotiationAmount: { type: Number, default: null },
-
+    additionalNotes: [
+      {
+        text: { type: String }, // Not required anymore
+        uploadedBy: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
     closeLossReason: { type: String, trim: true },
     poDocument: {
       type: [
@@ -49,6 +55,7 @@ const OrderHistorySchema = new mongoose.Schema(
             enum: ["image", "pdf"],
           },
           uploadedAt: { type: Date, default: Date.now },
+          uploadedBy: { type: String },
         },
       ],
       default: [],
@@ -80,6 +87,7 @@ const OrderHistorySchema = new mongoose.Schema(
             enum: ["image", "audio", "pdf", "excel", "word", "other"],
           },
           uploadedAt: { type: Date, default: Date.now },
+          uploadedBy: { type: String },
         },
       ],
       default: [],
@@ -98,6 +106,7 @@ const OrderHistorySchema = new mongoose.Schema(
             default: "audio",
           },
           uploadedAt: { type: Date, default: Date.now },
+          uploadedBy: { type: String },
         },
       ],
       default: [],
@@ -417,9 +426,9 @@ const OrderBookingSchema = new mongoose.Schema(
     // daysOfEvent: { type: Number, default: 0 },
     // // daysOfApartment: { type: Number, default: 0 },
     // dailySchedule: { type: [DailyScheduleSchema], default: [] },
-      // ── NEW: multiple date ranges, each with its own daily schedule ──
+    // ── NEW: multiple date ranges, each with its own daily schedule ──
     dateRanges: { type: [DateRangeSchema], default: [] },
- 
+
     // Aggregated total across all dateRanges
     totalDaysOfEvent: { type: Number, default: 0 },
     // Promoter Information
@@ -465,7 +474,7 @@ const OrderBookingSchema = new mongoose.Schema(
     },
 
     // additionalNotes: { type: String, trim: true, default: "" },
-    additionalNotes: { type: [String], default: [] },
+    // additionalNotes: { type: [String], default: [] },
     closeLossReason: { type: String, trim: true, default: "" },
     // poDocument: { type: PODocumentSchema, default: null },
 

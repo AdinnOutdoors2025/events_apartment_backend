@@ -150,7 +150,7 @@ const registerSendOtp = async (req, res) => {
       userName,
       userEmail,
       userPhone: normalizedPhone,
-      customerType,
+      categoryType,
     });
 
     // ================= SMS MESSAGE =================
@@ -188,8 +188,6 @@ const registerSendOtp = async (req, res) => {
       200,
     );
   } catch (err) {
-    console.log("Register Send OTP Error:", err);
-
     return errorResponse(res, "Server error", null, 500);
   }
 };
@@ -220,7 +218,7 @@ const verifyRegisterOtp = async (req, res) => {
       return errorResponse(res, "OTP data not found", null, 400);
     }
 
-    const { userName, userEmail, customerType } = storedData.userData;
+    const { userName, userEmail, categoryType } = storedData.userData;
 
     // ================= CREATE USER =================
 
@@ -580,6 +578,38 @@ const resendLoginOtp = async (req, res) => {
 //     });
 //   }
 // };
+// const listUsers = async (req, res) => {
+//   try {
+//     const [users, admins] = await Promise.all([
+//       User.find({}).select("-__v").lean(),
+//       Admin.find({}).select("-__v -password").lean(),
+//     ]);
+
+//     const formattedUsers = users.map((user) => ({
+//       ...user,
+//       userCategory: "StaffAdmin",
+//     }));
+
+//     const formattedAdmins = admins.map((admin) => ({
+//       ...admin,
+//       userCategory: "Admin",
+//     }));
+
+//     const allUsers = [...formattedAdmins, ...formattedUsers];
+
+//     if (allUsers.length === 0) {
+//       return errorResponse(res, "No users found", null, 404);
+//     }
+
+//     return successResponse(res, "Users retrieved successfully", {
+//       count: allUsers.length,
+//       users: allUsers,
+//     });
+//   } catch (err) {
+//     console.error("List Users Error:", err);
+//     return errorResponse(res, "Server error while fetching users", null, 500);
+//   }
+// };
 const listUsers = async (req, res) => {
   try {
     const [users, admins] = await Promise.all([
@@ -587,25 +617,22 @@ const listUsers = async (req, res) => {
       Admin.find({}).select("-__v -password").lean(),
     ]);
 
-    const formattedUsers = users.map((user) => ({
+    const staffAdmins = users.map((user) => ({
       ...user,
       userCategory: "StaffAdmin",
     }));
 
-    const formattedAdmins = admins.map((admin) => ({
+    const adminUsers = admins.map((admin) => ({
       ...admin,
       userCategory: "Admin",
     }));
 
-    const allUsers = [...formattedAdmins, ...formattedUsers];
-
-    if (allUsers.length === 0) {
-      return errorResponse(res, "No users found", null, 404);
-    }
-
     return successResponse(res, "Users retrieved successfully", {
-      count: allUsers.length,
-      users: allUsers,
+      totalCount: adminUsers.length + staffAdmins.length,
+      adminCount: adminUsers.length,
+      staffAdminCount: staffAdmins.length,
+      admins: adminUsers,
+      staffAdmins: staffAdmins,
     });
   } catch (err) {
     console.error("List Users Error:", err);

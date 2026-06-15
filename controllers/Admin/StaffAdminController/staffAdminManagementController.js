@@ -447,7 +447,8 @@ const loginVerifyOtp = async (req, res) => {
     if (!user) {
       return errorResponse(res, "User not found", null, 404);
     }
-
+    user.lastLogin = new Date();
+    await user.save();
     // ================= DELETE OTP =================
 
     delete otpStore[userPhone];

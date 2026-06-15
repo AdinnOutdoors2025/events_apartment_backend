@@ -1607,64 +1607,164 @@ const updateOrderStatusOnly = asyncHandler(async (req, res) => {
     }
 
     // PROCESS VOICE NOTE
-    let resolvedVoiceNote = null;
-    const uploadedVoiceFile = req.files?.voiceDocument?.[0];
+    // let resolvedVoiceNote = null;
+    // const uploadedVoiceFile = req.files?.voiceDocument?.[0];
 
-    try {
-      if (uploadedVoiceFile || voiceDocument) {
-        const processVoiceNote = (uploadedFile, voiceNoteData) => {
-          if (uploadedFile) {
-            const {
-              getFileUrl,
-            } = require("../../../middleware/orderNoteFileUpload");
+    // try {
+    //   if (uploadedVoiceFile || voiceDocument) {
+    //     const processVoiceNote = (uploadedFile, voiceNoteData) => {
+    //       if (uploadedFile) {
+    //         const {
+    //           getFileUrl,
+    //         } = require("../../../middleware/orderNoteFileUpload");
 
-            if (!uploadedFile.mimetype.startsWith("audio/")) {
-              throw new Error("Uploaded file is not an audio file");
+    //         if (!uploadedFile.mimetype.startsWith("audio/")) {
+    //           throw new Error("Uploaded file is not an audio file");
+    //         }
+
+    //         return {
+    //           originalName: uploadedFile.originalname,
+    //           fileName:
+    //             uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+    //           filePath: getFileUrl(req, uploadedFile),
+    //           mimeType: uploadedFile.mimetype,
+    //           size: uploadedFile.size,
+    //           fileType: "audio",
+    //           duration: null,
+    //           uploadedAt: new Date(),
+    //           uploadedBy: req.user.name,
+    //         };
+    //       } else if (voiceNoteData) {
+    //         const resolved = parseField(voiceNoteData);
+    //         if (resolved && !resolved.mimeType?.startsWith("audio/")) {
+    //           throw new Error("Voice note must be an audio file");
+    //         }
+    //         return resolved;
+    //       }
+    //       return null;
+    //     };
+
+    //     resolvedVoiceNote = processVoiceNote(uploadedVoiceFile, voiceDocument);
+
+    //     if (resolvedVoiceNote) {
+    //       if (
+    //         !resolvedVoiceNote.originalName ||
+    //         !resolvedVoiceNote.fileName ||
+    //         !resolvedVoiceNote.filePath ||
+    //         !resolvedVoiceNote.mimeType
+    //       ) {
+    //         return errorResponse(
+    //           res,
+    //           "voiceNote must contain originalName, fileName, filePath, and mimeType",
+    //           null,
+    //           400,
+    //         );
+    //       }
+    //     }
+    //   }
+    // } catch (error) {
+    //   return errorResponse(res, error.message, null, 400);
+    // }
+
+// Helper function to format duration - removes decimals
+const formatDuration = (seconds) => {
+  if (!seconds || isNaN(seconds)) return null;
+  
+  // Remove decimal part (floor)
+  const totalSeconds = Math.floor(seconds);
+  
+  const minutes = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  
+  if (minutes > 0) {
+    if (secs === 0) {
+      return `${minutes} min`;
+    } else {
+      return `${minutes} min ${secs} sec`;
+    }
+  } else {
+    return `${secs} sec`;
+  }
+};
+
+// PROCESS VOICE NOTE
+let resolvedVoiceNote = null;
+const uploadedVoiceFile = req.files?.voiceDocument?.[0];
+
+try {
+  if (uploadedVoiceFile || voiceDocument) {
+    const processVoiceNote = async (uploadedFile, voiceNoteData) => {
+      if (uploadedFile) {
+        const {
+          getFileUrl,
+        } = require("../../../middleware/orderNoteFileUpload");
+
+        if (!uploadedFile.mimetype.startsWith("audio/")) {
+          throw new Error("Uploaded file is not an audio file");
+        }
+
+        // Get audio duration
+        let durationInSeconds = null;
+        let formattedDuration = null;
+        
+        if (uploadedFile.path) {
+          try {
+            const mm = require('music-metadata');
+            const metadata = await mm.parseFile(uploadedFile.path);
+            if (metadata.format.duration) {
+              durationInSeconds = metadata.format.duration;
+              formattedDuration = formatDuration(durationInSeconds);
             }
-
-            return {
-              originalName: uploadedFile.originalname,
-              fileName:
-                uploadedFile.filename || uploadedFile.key?.split("/").pop(),
-              filePath: getFileUrl(req, uploadedFile),
-              mimeType: uploadedFile.mimetype,
-              size: uploadedFile.size,
-              fileType: "audio",
-              duration: null,
-              uploadedAt: new Date(),
-              uploadedBy: req.user.name,
-            };
-          } else if (voiceNoteData) {
-            const resolved = parseField(voiceNoteData);
-            if (resolved && !resolved.mimeType?.startsWith("audio/")) {
-              throw new Error("Voice note must be an audio file");
-            }
-            return resolved;
-          }
-          return null;
-        };
-
-        resolvedVoiceNote = processVoiceNote(uploadedVoiceFile, voiceDocument);
-
-        if (resolvedVoiceNote) {
-          if (
-            !resolvedVoiceNote.originalName ||
-            !resolvedVoiceNote.fileName ||
-            !resolvedVoiceNote.filePath ||
-            !resolvedVoiceNote.mimeType
-          ) {
-            return errorResponse(
-              res,
-              "voiceNote must contain originalName, fileName, filePath, and mimeType",
-              null,
-              400,
-            );
+          } catch (err) {
+            console.warn('Could not extract audio duration:', err.message);
           }
         }
+
+        return {
+          originalName: uploadedFile.originalname,
+          fileName: uploadedFile.filename || uploadedFile.key?.split("/").pop(),
+          filePath: getFileUrl(req, uploadedFile),
+          mimeType: uploadedFile.mimetype,
+          size: uploadedFile.size,
+          fileType: "audio",
+          duration: formattedDuration, 
+          durationInSeconds: durationInSeconds, 
+          uploadedAt: new Date(),
+          uploadedBy: req.user.name,
+        };
+      } else if (voiceNoteData) {
+        const resolved = parseField(voiceNoteData);
+        if (resolved && !resolved.mimeType?.startsWith("audio/")) {
+          throw new Error("Voice note must be an audio file");
+        }
+        return resolved;
       }
-    } catch (error) {
-      return errorResponse(res, error.message, null, 400);
+      return null;
+    };
+
+    resolvedVoiceNote = await processVoiceNote(uploadedVoiceFile, voiceDocument);
+
+    if (resolvedVoiceNote) {
+      if (
+        !resolvedVoiceNote.originalName ||
+        !resolvedVoiceNote.fileName ||
+        !resolvedVoiceNote.filePath ||
+        !resolvedVoiceNote.mimeType
+      ) {
+        return errorResponse(
+          res,
+          "voiceNote must contain originalName, fileName, filePath, and mimeType",
+          null,
+          400,
+        );
+      }
     }
+  }
+} catch (error) {
+  return errorResponse(res, error.message, null, 400);
+}
+
+
 
     let resolvedPoDocument = null;
     let previousTotalAmount = null;

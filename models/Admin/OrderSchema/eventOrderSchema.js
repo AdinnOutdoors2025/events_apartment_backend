@@ -105,6 +105,8 @@ const OrderHistorySchema = new mongoose.Schema(
             enum: ["audio"],
             default: "audio",
           },
+          duration: { type: String, default: null }, // Store formatted duration like "3 min 3 sec"
+      durationInSeconds: { type: Number, default: null }, // Store raw seconds for calculations
           uploadedAt: { type: Date, default: Date.now },
           uploadedBy: { type: String },
         },

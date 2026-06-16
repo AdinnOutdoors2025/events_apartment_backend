@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const GiftMasterSchema = new mongoose.Schema(
   {
+    state: {
+      type: String,
+      required: true,
+    },
     // 1 = Normal Gift
     // 2 = Live Gift
     giftType: {
@@ -17,7 +21,7 @@ const GiftMasterSchema = new mongoose.Schema(
     },
 
     // 1 = Per Quantity
-    // 2 = Per unit 
+    // 2 = Per unit
     // 3 = Per Day
     // 4 = Per Hour
     // 5 = Per Person
@@ -57,7 +61,7 @@ const GiftMasterSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Validation
@@ -66,8 +70,8 @@ GiftMasterSchema.pre("validate", function () {
   if (this.giftType === 1 && ![1, 2].includes(this.priceType)) {
     return next(
       new Error(
-        "For Normal Gift, priceType must be  (Per Quantity) or  (Unit Price)"
-      )
+        "For Normal Gift, priceType must be  (Per Quantity) or  (Unit Price)",
+      ),
     );
   }
 
@@ -75,24 +79,19 @@ GiftMasterSchema.pre("validate", function () {
   if (this.giftType === 2 && ![3, 4, 5].includes(this.priceType)) {
     return next(
       new Error(
-        "For Live Gift, priceType must be 3 (Per Day), 4 (Per Hour), or 5 (Per Person)"
-      )
+        "For Live Gift, priceType must be 3 (Per Day), 4 (Per Hour), or 5 (Per Person)",
+      ),
     );
   }
 
-  // priceType = 2 requires unit 
+  // priceType = 2 requires unit
   if (this.priceType === 2) {
     if (!this.unit) {
-      return next(
-        new Error("unit is required for priceType 2")
-      );
+      return next(new Error("unit is required for priceType 2"));
     }
-
-   
   } else {
     this.unit = null;
   }
- 
 });
 
 module.exports = mongoose.model("GiftsMaster", GiftMasterSchema);

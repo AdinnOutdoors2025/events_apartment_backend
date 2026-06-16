@@ -1,8 +1,8 @@
 const User = require("../../models/Admin/adminUser");
-const AdminUser = require("../../models/Admin/StaffAdminManagement/staffAdminManagement")
+const AdminUser = require("../../models/Admin/StaffAdminManagement/staffAdminManagement");
 const bcrypt = require("bcryptjs");
 const generateToken = require("../../utils/generateToken");
-const { successResponse, errorResponse } = require('../../utils/response');
+const { successResponse, errorResponse } = require("../../utils/response");
 
 // REGISTER
 exports.register = async (req, res) => {
@@ -11,23 +11,25 @@ exports.register = async (req, res) => {
 
     // validation
     if (!name || !phoneNumber || !password) {
-      return errorResponse(res, 'Name, phone and password are required', 400);
+      return errorResponse(
+        res,
+        "Name, phoneNumber and password are required",
+        null,
+        400,
+      );
     }
 
     // check existing user
     const existingUser = await User.findOne({
-      phoneNumber
+      phoneNumber,
     });
 
     if (existingUser) {
-      return errorResponse(res, 'Phone number already exists', 400);
+      return errorResponse(res, "Phone Number Already Exists", null, 400);
     }
 
     // hash password
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10
-    );
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // create user
     const user = await User.create({
@@ -40,31 +42,27 @@ exports.register = async (req, res) => {
     // response
     // const token =
     //   generateToken(user._id);
-  const token = generateToken({
+    const token = generateToken({
       id: user._id,
       userType: user.userType,
-      name: user.name
+      name: user.name,
     });
     return successResponse(
       res,
-      "User registered successfully",
+      "Admin Registered Successfully",
       {
         user: {
           id: user._id,
-          phoneNumber:
-            user.phoneNumber,
+          phoneNumber: user.phoneNumber,
           name: user.name,
-          userType: user.userType
+          userType: user.userType,
         },
         token,
-      }
+      },
+      201,
     );
-
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    return errorResponse(res, "User registered Failed",400, error.message);
   }
 };
 
@@ -114,7 +112,6 @@ exports.register = async (req, res) => {
 //       );
 //     }
 
-
 //     // generate token
 //     const token = generateToken(user);
 
@@ -143,10 +140,7 @@ exports.register = async (req, res) => {
 // };
 exports.login = async (req, res) => {
   try {
-    const {
-      phoneNumber,
-      password,
-    } = req.body;
+    const { phoneNumber, password } = req.body;
 
     // VALIDATION
     if (!phoneNumber || !password) {
@@ -154,32 +148,29 @@ exports.login = async (req, res) => {
         res,
         "Phone number and password are required",
         null,
-        400
+        400,
       );
     }
 
     // FIND ADMIN
-    const adminUser =
-      await User.findOne({
-        phoneNumber,
-      });
+    const adminUser = await User.findOne({
+      phoneNumber,
+    });
 
     // FIND NORMAL USER
-    const normalUser =
-      await AdminUser.findOne({
-        phoneNumber,
-      });
+    const normalUser = await AdminUser.findOne({
+      phoneNumber,
+    });
 
     let user = null;
     let userRole = null;
 
     // CHECK ADMIN PASSWORD
     if (adminUser) {
-      const isAdminPassword =
-        await bcrypt.compare(
-          password,
-          adminUser.password
-        );
+      const isAdminPassword = await bcrypt.compare(
+        password,
+        adminUser.password,
+      );
 
       if (isAdminPassword) {
         user = adminUser;
@@ -189,11 +180,10 @@ exports.login = async (req, res) => {
 
     // CHECK NORMAL USER PASSWORD
     if (!user && normalUser) {
-      const isUserPassword =
-        await bcrypt.compare(
-          password,
-          normalUser.password
-        );
+      const isUserPassword = await bcrypt.compare(
+        password,
+        normalUser.password,
+      );
 
       if (isUserPassword) {
         user = normalUser;
@@ -203,46 +193,27 @@ exports.login = async (req, res) => {
 
     // LOGIN FAILED
     if (!user) {
-      return errorResponse(
-        res,
-        "Invalid phone number or password",
-        null,
-        400
-      );
+      return errorResponse(res, "Invalid phone number or password", null, 400);
     }
 
     // TOKEN
-    const token =
-      generateToken({
-        id: user._id,
-        userType:user.userType,
-        name: user.name
-      });
+    const token = generateToken({
+      id: user._id,
+      userType: user.userType,
+      name: user.name,
+    });
 
-    return successResponse(
-      res,
-      "Login successful",
-      {
-        user: {
-          id: user._id,
-          phoneNumber:
-            user.phoneNumber,
-          name:
-            user.name ||
-            user.userName,
-          userType:
-            user.userType,
-          role: userRole,
-        },
-        token,
-      }
-    );
+    return successResponse(res, "Login successful", {
+      user: {
+        id: user._id,
+        phoneNumber: user.phoneNumber,
+        name: user.name || user.userName,
+        userType: user.userType,
+        role: userRole,
+      },
+      token,
+    });
   } catch (error) {
-    return errorResponse(
-      res,
-      error.message,
-      null,
-      500
-    );
+    return errorResponse(res, error.message, null, 500);
   }
 };

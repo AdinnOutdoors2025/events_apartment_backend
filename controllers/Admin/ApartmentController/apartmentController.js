@@ -2,234 +2,172 @@ const fs = require("fs");
 const path = require("path");
 const mongoose = require("mongoose");
 const Apartment = require("../../../models/Admin/ApartmentSchema/apartment");
-const orderSchema = require("../../../models/Admin/OrderSchema/eventOrderSchema")
+const orderSchema = require("../../../models/Admin/OrderSchema/eventOrderSchema");
 const UploadSession = require("../../../models/Admin/ApartmentSchema/uploadSession");
 const readExcelFile = require("../../../utils/excelHelper");
 const ApartmentFilters = require("../../../middleware/ApartmentFilters");
 const { successResponse, errorResponse } = require("../../../utils/response");
-const { getFileUrl, getFileBuffer, STORAGE_TYPE } = require("../../../middleware/excelUploadMiddleware");
+const {
+  getFileUrl,
+  getFileBuffer,
+  STORAGE_TYPE,
+} = require("../../../middleware/excelUploadMiddleware");
 // ─────────────────────────────────────────────
 // HELPER — PARSE BANK DETAILS
 // ─────────────────────────────────────────────
-
-
-
-// ─────────────────────────────────────────────
-// HELPER — PARSE EVENTS HISTORY
-// ─────────────────────────────────────────────
-
-// const parseEventsHistory = (raw) => {
-//   if (!raw?.toString().trim()) return [];
-
-//   const str = raw
-//     .toString()
-//     .replace(/\n/g, " ")
-//     .replace(/\r/g, " ")
-//     .trim();
-
-//   const getValue = (field, nextField) => {
-//     let regex;
-//     if (nextField) {
-//       regex = new RegExp(`${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`, "i");
-//     } else {
-//       regex = new RegExp(`${field}\\s*:\\s*(.*)$`, "i");
-//     }
-//     const match = str.match(regex);
-//     return match?.[1]?.trim() || "";
-//   };
-
-//   return [{
-//     eventName: getValue("EventName", "EventDate"),
-//     eventDate: getValue("EventDate", "Remark"),
-//     remarks: getValue("Remark"),
-//   }];
-// };
-
-// ─────────────────────────────────────────────
-// HELPER — CHECK IF ANY FIELD CHANGED
-// ─────────────────────────────────────────────
-
-// const hasDataChanged = (existing, incoming, bankDetails,) => {
-//   const scalarFields = [
-//     "ApartmentName", "City", "Location",
-//     "GeoLocation", "PermissionStatus", "Rating",  "ContactPersonPhone",
-//     "FromTGValues","ToTGValues", "ResidencyCount", "ApproxPeopleCount", "PerDayRent",
-//   ];
-
-//   const scalarChanged = scalarFields.some(
-//     (f) => String(existing[f] ?? "") !== String(incoming[f] ?? "")
-//   );
-
-//   const eb = existing.bankDetails?.[0] || {};
-//   const ib = bankDetails?.[0] || {};
-//   const bankChanged =
-//     String(eb.accountName ?? "") !== String(ib.accountName ?? "") ||
-//     String(eb.BankName ?? "") !== String(ib.BankName ?? "") ||
-//     String(eb.AccountNumber ?? "") !== String(ib.AccountNumber ?? "") ||
-//     String(eb.IfscCode ?? "") !== String(ib.IfscCode ?? "") ||
-//     String(eb.PhoneNumber ?? "") !== String(ib.PhoneNumber ?? "") ||
-//     String(eb.UpiID ?? "") !== String(ib.UpiID ?? "");
-
-//   // const ee = existing.existingEventsHistory?.[0] || {};
-//   // const ie = existingEventsHistory?.[0] || {};
-//   // const eventChanged =
-//   //   String(ee.eventName ?? "") !== String(ie.eventName ?? "") ||
-//   //   String(ee.eventDate ?? "") !== String(ie.eventDate ?? "") ||
-//   //   String(ee.remarks ?? "") !== String(ie.remarks ?? "");
-
-//   return scalarChanged || bankChanged || eventChanged;
-// };
-// const parseBankDetails = (raw) => {
-//   if (!raw?.toString().trim()) return [];
-
-//   const str = raw
-//     .toString()
-//     .replace(/\n/g, " ")
-//     .replace(/\r/g, " ")
-//     .trim();
-
-//   const getValue = (field, nextField) => {
-//     let regex;
-//     if (nextField) {
-//       regex = new RegExp(`${field}\\s*:\\s*(.*?)\\s*(?=${nextField}\\s*:|$)`, "i");
-//     } else {
-//       regex = new RegExp(`${field}\\s*:\\s*(.*)$`, "i");
-//     }
-//     const match = str.match(regex);
-//     return match?.[1]?.trim() || "";
-//   };
-
-//   return [{
-//     accountName: getValue("accountName", "BankName"),
-//     BankName: getValue("BankName", "AccountNumber"),
-//     AccountNumber: getValue("AccountNumber", "IfscCode"),
-//     IfscCode: getValue("IfscCode", "PhoneNumber"),
-//     PhoneNumber: getValue("PhoneNumber", "UpiID"),
-//     UpiID: getValue("UpiID"),
-//   }];
-// };
-
 const parseBankDetails = (item) => ({
   AccountHolderName: item.AccountHolderName?.toString().trim() || "",
-  BankName:          item.BankName?.toString().trim()          || "",
-  AccountNumber:     item.AccountNumber?.toString().trim()     || "",
-  IfscCode:          item.IfscCode?.toString().trim()          || "",
-  PhoneNumber:       item.PhoneNumber?.toString().trim()       || "",
-  UpiID:             item.UpiID?.toString().trim()             || "",
+  BankName: item.BankName?.toString().trim() || "",
+  AccountNumber: item.AccountNumber?.toString().trim() || "",
+  IfscCode: item.IfscCode?.toString().trim() || "",
+  PhoneNumber: item.PhoneNumber?.toString().trim() || "",
+  UpiID: item.UpiID?.toString().trim() || "",
 });
- 
+
 // ── HELPER: detect if anything changed between existing doc and incoming row ──
 const hasDataChanged = (existing, incoming, bankDetails) => {
   // Scalar fields
   const scalarFields = [
-    "ApartmentName","ApartmentGroupName", "City","State", "Location", "GeoLocation",
-    "PermissionStatus", "Rating","ContactPersonName", "ContactPersonPhone",
-    "FromTGValues", "ToTGValues", "ResidencyCount",
-    "ApproxPeopleCount", "PerDayRent",
+    "ApartmentName",
+    "ApartmentGroupName",
+    "City",
+    "State",
+    "Location",
+    "GeoLocation",
+    "PermissionStatus",
+    "Rating",
+    "ContactPersonName",
+    "ContactPersonPhone",
+    "FromTGValues",
+    "ToTGValues",
+    "ResidencyCount",
+    "ApproxPeopleCount",
+    "PerDayRent",
   ];
   for (const field of scalarFields) {
-    if (String(existing[field] ?? "") !== String(incoming[field] ?? "")) return true;
+    if (String(existing[field] ?? "") !== String(incoming[field] ?? ""))
+      return true;
   }
- 
+
   // bankDetails sub-fields
   const bankFields = [
-    "AccountHolderName", "BankName", "AccountNumber",
-    "IfscCode", "PhoneNumber", "UpiID",
+    "AccountHolderName",
+    "BankName",
+    "AccountNumber",
+    "IfscCode",
+    "PhoneNumber",
+    "UpiID",
   ];
   for (const field of bankFields) {
-    if (String(existing.bankDetails?.[field] ?? "") !== String(bankDetails[field] ?? "")) return true;
+    if (
+      String(existing.bankDetails?.[field] ?? "") !==
+      String(bankDetails[field] ?? "")
+    )
+      return true;
   }
- 
+
   return false;
 };
 
 const uploadExcel = async (req, res) => {
   try {
+    // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
+    const fileUrl = getFileUrl(req, req.file);
+    const fileBuffer = await getFileBuffer(req.file);
+    const data = readExcelFile(fileBuffer);
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: "Please upload an Excel file",
-      });
+      return errorResponse(res, "Please upload an Excel file", null, 400);
+    }
+    if (!data || data.length === 0) {
+      return errorResponse(res, "Excel file is empty", null, 400);
     }
 
+    const requiredHeaders = ["ApartmentName", "ApartmentGroupName"];
+
+    const excelHeaders = Object.keys(data[0] || {});
+
+    const missingHeaders = requiredHeaders.filter(
+      (header) => !excelHeaders.includes(header),
+    );
+
+    if (missingHeaders.length > 0) {
+      return errorResponse(res, `Invalid Excel format`, null, 400);
+    }
     // ── LOCAL ONLY: verify file was saved to disk ─────────────────────────────
     if (
       STORAGE_TYPE === "local" &&
       req.file.path &&
       !fs.existsSync(req.file.path)
     ) {
-      return res.status(500).json({
-        success: false,
-        message: "File upload failed - file not saved properly",
-      });
+      return errorResponse(
+        res,
+        "File upload failed - file not saved properly",
+        null,
+        400,
+      );
     }
 
-    // ── GET FILE URL & BUFFER ─────────────────────────────────────────────────
-    const fileUrl    = getFileUrl(req, req.file);
-    const fileBuffer = await getFileBuffer(req.file);
-    const data       = readExcelFile(fileBuffer);
-
-    const insertedData         = [];
-    const updatedData          = [];
-    const skippedData          = [];
+    const insertedData = [];
+    const updatedData = [];
+    const skippedData = [];
     const insertedApartmentIds = [];
-    const updatedApartmentIds  = [];
-    const skippedApartmentIds  = [];
+    const updatedApartmentIds = [];
+    const skippedApartmentIds = [];
 
     // ── CREATE SESSION ────────────────────────────────────────────────────────
     const session = await UploadSession.create({
-      fileName:  req.file.originalname,
+      fileName: req.file.originalname,
       fileUrl,
       totalRows: data.length,
     });
 
     // ── HELPER: escape special regex characters ───────────────────────────────
-    const escapeRegex = (str) =>
-      str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     // ── LOOP ROWS ─────────────────────────────────────────────────────────────
     for (const item of data) {
       try {
-
         // ── PARSE FIELDS ──────────────────────────────────────────────────────
-        const ApartmentName      = item.ApartmentName?.toString().trim();
-        const ApartmentGroupName      = item.ApartmentGroupName?.toString().trim();
-        const City               = item.City?.toString().trim();
-        const State               = item.State?.toString().trim();
-        const Location           = item.Location?.toString().trim();
-        const GeoLocation        = item.GeoLocation?.toString().trim()      || "";
-        const PermissionStatus   = item.PermissionStatus?.toString().trim() || "";
-        const Rating             = item.Rating?.toString().trim()            || "";
-  
-       
+        const ApartmentName = item.ApartmentName?.toString().trim();
+        const ApartmentGroupName = item.ApartmentGroupName?.toString().trim();
+        const City = item.City?.toString().trim();
+        const State = item.State?.toString().trim();
+        const Location = item.Location?.toString().trim();
+        const GeoLocation = item.GeoLocation?.toString().trim() || "";
+        const PermissionStatus = item.PermissionStatus?.toString().trim() || "";
+        const Rating = item.Rating?.toString().trim() || "";
+
         const ContactPersonPhone = item.ContactPersonPhone?.toString().trim();
-        const ContactPersonName  = item.ContactPersonName?.toString().trim() || "";
-       
-        const ResidencyCount     = Number(item.ResidencyCount);
-        const ApproxPeopleCount  = Number(item.ApproxPeopleCount || 0);
-        const PerDayRent         = Number(item.PerDayRent);
+        const ContactPersonName =
+          item.ContactPersonName?.toString().trim() || "";
+
+        const ResidencyCount = Number(item.ResidencyCount);
+        const ApproxPeopleCount = Number(item.ApproxPeopleCount || 0);
+        const PerDayRent = Number(item.PerDayRent);
 
         // ✅ Safely parse startingTGValues — handles "50000 - 3999", "50000", "", null
         const FromTGValues = (() => {
-          const raw    = item.FromTGValues?.toString().trim() || "0";
+          const raw = item.FromTGValues?.toString().trim() || "0";
           const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
           return isNaN(parsed) ? 0 : parsed;
         })();
         const ToTGValues = (() => {
-          const raw    = item.ToTGValues?.toString().trim() || "0";
+          const raw = item.ToTGValues?.toString().trim() || "0";
           const parsed = parseFloat(raw.replace(/[^0-9.]/g, ""));
           return isNaN(parsed) ? 0 : parsed;
         })();
 
-        const bankDetails           = parseBankDetails(item);
+        const bankDetails = parseBankDetails(item);
         // const existingEventsHistory = parseEventsHistory(item.existingEventsHistory);
 
         // ── REQUIRED FIELD VALIDATION ──────────────────────────────────────────
         if (
-          !ApartmentName  || 
-          !City || !Location || 
-          !ContactPersonPhone || 
-          isNaN(ResidencyCount) || isNaN(PerDayRent)
+          !ApartmentName ||
+          !City ||
+          !Location ||
+          !ContactPersonPhone ||
+          isNaN(ResidencyCount) ||
+          isNaN(PerDayRent)
         ) {
           skippedData.push({ row: item, message: "Missing required fields" });
           continue;
@@ -253,14 +191,14 @@ const uploadExcel = async (req, res) => {
           PerDayRent,
         };
 
-
         let existingApartment = null;
-        let matchedBy         = null;
+        let matchedBy = null;
 
-        
         if (!existingApartment) {
           existingApartment = await Apartment.findOne({
-            ApartmentName: { $regex: new RegExp(`^${escapeRegex(ApartmentName)}$`, "i") },
+            ApartmentName: {
+              $regex: new RegExp(`^${escapeRegex(ApartmentName)}$`, "i"),
+            },
             // City:          { $regex: new RegExp(`^${escapeRegex(City)}$`,          "i") },
             // State:         { $regex: new RegExp(`^${escapeRegex(State)}$`,         "i") },
             // Location:      { $regex: new RegExp(`^${escapeRegex(Location)}$`,      "i") },
@@ -302,39 +240,39 @@ const uploadExcel = async (req, res) => {
                   ApproxPeopleCount,
                   PerDayRent,
                   // bankDetails,
-                  "bankDetails.AccountHolderName": bankDetails.AccountHolderName,
-                  "bankDetails.BankName":          bankDetails.BankName,
-                  "bankDetails.AccountNumber":     bankDetails.AccountNumber,
-                  "bankDetails.IfscCode":          bankDetails.IfscCode,
-                  "bankDetails.PhoneNumber":       bankDetails.PhoneNumber,
-                  "bankDetails.UpiID":             bankDetails.UpiID,
+                  "bankDetails.AccountHolderName":
+                    bankDetails.AccountHolderName,
+                  "bankDetails.BankName": bankDetails.BankName,
+                  "bankDetails.AccountNumber": bankDetails.AccountNumber,
+                  "bankDetails.IfscCode": bankDetails.IfscCode,
+                  "bankDetails.PhoneNumber": bankDetails.PhoneNumber,
+                  "bankDetails.UpiID": bankDetails.UpiID,
                   // existingEventsHistory,
-                  updatedBy:            req.user.name,
+                  updatedBy: req.user.name,
                   lastUpdatedBySession: session._id,
-                  skippedBySession:     null,
+                  skippedBySession: null,
                   // ✅ apartmentId intentionally NOT here — never overwrite
                 },
               },
-              { new: true }
+              { new: true },
             );
 
             updatedApartmentIds.push(existingApartment.apartmentId);
             updatedData.push({
               apartmentId: existingApartment.apartmentId,
               matchedBy,
-              message:     "Record updated successfully",
+              message: "Record updated successfully",
             });
-
           } else {
             // ── MATCH FOUND + NOTHING CHANGED → SKIP ─────────────────────────
             await Apartment.findOneAndUpdate(
               { _id: existingApartment._id },
-              { $set: { skippedBySession: session._id } }
+              { $set: { skippedBySession: session._id } },
             );
 
             skippedApartmentIds.push(existingApartment.apartmentId);
             skippedData.push({
-              row:     item,
+              row: item,
               message: `ApartmentId "${existingApartment.apartmentId}" already exists with same data — no update needed`,
             });
           }
@@ -346,20 +284,19 @@ const uploadExcel = async (req, res) => {
         // apartmentId auto-generated by pre-save hook as DDMMYYYY#N
         const newApartment = await Apartment.create({
           ...incomingData,
-          updatedBy:            req.user.name,
+          updatedBy: req.user.name,
           bankDetails,
           // existingEventsHistory,
-          createdBySession:     session._id,
+          createdBySession: session._id,
           lastUpdatedBySession: session._id,
         });
 
         insertedApartmentIds.push(newApartment.apartmentId);
         insertedData.push({
-          id:          newApartment._id,
+          id: newApartment._id,
           apartmentId: newApartment.apartmentId,
-          message:     "Record inserted successfully",
+          message: "Record inserted successfully",
         });
-
       } catch (err) {
         skippedData.push({ row: item, message: err.message });
       }
@@ -369,8 +306,8 @@ const uploadExcel = async (req, res) => {
     await UploadSession.findByIdAndUpdate(session._id, {
       $set: {
         insertedCount: insertedData.length,
-        updatedCount:  updatedData.length,
-        skippedCount:  skippedData.length,
+        updatedCount: updatedData.length,
+        skippedCount: skippedData.length,
         insertedApartmentIds,
         updatedApartmentIds,
         skippedApartmentIds,
@@ -378,27 +315,29 @@ const uploadExcel = async (req, res) => {
       },
     });
 
-    return successResponse(res, "Excel Upload Completed", {
-      sessionId:     session._id,
-      fileName:      req.file.originalname,
-      totalRows:     data.length,
-      updatedBy:     req.user.name,
-      insertedCount: insertedData.length,
-      updatedCount:  updatedData.length,
-      skippedCount:  skippedData.length,
-      insertedData,
-      updatedData,
-      skippedData,
-      summary: {
-        totalInserted: insertedData.length,
-        totalUpdated:  updatedData.length,
-        totalSkipped:  skippedData.length,
+    return successResponse(
+      res,
+      "Excel Upload Completed",
+      {
+        sessionId: session._id,
+        fileName: req.file.originalname,
+        totalRows: data.length,
+        updatedBy: req.user.name,
+        insertedCount: insertedData.length,
+        updatedCount: updatedData.length,
+        skippedCount: skippedData.length,
+        insertedData,
+        updatedData,
+        skippedData,
+        summary: {
+          totalInserted: insertedData.length,
+          totalUpdated: updatedData.length,
+          totalSkipped: skippedData.length,
+        },
       },
-    });
-
+      201,
+    );
   } catch (error) {
-    console.error("uploadExcel error:", error);
-
     // Cleanup local file on hard failure
     if (STORAGE_TYPE === "local" && req.file?.path) {
       try {
@@ -483,191 +422,15 @@ const getMinMaxValues = (apartments = []) => {
     .filter((val) => !isNaN(val));
 
   return {
-    minTG:
-      tgValues.length > 0
-        ? Math.min(...tgValues)
-        : 0,
+    minTG: tgValues.length > 0 ? Math.min(...tgValues) : 0,
 
-    maxTG:
-      tgValuesmax.length > 0
-        ? Math.max(...tgValuesmax)
-        : 0,
+    maxTG: tgValuesmax.length > 0 ? Math.max(...tgValuesmax) : 0,
 
-    minRent:
-      rentValues.length > 0
-        ? Math.min(...rentValues)
-        : 0,
+    minRent: rentValues.length > 0 ? Math.min(...rentValues) : 0,
 
-    maxRent:
-      rentValues.length > 0
-        ? Math.max(...rentValues)
-        : 0,
+    maxRent: rentValues.length > 0 ? Math.max(...rentValues) : 0,
   };
 };
-
-// const listApartments = async (req, res) => {
-//   try {
-//     const pageNumber = parseInt(req.body.pageNumber) || 1;
-//     const count = parseInt(req.body.count) || 10;
-//     const skip = (pageNumber - 1) * count;
-//     const { sessionId } = req.body;
-
-//     let filter = ApartmentFilters(req.body);
-
-//       let priceRangeFilter = {};
-
-//     if (sessionId) {
-
-//       const sessionObjectId =
-//         new mongoose.Types.ObjectId(
-//           sessionId
-//         );
-
-//       priceRangeFilter = {
-//         $or: [
-//           {
-//             createdBySession:
-//               sessionObjectId,
-//           },
-//           {
-//             lastUpdatedBySession:
-//               sessionObjectId,
-//           },
-//           {
-//             skippedBySession:
-//               sessionObjectId,
-//           },
-//         ],
-//       };
-//     }
-//     // ─────────────────────────────────────────────────────────────────────
-
-//     if (sessionId) {
-//       const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
-
-//       const sessionCondition = {
-//         $or: [
-//           { createdBySession: sessionObjectId },
-//           { lastUpdatedBySession: sessionObjectId },
-//           { skippedBySession: sessionObjectId },
-//         ],
-//       };
-
-//       // Main filter
-//       if (filter.$or) {
-//         filter = {
-//           $and: [{ $or: filter.$or }, sessionCondition],
-//         };
-//       } else {
-//         filter = { ...filter, ...sessionCondition };
-//       }
-//     }
-
-//     // TOTAL COUNT
-//     const totalCount = await Apartment.countDocuments(filter);
-
-//     // APARTMENTS (filtered)
-//     const apartments = await Apartment.find(filter)
-//       .populate("createdBySession", "fileName createdAt")
-//       .populate("lastUpdatedBySession", "fileName createdAt")
-//       .populate("skippedBySession", "fileName createdAt")
-//       .sort({ updatedAt: -1 })
-//       .skip(skip)
-//       .limit(count)
-//       .lean();
-
-//     // ── PRICE RANGE: fetched WITHOUT price filters so values never change ──
-//     const allApartmentsForRange = await Apartment.find(priceRangeFilter)
-//       .select("FromTGValues ToTGValues PerDayRent")
-//       .lean();
-//     const priceRange = getMinMaxValues(allApartmentsForRange);
-//     // ──────────────────────────────────────────────────────────────────────
-
-//     // Add status field to each apartment
-//     const apartmentsWithStatus = apartments.map((apt) => {
-//       let status = "unknown";
-//       if (sessionId) {
-//         const sid = sessionId.toString();
-//         if (
-//           apt.createdBySession?._id?.toString() === sid &&
-//           apt.lastUpdatedBySession?._id?.toString() === sid &&
-//           !apt.skippedBySession
-//         ) {
-//           status = "inserted";
-//         } else if (
-//           apt.lastUpdatedBySession?._id?.toString() === sid &&
-//           apt.createdBySession?._id?.toString() !== sid
-//         ) {
-//           status = "updated";
-//         } else if (apt.skippedBySession?._id?.toString() === sid) {
-//           status = "skipped";
-//         }
-//       }
-//       return {
-//         ...apt,
-//         PerDayRent: apt.PerDayRent
-//           ? Number(apt.PerDayRent).toLocaleString("en-IN")
-//           : "0",
-//         sessionStatus: status,
-//         isActive: apt.isActive ? "Active" : "Inactive",
-//       };
-//     });
-
-//     // LOCATION & CITY for session
-//     let sessionFilter = {};
-//     if (sessionId) {
-//       const sessionObjectId = new mongoose.Types.ObjectId(sessionId);
-//       sessionFilter = {
-//         $or: [
-//           { createdBySession: sessionObjectId },
-//           { lastUpdatedBySession: sessionObjectId },
-//           { skippedBySession: sessionObjectId },
-//         ],
-//       };
-//     }
-
-//     const sessionApartments = await Apartment.find(sessionFilter).lean();
-
-//     const uniqueLocations = [
-//       ...new Set(sessionApartments.map((a) => a.Location).filter(Boolean)),
-//     ];
-//     const uniqueCities = [
-//       ...new Set(sessionApartments.map((a) => a.City).filter(Boolean)),
-//     ];
-
-//     // SESSION DETAILS
-//     let latestSession = null;
-//     if (sessionId) {
-//       latestSession = await UploadSession.findById(sessionId).lean();
-//     } else {
-//       latestSession = await UploadSession.findOne().sort({ createdAt: -1 }).lean();
-//     }
-
-//     return successResponse(res, "Apartments fetched successfully", {
-//       pageNumber,
-//       count,
-//       totalCount,
-//       totalPages: Math.ceil(totalCount / count),
-//       file: {
-//         sessionId: latestSession?._id,
-//         fileName: latestSession?.fileName || "",
-//         totalRows: latestSession?.totalRows || 0,
-//         insertedCount: latestSession?.insertedCount || 0,
-//         updatedCount: latestSession?.updatedCount || 0,
-//         skippedCount: latestSession?.skippedCount || 0,
-//         uploadedAt: latestSession?.createdAt || null,
-//       },
-//       locationFilter: uniqueLocations,
-//       cityFilter: uniqueCities,
-//       priceRange,
-//       apartments: apartmentsWithStatus,
-//     });
-//   } catch (error) {
-//     return errorResponse(res, "Error Fetching Apartments", error.message);
-//   }
-// };
-
-
 // ─────────────────────────────────────────────
 // 4. GET APARTMENT BY ID
 // ─────────────────────────────────────────────
@@ -723,7 +486,7 @@ const listApartments = async (req, res) => {
       .populate("createdBySession", "fileName createdAt")
       .populate("lastUpdatedBySession", "fileName createdAt")
       .populate("skippedBySession", "fileName createdAt")
-      .sort({ updatedAt: -1 })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(count)
       .lean();
@@ -736,6 +499,11 @@ const listApartments = async (req, res) => {
 
     // Add status field to each apartment
     const apartmentsWithStatus = apartments.map((apt) => {
+      const properApartmentName = apt.ApartmentName
+        ? apt.ApartmentName.toLowerCase().replace(/\b\w/g, (char) =>
+            char.toUpperCase(),
+          )
+        : "";
       let status = "unknown";
       if (sessionId) {
         const sid = sessionId.toString();
@@ -756,6 +524,7 @@ const listApartments = async (req, res) => {
       }
       return {
         ...apt,
+        ApartmentName: properApartmentName,
         // PerDayRent: apt.PerDayRent
         //   ? Number(apt.PerDayRent).toLocaleString("en-IN")
         //   : "0",
@@ -794,7 +563,9 @@ const listApartments = async (req, res) => {
       ...new Set(sessionApartments.map((a) => a.State).filter(Boolean)),
     ];
     const uniqueApartmentGroupName = [
-      ...new Set(sessionApartments.map((a) => a.ApartmentGroupName).filter(Boolean)),
+      ...new Set(
+        sessionApartments.map((a) => a.ApartmentGroupName).filter(Boolean),
+      ),
     ];
 
     // SESSION DETAILS
@@ -802,32 +573,39 @@ const listApartments = async (req, res) => {
     if (sessionId) {
       latestSession = await UploadSession.findById(sessionId).lean();
     } else {
-      latestSession = await UploadSession.findOne().sort({ createdAt: -1 }).lean();
+      latestSession = await UploadSession.findOne()
+        .sort({ createdAt: -1 })
+        .lean();
     }
 
-    return successResponse(res, "Apartments fetched successfully", {
-      pageNumber,
-      count,
-      totalCount,
-      totalPages: Math.ceil(totalCount / count),
-      file: {
-        sessionId: latestSession?._id,
-        fileName: latestSession?.fileName || "",
-        totalRows: latestSession?.totalRows || 0,
-        insertedCount: latestSession?.insertedCount || 0,
-        updatedCount: latestSession?.updatedCount || 0,
-        skippedCount: latestSession?.skippedCount || 0,
-        uploadedAt: latestSession?.createdAt || null,
+    return successResponse(
+      res,
+      "Apartments fetched successfully",
+      {
+        pageNumber,
+        count,
+        totalCount,
+        totalPages: Math.ceil(totalCount / count),
+        file: {
+          sessionId: latestSession?._id,
+          fileName: latestSession?.fileName || "",
+          totalRows: latestSession?.totalRows || 0,
+          insertedCount: latestSession?.insertedCount || 0,
+          updatedCount: latestSession?.updatedCount || 0,
+          skippedCount: latestSession?.skippedCount || 0,
+          uploadedAt: latestSession?.createdAt || null,
+        },
+        locationFilter: uniqueLocations,
+        cityFilter: uniqueCities,
+        stateFilter: uniqueStates,
+        apartmentGroupNameFilter: uniqueApartmentGroupName,
+        priceRange,
+        apartments: apartmentsWithStatus,
       },
-      locationFilter: uniqueLocations,
-      cityFilter: uniqueCities,
-      stateFilter: uniqueStates,
-      apartmentGroupNameFilter: uniqueApartmentGroupName,
-      priceRange,
-      apartments: apartmentsWithStatus,
-    });
+      200,
+    );
   } catch (error) {
-    return errorResponse(res, "Error Fetching Apartments", error.message);
+    return errorResponse(res, "Error Fetching Apartments", error.message, 500);
   }
 };
 const getApartmentById = async (req, res) => {
@@ -849,67 +627,239 @@ const getApartmentById = async (req, res) => {
     }
 
     // Find all orders for this apartment
-    const orders = await orderSchema.find({ 
-      apartmentId: apartmentId,
-      // Add any additional conditions if needed, e.g.:
-      // status: "active" 
-    })
-    .select("eventDetails daysOfEvent fromDate toDate")
-    .lean();
+    const orders = await orderSchema
+      .find({
+        apartmentId: apartmentId,
+        // Add any additional conditions if needed, e.g.:
+        // status: "active"
+      })
+      .select("eventDetails daysOfEvent fromDate toDate")
+      .lean();
 
     // Extract order details
-    const orderDetails = orders.map(order => ({
+    const orderDetails = orders.map((order) => ({
       eventDetails: order.eventDetails,
       daysOfEvent: order.daysOfEvent,
       fromDate: order.fromDate,
-      toDate: order.toDate
+      toDate: order.toDate,
     }));
 
     const responseData = {
       apartment: apartment,
       apartmentHistory: orderDetails,
       // If you want to include summary information
-      totalOrders: orders.length
+      totalOrders: orders.length,
     };
 
-    return successResponse(res, "Apartment fetched successfully", responseData);
-
+    return successResponse(
+      res,
+      "Apartment fetched successfully",
+      responseData,
+      200,
+    );
   } catch (error) {
-    return errorResponse(res, "Error fetching apartment", error.message);
+    return errorResponse(res, "Error fetching apartment", error.message, 500);
   }
 };
 
+// const createOrUpdateParticularApartment = async (req, res) => {
+
+//     const {
+//       apartmentId,
+//       ApartmentName,
+//       ApartmentGroupName,
+//       City,
+//       State,
+//       Location,
+//       GeoLocation,
+//       photo,
+//       ContactPersonPhone,
+//       ContactPersonName,
+//       PermissionStatus,
+//       Rating,
+//       ResidencyCount,
+//       ApproxPeopleCount,
+//       FromTGValues,
+//       ToTGValues,
+//       PerDayRent,
+
+//       // ✅ flat individual bank fields from req.body
+//       AccountHolderName,
+//       BankName,
+//       AccountNumber,
+//       IfscCode,
+//       PhoneNumber,
+//       UpiID,
+//       isActive,
+//     } = req.body;
+// try {
+//     // =====================================================
+//     // VALIDATION
+//     // =====================================================
+//     if (!ApartmentName || !City || !State || !Location || !ContactPersonPhone) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Required fields are missing",
+//       });
+//     }
+
+//     // ✅ Build bankDetails object from flat fields
+//     const bankDetails = {
+//       AccountHolderName: AccountHolderName ?? "",
+//       BankName: BankName ?? "",
+//       AccountNumber: AccountNumber ?? "",
+//       IfscCode: IfscCode ?? "",
+//       PhoneNumber: PhoneNumber ?? "",
+//       UpiID: UpiID ?? "",
+//     };
+
+//     // =====================================================
+//     // COMMON DATA
+//     // =====================================================
+//     const apartmentData = {
+//       ApartmentName,
+//       ApartmentGroupName,
+//       City,
+//       State,
+//       Location,
+//       GeoLocation,
+//       photo,
+//       ContactPersonPhone,
+//       ContactPersonName,
+//       PermissionStatus,
+//       Rating,
+//       ResidencyCount,
+//       ApproxPeopleCount,
+//       FromTGValues,
+//       ToTGValues,
+//       PerDayRent,
+//       updatedBy: req.user.name,
+//       isActive: isActive ?? true,
+//     };
+
+//     // =====================================================
+//     // ADD apartmentId ONLY IF VALID
+//     // =====================================================
+//     const isValidApartmentId =
+//       apartmentId &&
+//       apartmentId !== null &&
+//       apartmentId !== "" &&
+//       apartmentId !== "null" &&
+//       apartmentId !== "undefined";
+
+//     if (isValidApartmentId) {
+//       apartmentData.apartmentId = apartmentId;
+//     }
+
+//     if (
+//       apartmentData.apartmentId === undefined ||
+//       apartmentData.apartmentId === null ||
+//       apartmentData.apartmentId === ""
+//     ) {
+//       delete apartmentData.apartmentId;
+//     }
+
+//     // =====================================================
+//     // UPDATE
+//     // =====================================================
+//     if (isValidApartmentId) {
+//       let query;
+
+//       if (mongoose.Types.ObjectId.isValid(apartmentId)) {
+//         query = {
+//           $or: [{ _id: apartmentId }, { apartmentId: apartmentId }],
+//         };
+//       } else {
+//         query = { apartmentId: apartmentId };
+//       }
+
+//       const existingApartment = await Apartment.findOne(query);
+
+//       if (!existingApartment) {
+//         return res.status(404).json({
+//           success: false,
+//           message: "Invalid apartmentId",
+//         });
+//       }
+
+//       // ✅ dot-notation stores flat fields into bankDetails object
+//       const updatedApartment = await Apartment.findByIdAndUpdate(
+//         existingApartment._id,
+//         {
+//           $set: {
+//             ...apartmentData,
+//             "bankDetails.AccountHolderName": bankDetails.AccountHolderName,
+//             "bankDetails.BankName": bankDetails.BankName,
+//             "bankDetails.AccountNumber": bankDetails.AccountNumber,
+//             "bankDetails.IfscCode": bankDetails.IfscCode,
+//             "bankDetails.PhoneNumber": bankDetails.PhoneNumber,
+//             "bankDetails.UpiID": bankDetails.UpiID,
+//           },
+//         },
+//         { new: true, runValidators: true },
+//       );
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "Apartment updated successfully",
+//         data: updatedApartment,
+//       });
+//     }
+
+//     // =====================================================
+//     // CREATE NEW
+//     // =====================================================
+
+//     // ✅ attach the built bankDetails object on create
+//     apartmentData.bankDetails = bankDetails;
+
+//     const newApartment = await Apartment.create(apartmentData);
+
+//     return successResponse(
+//       res,
+//       "Apartments fetched successfully",
+//       newApartment,
+//       201,
+//     );
+//   } catch (error) {
+//     if (error.code === 11000) {
+//       return errorResponse(res, "Apartment ID already exists", 400);
+//     }
+
+//     return errorResponse(res, error.message, 500);
+//   }
+// };
 const createOrUpdateParticularApartment = async (req, res) => {
+  const {
+    id, // Changed from apartmentId to _id
+    ApartmentName,
+    ApartmentGroupName,
+    City,
+    State,
+    Location,
+    GeoLocation,
+    photo,
+    ContactPersonPhone,
+    ContactPersonName,
+    PermissionStatus,
+    Rating,
+    ResidencyCount,
+    ApproxPeopleCount,
+    FromTGValues,
+    ToTGValues,
+    PerDayRent,
+
+    // ✅ flat individual bank fields from req.body
+    AccountHolderName,
+    BankName,
+    AccountNumber,
+    IfscCode,
+    PhoneNumber,
+    UpiID,
+    isActive,
+  } = req.body;
+
   try {
-    const {
-      apartmentId,
-      ApartmentName,
-      ApartmentGroupName,
-      City,
-      State,
-      Location,
-      GeoLocation,
-      photo,
-      ContactPersonPhone,
-      ContactPersonName,
-      PermissionStatus,
-      Rating,
-      ResidencyCount,
-      ApproxPeopleCount,
-      FromTGValues,
-      ToTGValues,
-      PerDayRent,
-
-      // ✅ flat individual bank fields from req.body
-      AccountHolderName,
-      BankName,
-      AccountNumber,
-      IfscCode,
-      PhoneNumber,
-      UpiID,
-      isActive
-    } = req.body;
-
     // =====================================================
     // VALIDATION
     // =====================================================
@@ -923,11 +873,11 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // ✅ Build bankDetails object from flat fields
     const bankDetails = {
       AccountHolderName: AccountHolderName ?? "",
-      BankName:          BankName          ?? "",
-      AccountNumber:     AccountNumber     ?? "",
-      IfscCode:          IfscCode          ?? "",
-      PhoneNumber:       PhoneNumber       ?? "",
-      UpiID:             UpiID             ?? "",
+      BankName: BankName ?? "",
+      AccountNumber: AccountNumber ?? "",
+      IfscCode: IfscCode ?? "",
+      PhoneNumber: PhoneNumber ?? "",
+      UpiID: UpiID ?? "",
     };
 
     // =====================================================
@@ -955,68 +905,36 @@ const createOrUpdateParticularApartment = async (req, res) => {
     };
 
     // =====================================================
-    // ADD apartmentId ONLY IF VALID
+    // UPDATE by _id ONLY
     // =====================================================
-    const isValidApartmentId =
-      apartmentId &&
-      apartmentId !== null &&
-      apartmentId !== "" &&
-      apartmentId !== "null" &&
-      apartmentId !== "undefined";
+    const isValidId = id && mongoose.Types.ObjectId.isValid(id);
 
-    if (isValidApartmentId) {
-      apartmentData.apartmentId = apartmentId;
-    }
-
-    if (
-      apartmentData.apartmentId === undefined ||
-      apartmentData.apartmentId === null ||
-      apartmentData.apartmentId === ""
-    ) {
-      delete apartmentData.apartmentId;
-    }
-
-    // =====================================================
-    // UPDATE
-    // =====================================================
-    if (isValidApartmentId) {
-      let query;
-
-      if (mongoose.Types.ObjectId.isValid(apartmentId)) {
-        query = {
-          $or: [
-            { _id: apartmentId },
-            { apartmentId: apartmentId },
-          ],
-        };
-      } else {
-        query = { apartmentId: apartmentId };
-      }
-
-      const existingApartment = await Apartment.findOne(query);
+    if (isValidId) {
+      // Find existing apartment by _id
+      const existingApartment = await Apartment.findById(id);
 
       if (!existingApartment) {
         return res.status(404).json({
           success: false,
-          message: "Invalid apartmentId",
+          message: "Apartment not found with the provided id",
         });
       }
 
-      // ✅ dot-notation stores flat fields into bankDetails object
+      // ✅ Update using findByIdAndUpdate
       const updatedApartment = await Apartment.findByIdAndUpdate(
-        existingApartment._id,
+        id,
         {
           $set: {
             ...apartmentData,
             "bankDetails.AccountHolderName": bankDetails.AccountHolderName,
-            "bankDetails.BankName":          bankDetails.BankName,
-            "bankDetails.AccountNumber":     bankDetails.AccountNumber,
-            "bankDetails.IfscCode":          bankDetails.IfscCode,
-            "bankDetails.PhoneNumber":       bankDetails.PhoneNumber,
-            "bankDetails.UpiID":             bankDetails.UpiID,
+            "bankDetails.BankName": bankDetails.BankName,
+            "bankDetails.AccountNumber": bankDetails.AccountNumber,
+            "bankDetails.IfscCode": bankDetails.IfscCode,
+            "bankDetails.PhoneNumber": bankDetails.PhoneNumber,
+            "bankDetails.UpiID": bankDetails.UpiID,
           },
         },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       );
 
       return res.status(200).json({
@@ -1030,29 +948,35 @@ const createOrUpdateParticularApartment = async (req, res) => {
     // CREATE NEW
     // =====================================================
 
+    // ✅ Check if apartment with same name already exists (optional but recommended)
+    const existingApartmentByName = await Apartment.findOne({
+      ApartmentName: ApartmentName,
+    });
+
+    if (existingApartmentByName) {
+      return res.status(400).json({
+        success: false,
+        message: `Apartment with name "${ApartmentName}" already exists. Please use a different name or provide _id to update.`,
+      });
+    }
+
     // ✅ attach the built bankDetails object on create
     apartmentData.bankDetails = bankDetails;
 
     const newApartment = await Apartment.create(apartmentData);
 
-    return res.status(201).json({
-      success: true,
-      message: "Apartment created successfully",
-      data: newApartment,
-    });
-
+    return successResponse(
+      res,
+      "Apartment created successfully",
+      newApartment,
+      201,
+    );
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "Apartment ID already exists",
-      });
+      return errorResponse(res, "Apartment name already exists", 400);
     }
 
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return errorResponse(res, error.message, 500);
   }
 };
 const updateApartmentStatus = async (req, res) => {
@@ -1060,14 +984,13 @@ const updateApartmentStatus = async (req, res) => {
     const { apartmentId, isActive } = req.body;
 
     if (!apartmentId) {
-      return res.status(400).json({
-        success: false,
-        message: "Apartment ID is required",
-      });
+      return errorResponse(res, "Apartment ID is required", 400);
     }
-
-    const apartment = await Apartment.findOneAndUpdate(
-      { apartmentId },
+    if (!mongoose.Types.ObjectId.isValid(apartmentId)) {
+      return errorResponse(res, "Invalid Apartment ID", 400);
+    }
+    const apartment = await Apartment.findByIdAndUpdate(
+      apartmentId,
       {
         $set: {
           isActive,
@@ -1075,28 +998,22 @@ const updateApartmentStatus = async (req, res) => {
       },
       {
         new: true,
-      }
+      },
     );
 
     if (!apartment) {
-      return res.status(404).json({
-        success: false,
-        message: "Apartment not found",
-      });
+      return errorResponse(res, "Apartment not found", 400);
     }
 
-    return res.status(200).json({
-      success: true,
-      message: isActive
+    return successResponse(
+      res,
+      isActive
         ? "Apartment activated successfully"
         : "Apartment deactivated successfully",
-      data: apartment,
-    });
+      apartment,
+    );
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return errorResponse(res, error.message, 500);
   }
 };
 module.exports = {
@@ -1105,7 +1022,5 @@ module.exports = {
   listApartments,
   getApartmentById,
   createOrUpdateParticularApartment,
-  updateApartmentStatus
+  updateApartmentStatus,
 };
-
-

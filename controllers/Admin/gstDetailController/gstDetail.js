@@ -100,6 +100,7 @@ const verifyGstNumber = async (req, res) => {
                 business_name: existing.business_name,
                 business_address: existing.business_address,
                 gst_number: existing.gst_number,
+                nature_of_business: existing.nature_of_business,
                 source: 'database',
             });
         }

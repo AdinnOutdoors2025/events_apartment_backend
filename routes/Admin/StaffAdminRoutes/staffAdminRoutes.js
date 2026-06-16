@@ -1,24 +1,23 @@
 const express = require("express");
 const router = express.Router();
-const {  registerSendOtp,
-   verifyRegisterOtp,
+const {
+  registerSendOtp,
+  verifyRegisterOtp,
   resendRegisterOtp,
   loginSendOtp,
   loginVerifyOtp,
   resendLoginOtp,
-listUsers } = require("../../../controllers/Admin/StaffAdminController/staffAdminManagementController");
+  listUsers,
+} = require("../../../controllers/Admin/StaffAdminController/staffAdminManagementController");
 const protect = require("../../../middleware/authMiddleware");
-const adminOnly = require("../../../middleware/AdminOnlyAccess")
+const adminOnly = require("../../../middleware/AdminOnlyAccess");
 
-router.post("/staff-register",protect,adminOnly, registerSendOtp);       // Step 1: Create account
-router.post("/staff-verify-otp",protect,adminOnly, verifyRegisterOtp);    // Verify OTP only (no token issued)
-router.post("/staff-resend-otp",protect,adminOnly, resendRegisterOtp);    // Resend a fresh OTP
-router.post("/staff-login", loginSendOtp);             // Step 3: Verify OTP → returns JWT token
-router.post("/staff-login-verify", loginVerifyOtp);             // Step 3: Verify OTP → returns JWT token
-router.post("/staff-resend-login-otp", resendLoginOtp); 
-router.post("/staff-list-users", listUsers); 
-
-
-
+router.post("/staff-register", protect, adminOnly, registerSendOtp); // Step 1: Create account
+router.post("/staff-verify-otp", protect, adminOnly, verifyRegisterOtp); // Verify OTP only (no token issued)
+router.post("/staff-resend-otp", protect, adminOnly, resendRegisterOtp); // Resend a fresh OTP
+router.post("/staff-login", loginSendOtp); // Step 3: Verify OTP → returns JWT token
+router.post("/staff-login-verify", loginVerifyOtp); // Step 3: Verify OTP → returns JWT token
+router.post("/staff-resend-login-otp", resendLoginOtp);
+router.post("/staff-list-users", listUsers);
 
 module.exports = router;

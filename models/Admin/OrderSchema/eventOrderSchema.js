@@ -31,49 +31,87 @@ const OrderHistorySchema = new mongoose.Schema(
     changedBy: { type: String, required: true },
     changedAt: { type: Date, default: Date.now },
     remarks: { type: String, trim: true },
-    additionalNotes: { type: String, trim: true },
+    // additionalNotes: { type: String, trim: true },
+    // additionalNotes: { type: [String], default: [] },
     // negotiationAmount: { type: Number, default: null },
-
+    additionalNotes: [
+      {
+        text: { type: String }, // Not required anymore
+        uploadedBy: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
     closeLossReason: { type: String, trim: true },
     poDocument: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["image", "pdf"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
+      type: [
+        {
+          originalName: { type: String },
+          fileName: { type: String },
+          filePath: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          fileType: {
+            type: String,
+            enum: ["image", "pdf"],
+          },
+          uploadedAt: { type: Date, default: Date.now },
+          uploadedBy: { type: String },
+        },
+      ],
+      default: [],
     },
-
+    // statusDocument: {
+    //   // Generic document for any status change (optional)
+    //   originalName: { type: String },
+    //   fileName: { type: String },
+    //   filePath: { type: String },
+    //   mimeType: { type: String },
+    //   size: { type: Number },
+    //   fileType: {
+    //     type: String,
+    //     enum: ["image", "audio", "pdf", "excel", "word", "other"],
+    //   },
+    //   uploadedAt: { type: Date, default: Date.now },
+    // },
+    // OrderHistorySchema - change statusDocument from object to array
     statusDocument: {
-      // Generic document for any status change (optional)
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["image", "audio", "pdf", "excel", "word", "other"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
+      type: [
+        {
+          originalName: { type: String },
+          fileName: { type: String },
+          filePath: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          fileType: {
+            type: String,
+            enum: ["image", "audio", "pdf", "excel", "word", "other"],
+          },
+          uploadedAt: { type: Date, default: Date.now },
+          uploadedBy: { type: String },
+        },
+      ],
+      default: [],
     },
     voiceDocument: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      // duration: { type: Number }, // Optional: duration in seconds
-      fileType: {
-        type: String,
-        enum: ["audio"],
-        default: "audio",
-      },
-      uploadedAt: { type: Date, default: Date.now },
+      type: [
+        {
+          originalName: { type: String },
+          fileName: { type: String },
+          filePath: { type: String },
+          mimeType: { type: String },
+          size: { type: Number },
+          fileType: {
+            type: String,
+            enum: ["audio"],
+            default: "audio",
+          },
+          duration: { type: String, default: null }, // Store formatted duration like "3 min 3 sec"
+          durationInSeconds: { type: Number, default: null }, // Store raw seconds for calculations
+          uploadedAt: { type: Date, default: Date.now },
+          uploadedBy: { type: String },
+        },
+      ],
+      default: [],
     },
   },
   { _id: false },
@@ -90,8 +128,13 @@ const PromoterSchema = new mongoose.Schema(
       type: String,
       enum: ["Male", "Female", "Other"],
     },
+    promoterDays: {
+      type: Number,
+      default: 0,
+    },
     promoterPerDayCharge: {
       type: Number,
+      default: 0,
     },
     promoterLanguage: [
       {
@@ -104,6 +147,10 @@ const PromoterSchema = new mongoose.Schema(
       },
     ],
     promoterAmount: { type: Number, default: 0 },
+    promoterNotes: {
+      type: String,
+      default: "",
+    },
   },
   { _id: false },
 );
@@ -116,7 +163,7 @@ const CustomerDetailsSchema = new mongoose.Schema(
       type: Number,
       enum: [1, 2],
     },
-    gstNumber: { type: Number, default: "" },
+    gstNumber: { type: String, default: "" },
     designation: { type: String, default: "" },
     brandOrCompanyName: {
       type: String,
@@ -135,10 +182,11 @@ const CustomerDetailsSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    additionalNotes: {
+    customerAdditionalNotes: {
       type: String,
       trim: true,
     },
+    // additionalNotes: { type: [String], default: [] },
     _customerId: {
       type: mongoose.Schema.Types.ObjectId,
       default: () => new mongoose.Types.ObjectId(),
@@ -169,14 +217,22 @@ const PODocumentSchema = new mongoose.Schema(
 // ─── Daily Schedule ─────────────────────────────────────
 const DailyScheduleSchema = new mongoose.Schema(
   {
-    days: { type: Number, required: true }, // 1, 2, 3, etc.
+    date: { type: String, required: true }, // 1, 2, 3, etc.
     fromTime: { type: String, required: true }, // "10:00 AM" format
     toTime: { type: String, required: true }, // "2:00 PM" format
     notes: { type: String, trim: true }, // Optional notes for this day
   },
   { _id: false },
 );
-
+const DateRangeSchema = new mongoose.Schema(
+  {
+    fromDate: { type: Date, required: true },
+    toDate: { type: Date, required: true },
+    daysOfEvent: { type: Number, required: true, min: 1 },
+    dailySchedule: { type: [DailyScheduleSchema], default: [] },
+  },
+  { _id: false },
+);
 // assignmentSchema
 const assignmentSchema = new mongoose.Schema(
   {
@@ -216,13 +272,16 @@ const assignmentSchema = new mongoose.Schema(
   },
 );
 
-
 // ─── Sub-schema: Element Items ──────────────────────────────────────────────
 const OrderItemSchema = new mongoose.Schema(
   {
     item_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ElementsItemsMaster",
+      required: true,
+    },
+    state: {
+      type: String,
       required: true,
     },
     item_name: {
@@ -247,9 +306,13 @@ const OrderItemSchema = new mongoose.Schema(
     },
     amount_unit: {
       type: Number,
-      enum: [1, 2, 3, 4], // 1=Day, 2=Hour, 3=sqr.ft, 4=feet
+      enum: [1, 2, 3, 4, 5], // 1=Day, 2=Hour, 3=sqr.ft, 4=feet 5= pices
       required: true,
     },
+    // quantity: {
+    //   type: Number,
+    //   default: null,
+    // },
     item_amount: {
       // unit_amount × quantity
       type: Number,
@@ -257,7 +320,7 @@ const OrderItemSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 // ─── Sub-schema: Gifts ──────────────────────────────────────────────────────
@@ -300,7 +363,7 @@ const OrderGiftSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 // ─── Main Schema ─────────────────────────────────────────────────────
 const OrderBookingSchema = new mongoose.Schema(
@@ -311,6 +374,11 @@ const OrderBookingSchema = new mongoose.Schema(
     //   ref: "User",
     //   required: true,
     // },
+    stageRequired: {
+      type: Number,
+      enum: [0, 1], // 0 = no 1 = Yes
+      default: 0,
+    },
     // Element items (can be empty if order has only gifts)
     items: {
       type: [OrderItemSchema],
@@ -323,20 +391,15 @@ const OrderBookingSchema = new mongoose.Schema(
       default: [],
     },
 
-    items_total:  { type: Number, default: 0, min: 0 }, // sum of all item_amount
-    gifts_total:  { type: Number, default: 0, min: 0 }, // sum of all gift_amount
-    total_amount: { type: Number, required: true, min: 0 }, // items_total + gifts_total
+    items_total: { type: Number, default: 0, min: 0 }, // sum of all item_amount
+    gifts_total: { type: Number, default: 0, min: 0 }, // sum of all gift_amount
+    itemsAndGiftsTotal: { type: Number, required: true, min: 0 }, // items_total + gifts_total
 
-    order_status: {
-      type: Number,
-      enum: [0, 1, 2], // 0=cancelled, 1=active, 2=completed
-      default: 1,
-    },
-    order_notes: {
-      type: String,
-      default: "",
-      trim: true,
-    },
+    // order_status: {
+    //   type: Number,
+    //   enum: [0, 1, 2], // 0=cancelled, 1=active, 2=completed
+    //   default: 1,
+    // },
     orderId: { type: String, unique: true },
     apartmentId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -360,15 +423,20 @@ const OrderBookingSchema = new mongoose.Schema(
     },
 
     // Date Information
-    fromDate: { type: Date },
-    toDate: { type: Date },
-    daysOfEvent: { type: Number, default: 0 },
-    // daysOfApartment: { type: Number, default: 0 },
-    dailySchedule: { type: [DailyScheduleSchema], default: [] },
+    // fromDate: { type: Date },
+    // toDate: { type: Date },
+    // daysOfEvent: { type: Number, default: 0 },
+    // // daysOfApartment: { type: Number, default: 0 },
+    // dailySchedule: { type: [DailyScheduleSchema], default: [] },
+    // ── NEW: multiple date ranges, each with its own daily schedule ──
+    dateRanges: { type: [DateRangeSchema], default: [] },
+
+    // Aggregated total across all dateRanges
+    totalDaysOfEvent: { type: Number, default: 0 },
     // Promoter Information
     promoterRequired: {
       type: Number,
-      enum: [0, 1],
+      enum: [0, 1], // 0 = no 1 = Yes
       default: 0,
     },
     promoterCount: { type: Number, default: 0 },
@@ -378,6 +446,7 @@ const OrderBookingSchema = new mongoose.Schema(
     customerDetails: { type: CustomerDetailsSchema, default: {} },
 
     // Financial Information
+    // 1 Percentage,2 Amount
     discountType: {
       type: Number,
       enum: [1, 2],
@@ -389,7 +458,7 @@ const OrderBookingSchema = new mongoose.Schema(
     // Calculated Amounts
     sqfet: { type: Number, default: 0 },
     apartmentAmount: { type: Number, default: 0 },
-    sqfetAmount: { type: Number, default: 0 },
+    // sqfetAmount: { type: Number, default: 0 },
     eventAmount: { type: Number, default: 0 },
     promoterTotal: { type: Number, default: 0 },
     subTotal: { type: Number, default: 0 },
@@ -397,6 +466,7 @@ const OrderBookingSchema = new mongoose.Schema(
     taxableAmount: { type: Number, default: 0 },
     gstAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 },
+    finalDiscoundAmount: { type: Number, default: 0 },
 
     // Order Status 1. Enquiry 2. Need analysis 3. Proposal & Price Quote 4. Negotiation & Review 5. Close Won  6. Closed loss 7. Project Code Creation
     orderStatus: {
@@ -405,52 +475,85 @@ const OrderBookingSchema = new mongoose.Schema(
       default: 1,
     },
 
-    additionalNotes: { type: String, trim: true, default: "" },
+    // additionalNotes: { type: String, trim: true, default: "" },
+    // additionalNotes: { type: [String], default: [] },
     closeLossReason: { type: String, trim: true, default: "" },
-    poDocument: { type: PODocumentSchema, default: null },
+    // poDocument: { type: PODocumentSchema, default: null },
 
-    document: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["image", "audio", "pdf", "excel", "word", "other"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
-    },
-    voiceNote: {
-      originalName: { type: String },
-      fileName: { type: String },
-      filePath: { type: String },
-      mimeType: { type: String },
-      size: { type: Number },
-      fileType: {
-        type: String,
-        enum: ["audio"],
-      },
-      uploadedAt: { type: Date, default: Date.now },
-    },
+    // document: {
+    //   originalName: { type: String },
+    //   fileName: { type: String },
+    //   filePath: { type: String },
+    //   mimeType: { type: String },
+    //   size: { type: Number },
+    //   fileType: {
+    //     type: String,
+    //     enum: ["image", "audio", "pdf", "excel", "word", "other"],
+    //   },
+    //   uploadedAt: { type: Date, default: Date.now },
+    // },
+    // voiceNote: {
+    //   originalName: { type: String },
+    //   fileName: { type: String },
+    //   filePath: { type: String },
+    //   mimeType: { type: String },
+    //   size: { type: Number },
+    //   fileType: {
+    //     type: String,
+    //     enum: ["audio"],
+    //   },
+    //   uploadedAt: { type: Date, default: Date.now },
+    // },
     // Order Notes
+    // orderNote: {
+    //   text: { type: String, default: "" },
+    //   files: [
+    //     {
+    //       originalName: { type: String },
+    //       fileName: { type: String },
+    //       filePath: { type: String },
+    //       mimeType: { type: String },
+    //       size: { type: Number },
+    //       fileType: {
+    //         type: String,
+    //         enum: ["image", "audio", "pdf", "excel", "word", "other"],
+    //       },
+    //     },
+    //   ],
+    // },
     orderNote: {
-      text: { type: String, default: "" },
-      files: [
-        {
-          originalName: { type: String },
-          fileName: { type: String },
-          filePath: { type: String },
-          mimeType: { type: String },
-          size: { type: Number },
-          fileType: {
-            type: String,
-            enum: ["image", "audio", "pdf", "excel", "word", "other"],
-          },
+      text: {
+        type: String,
+        default: "",
+      },
+      files: {
+        originalName: { type: String },
+        fileName: { type: String },
+        filePath: { type: String },
+        mimeType: { type: String },
+        size: { type: Number },
+        fileType: {
+          type: String,
+          enum: ["audio"],
+          default: "audio",
         },
-      ],
+        duration: {
+          type: String,
+          default: null,
+        },
+        durationInSeconds: {
+          type: Number,
+          default: null,
+        },
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        uploadedBy: {
+          type: String,
+        },
+      },
     },
-
     // Order History
     orderHistory: { type: [OrderHistorySchema], default: [] },
     // Mail Tracking Fields - Add these two fields
@@ -467,6 +570,7 @@ const OrderBookingSchema = new mongoose.Schema(
     // Audit Fields
     createdBy: { type: String },
     updatedBy: { type: String },
+    userType: { type: Number, default: null },
   },
   {
     timestamps: true,

@@ -6,6 +6,7 @@ const userSchema = new mongoose.Schema(
     userEmail: { type: String },
     userPhone: { type: String, required: true },
     createdAt: { type: Date, default: Date.now },
+    lastLogin: { type: Date },
     categoryType: {
         type: Number,
         enum: [1, 2], //1 = Sales 2 = Operation  

@@ -30,8 +30,8 @@ const eventRateSchema =
       // 1 = Available
       status: {
         type: Number,
-        required: true,
-        enum: [0, 1]
+        enum: [0, 1],
+        default: 1,
       },
       updatedBy: { type: String },
     },

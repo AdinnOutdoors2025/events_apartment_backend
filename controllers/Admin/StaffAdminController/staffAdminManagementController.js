@@ -1,13 +1,14 @@
 const User = require("../../../models/Admin/StaffAdminManagement/staffAdminManagement");
 const Admin = require("../../../models/Admin/adminUser");
 const bcrypt = require("bcryptjs");
-const { successResponse, errorResponse } = require('../../../utils/response');
+const { successResponse, errorResponse } = require("../../../utils/response");
 const generateToken = require("../../../utils/generateToken");
 const axios = require("axios");
 
 const NETTYFISH_API_KEY = process.env.NETTYFISH_API_KEY;
 const NETTYFISH_SENDER_ID = process.env.NETTYFISH_SENDER_ID;
-const NETTYFISH_TEMPLATE_ID_REGISTER =process.env.NETTYFISH_TEMPLATE_ID_REGISTER;
+const NETTYFISH_TEMPLATE_ID_REGISTER =
+  process.env.NETTYFISH_TEMPLATE_ID_REGISTER;
 const NETTYFISH_TEMPLATE_ID_LOGIN = process.env.NETTYFISH_TEMPLATE_ID_LOGIN;
 const NETTYFISH_TEMPLATE_ID_RESEND = process.env.NETTYFISH_TEMPLATE_ID_RESEND;
 
@@ -115,37 +116,41 @@ function validateOtp(key, otp) {
 }
 
 const registerSendOtp = async (req, res) => {
-  const { userName, userEmail, userPhone,categoryType  } = req.body;
+  const { userName, userEmail, userPhone, categoryType } = req.body;
 
   try {
     // ================= VALIDATION =================
 
-    if (!userName || !userPhone || !categoryType) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
+    if (!userName) {
+      return errorResponse(res, "User name is required", null, 400);
     }
 
+    if (!userPhone) {
+      return errorResponse(res, "Mobile number is required", null, 400);
+    }
+    const normalizedPhone = String(userPhone).trim();
     // ================= CHECK PHONE =================
 
     const existingPhone = await User.findOne({
-      userPhone,
+      userPhone: normalizedPhone,
     });
 
     if (existingPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number already registered",
-      });
+      return errorResponse(
+        res,
+        "This mobile number is already registered. Please log in.",
+        null,
+        400,
+      );
     }
 
     // ================= GENERATE OTP =================
 
-    const otp = generateAndStoreOtp(userPhone, {
+    const otp = generateAndStoreOtp(normalizedPhone, {
       userName,
       userEmail,
-      userPhone,
+      userPhone: normalizedPhone,
+      categoryType,
     });
 
     // ================= SMS MESSAGE =================
@@ -156,50 +161,45 @@ const registerSendOtp = async (req, res) => {
 
     if (IS_PRODUCTION) {
       const smsSent = await sendSms(
-        userPhone,
+        normalizedPhone,
         message,
         NETTYFISH_TEMPLATE_ID_REGISTER,
       );
 
       if (!smsSent) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to send OTP",
-        });
+        // Clean up OTP if SMS fails
+        delete otpStore[normalizedPhone];
+        return errorResponse(
+          res,
+          "Unable to send OTP. Please try again.",
+          null,
+          500,
+        );
       }
 
-      return res.json({
-        success: true,
-        message: "OTP sent to mobile number",
-      });
-    } else {
-      return res.json({
-        success: true,
-        message: "OTP sent successfully",
-        testOtp: otp,
-      });
+      return successResponse(res, "OTP sent successfully", null, 200);
     }
+    return successResponse(
+      res,
+      "OTP sent successfully",
+      {
+        testOtp: otp,
+      },
+      200,
+    );
   } catch (err) {
-    console.log("Register Send OTP Error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
 const verifyRegisterOtp = async (req, res) => {
-  const { userPhone,userEmail, otp,categoryType } = req.body;
+  const { userPhone, userEmail, otp, categoryType } = req.body;
 
   try {
     // ================= VALIDATION =================
 
     if (!userPhone || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number and OTP are required",
-      });
+      return errorResponse(res, "Phone number and OTP are required", null, 400);
     }
 
     // ================= VERIFY OTP =================
@@ -207,10 +207,7 @@ const verifyRegisterOtp = async (req, res) => {
     const otpError = validateOtp(userPhone, otp);
 
     if (otpError) {
-      return res.status(400).json({
-        success: false,
-        message: otpError,
-      });
+      return errorResponse(res, otpError, null, 400);
     }
 
     // ================= GET STORED DATA =================
@@ -218,13 +215,10 @@ const verifyRegisterOtp = async (req, res) => {
     const storedData = otpStore[userPhone];
 
     if (!storedData) {
-      return res.status(400).json({
-        success: false,
-        message: "OTP data not found",
-      });
+      return errorResponse(res, "OTP data not found", null, 400);
     }
 
-    const { userName, userEmail  } = storedData.userData;
+    const { userName, userEmail, categoryType } = storedData.userData;
 
     // ================= CREATE USER =================
 
@@ -246,9 +240,7 @@ const verifyRegisterOtp = async (req, res) => {
 
     const token = generateToken(newUser);
 
-    return res.json({
-      success: true,
-      message: "Registration successful",
+    return successResponse(res, "Registration successful", {
       token,
       user: {
         _id: newUser._id,
@@ -262,10 +254,7 @@ const verifyRegisterOtp = async (req, res) => {
   } catch (err) {
     console.log("Verify Register OTP Error:", err);
 
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, "Server error", null, 400);
   }
 };
 
@@ -276,26 +265,53 @@ const resendRegisterOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number is required",
-      });
+      return errorResponse(res, "Phone number is required", null, 400);
     }
+    const normalizedPhone = String(userPhone).trim();
 
+    // ================= CHECK IF USER ALREADY EXISTS =================
+    const existingUser = await User.findOne({
+      userPhone: normalizedPhone,
+    });
+
+    if (existingUser) {
+      return errorResponse(
+        res,
+        "This mobile number is already registered. Please log in instead.",
+        null,
+        400,
+      );
+    }
     // ================= CHECK OTP STORE =================
 
     const storedData = otpStore[userPhone];
 
     if (!storedData) {
-      return res.status(400).json({
-        success: false,
-        message: "No registration request found",
-      });
+      return errorResponse(
+        res,
+        "No active registration request found. Please start the registration process again.",
+        null,
+        400,
+      );
+    }
+    // Check if userData exists and has required fields
+    if (!storedData.userData || !storedData.userData.userName) {
+      // Clean up invalid entry
+      delete otpStore[normalizedPhone];
+      return errorResponse(
+        res,
+        "Invalid registration data. Please start over.",
+        null,
+        400,
+      );
     }
 
     // ================= GENERATE NEW OTP =================
+    // Preserve the existing userData
+    const userData = storedData.userData;
+    // ================= GENERATE NEW OTP =================
 
-    const newOtp = generateAndStoreOtp(userPhone, storedData.userData);
+    const newOtp = generateAndStoreOtp(normalizedPhone, storedData.userData);
 
     // ================= SMS MESSAGE =================
 
@@ -304,19 +320,17 @@ const resendRegisterOtp = async (req, res) => {
     // ================= SEND SMS =================
 
     if (IS_PRODUCTION) {
-      const smsSent = await sendSms(userPhone, message,NETTYFISH_TEMPLATE_ID_RESEND);
+      const smsSent = await sendSms(
+        normalizedPhone,
+        message,
+        NETTYFISH_TEMPLATE_ID_RESEND,
+      );
 
       if (!smsSent) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to resend OTP",
-        });
+        return errorResponse(res, "Failed to resend OTP", null, 500);
       }
 
-      return res.json({
-        success: true,
-        message: "OTP resent successfully",
-      });
+      return successResponse(res, "OTP resent successfully", 200);
     } else {
       // console.log("==================================");
       // console.log("RESEND OTP:", {
@@ -325,19 +339,20 @@ const resendRegisterOtp = async (req, res) => {
       // });
       // console.log("==================================");
 
-      return res.json({
-        success: true,
-        message: "OTP resent successfully",
-        testOtp: newOtp,
-      });
+      return successResponse(
+        res,
+        "OTP resent successfully",
+        {
+          userPhone: normalizedPhone,
+          testOtp: newOtp,
+        },
+        200,
+      );
     }
   } catch (err) {
     console.log("Resend OTP Error:", err);
 
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -346,12 +361,9 @@ const loginSendOtp = async (req, res) => {
 
   try {
     if (!userPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number is required",
-      });
+      return errorResponse(res, "Phone number is required", null, 400);
     }
-
+    const normalizedPhone = String(userPhone).trim();
     // ================= FIND USER =================
 
     const user = await User.findOne({
@@ -359,16 +371,15 @@ const loginSendOtp = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return errorResponse(res, "User not found", null, 404);
     }
 
     // ================= GENERATE OTP =================
 
-    const otp = generateAndStoreOtp(userPhone, {
+    const otp = generateAndStoreOtp(normalizedPhone, {
+      userId: user._id,
       login: true,
+      userPhone: normalizedPhone,
     });
 
     const message = `Your ADINN Campaign Code is ${otp}. Use it to access your campaign dashboard. Valid for 5 minutes. Do not share this code.`;
@@ -376,22 +387,16 @@ const loginSendOtp = async (req, res) => {
 
     if (IS_PRODUCTION) {
       const smsSent = await sendSms(
-        userPhone,
+        normalizedPhone,
         message,
         NETTYFISH_TEMPLATE_ID_LOGIN,
       );
 
       if (!smsSent) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to send login OTP",
-        });
+        return errorResponse(res, "Failed to send login OTP", null, 500);
       }
 
-      return res.json({
-        success: true,
-        message: "Login OTP sent successfully",
-      });
+      return successResponse(res, "Login OTP sent successfully", 200);
     } else {
       // console.log("==================================");
       // console.log("LOGIN OTP:", {
@@ -400,19 +405,20 @@ const loginSendOtp = async (req, res) => {
       // });
       // console.log("==================================");
 
-      return res.json({
-        success: true,
-        message: "Login OTP sent successfully",
-        testOtp: otp,
-      });
+      return successResponse(
+        res,
+        "Login OTP sent successfully",
+        {
+          userPhone: normalizedPhone,
+          testOtp: otp,
+        },
+        200,
+      );
     }
   } catch (err) {
     console.log("Login Send OTP Error:", err);
 
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -421,10 +427,7 @@ const loginVerifyOtp = async (req, res) => {
 
   try {
     if (!userPhone || !otp) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone and OTP required",
-      });
+      return errorResponse(res, "Phone and OTP required", null, 400);
     }
 
     // ================= VALIDATE OTP =================
@@ -432,10 +435,7 @@ const loginVerifyOtp = async (req, res) => {
     const otpError = validateOtp(userPhone, otp);
 
     if (otpError) {
-      return res.status(400).json({
-        success: false,
-        message: otpError,
-      });
+      return errorResponse(res, otpError, null, 400);
     }
 
     // ================= FIND USER =================
@@ -445,12 +445,10 @@ const loginVerifyOtp = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+      return errorResponse(res, "User not found", null, 404);
     }
-
+    user.lastLogin = new Date();
+    await user.save();
     // ================= DELETE OTP =================
 
     delete otpStore[userPhone];
@@ -458,9 +456,7 @@ const loginVerifyOtp = async (req, res) => {
     // ================= TOKEN =================
 
     const token = generateToken(user);
-    return res.json({
-      success: true,
-      message: "Login successful",
+    return successResponse(res, "Login successful", {
       token,
       user: {
         _id: user._id,
@@ -473,10 +469,7 @@ const loginVerifyOtp = async (req, res) => {
   } catch (err) {
     console.log("Login Verify OTP Error:", err);
 
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 
@@ -487,26 +480,45 @@ const resendLoginOtp = async (req, res) => {
     // ================= VALIDATION =================
 
     if (!userPhone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone number is required",
-      });
+      return errorResponse(res, "Phone number is required", null, 400);
+    }
+
+    const normalizedPhone = String(userPhone).trim();
+
+    // ================= VERIFY USER EXISTS =================
+
+    const user = await User.findOne({
+      userPhone: normalizedPhone,
+    });
+
+    if (!user) {
+      return errorResponse(
+        res,
+        "User not found. Please register first.",
+        null,
+        404,
+      );
     }
 
     // ================= CHECK OTP STORE =================
 
-    const storedData = otpStore[userPhone];
+    let newOtp;
+
+    // ================= CHECK OTP STORE =================
+
+    const storedData = otpStore[normalizedPhone];
 
     if (!storedData) {
-      return res.status(400).json({
-        success: false,
-        message: "No login request found. Please login again",
+      // Create new OTP session
+      newOtp = generateAndStoreOtp(normalizedPhone, {
+        userId: user._id,
+        login: true,
+        userPhone: normalizedPhone,
       });
+    } else {
+      // Regenerate OTP using existing session data
+      newOtp = generateAndStoreOtp(normalizedPhone, storedData.userData);
     }
-
-    // ================= GENERATE NEW OTP =================
-
-    const newOtp = generateAndStoreOtp(userPhone, storedData.userData);
 
     // ================= SMS MESSAGE =================
 
@@ -515,42 +527,34 @@ const resendLoginOtp = async (req, res) => {
     // ================= SEND SMS =================
 
     if (IS_PRODUCTION) {
-      const smsSent = await sendSms(userPhone, message,NETTYFISH_TEMPLATE_ID_RESEND);
+      const smsSent = await sendSms(
+        normalizedPhone,
+        message,
+        NETTYFISH_TEMPLATE_ID_RESEND,
+      );
 
       if (!smsSent) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to resend login OTP",
-        });
+        return errorResponse(res, "Failed to resend login OTP", null, 500);
       }
 
-      return res.json({
-        success: true,
-        message: "Login OTP resent successfully",
-      });
+      return successResponse(res, "Login OTP resent successfully", 200);
     } else {
-     
-
-      return res.json({
-        success: true,
-        message: "Login OTP resent successfully",
+      return successResponse(res, "Login OTP resent successfully", {
+        userPhone: normalizedPhone,
         testOtp: newOtp,
       });
     }
   } catch (err) {
     console.log("Resend Login OTP Error:", err);
 
-    return res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    return errorResponse(res, "Server error", null, 500);
   }
 };
 // const listUsers = async (req, res) => {
 //   try {
 //     // ================= FETCH ALL USERS =================
 //     const users = await User.find({}).select('-__v');
-    
+
 //     // ================= CHECK IF USERS EXIST =================
 //     if (!users || users.length === 0) {
 //       return res.status(404).json({
@@ -558,14 +562,14 @@ const resendLoginOtp = async (req, res) => {
 //         message: "No users found"
 //       });
 //     }
-    
+
 //     // ================= RETURN ALL USERS WITH DETAILS =================
 //     return res.status(200).json({
 //       success: true,
 //       message: "Users retrieved successfully",
 //       data: users
 //     });
-    
+
 //   } catch (err) {
 //     console.error("List Users Error:", err);
 //     return res.status(500).json({
@@ -575,6 +579,38 @@ const resendLoginOtp = async (req, res) => {
 //     });
 //   }
 // };
+// const listUsers = async (req, res) => {
+//   try {
+//     const [users, admins] = await Promise.all([
+//       User.find({}).select("-__v").lean(),
+//       Admin.find({}).select("-__v -password").lean(),
+//     ]);
+
+//     const formattedUsers = users.map((user) => ({
+//       ...user,
+//       userCategory: "StaffAdmin",
+//     }));
+
+//     const formattedAdmins = admins.map((admin) => ({
+//       ...admin,
+//       userCategory: "Admin",
+//     }));
+
+//     const allUsers = [...formattedAdmins, ...formattedUsers];
+
+//     if (allUsers.length === 0) {
+//       return errorResponse(res, "No users found", null, 404);
+//     }
+
+//     return successResponse(res, "Users retrieved successfully", {
+//       count: allUsers.length,
+//       users: allUsers,
+//     });
+//   } catch (err) {
+//     console.error("List Users Error:", err);
+//     return errorResponse(res, "Server error while fetching users", null, 500);
+//   }
+// };
 const listUsers = async (req, res) => {
   try {
     const [users, admins] = await Promise.all([
@@ -582,39 +618,26 @@ const listUsers = async (req, res) => {
       Admin.find({}).select("-__v -password").lean(),
     ]);
 
-    const formattedUsers = users.map((user) => ({
+    const staffAdmins = users.map((user) => ({
       ...user,
       userCategory: "StaffAdmin",
     }));
 
-    const formattedAdmins = admins.map((admin) => ({
+    const adminUsers = admins.map((admin) => ({
       ...admin,
       userCategory: "Admin",
     }));
 
-    const allUsers = [...formattedAdmins, ...formattedUsers];
-
-    if (allUsers.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No users found",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Users retrieved successfully",
-      count: allUsers.length,
-      data: allUsers,
+    return successResponse(res, "Users retrieved successfully", {
+      totalCount: adminUsers.length + staffAdmins.length,
+      adminCount: adminUsers.length,
+      staffAdminCount: staffAdmins.length,
+      admins: adminUsers,
+      staffAdmins: staffAdmins,
     });
   } catch (err) {
     console.error("List Users Error:", err);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error while fetching users",
-      error: err.message,
-    });
+    return errorResponse(res, "Server error while fetching users", null, 500);
   }
 };
 module.exports = {

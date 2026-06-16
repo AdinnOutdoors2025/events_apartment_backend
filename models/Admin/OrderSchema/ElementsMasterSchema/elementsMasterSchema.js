@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const ElementsMasterSchema = new mongoose.Schema(
   {
+    state: {
+      type: String,
+      required: true,
+    },
     category_name: {
       type: String,
       required: true,

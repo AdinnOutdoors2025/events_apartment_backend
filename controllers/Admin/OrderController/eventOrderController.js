@@ -458,24 +458,73 @@ const createBooking = asyncHandler(async (req, res) => {
     // ORDER NOTE
     // ─────────────────────────────────────────────
 
-    const uploadedFiles = req.files?.orderNoteFiles || [];
+    // const uploadedFiles = req.files?.orderNoteFiles || [];
 
-    const orderNote = {
-      text: orderNoteText || "",
-      files: uploadedFiles.map((file) => ({
-        originalName: file.originalname,
-        fileName: file.filename,
-        filePath: file.path,
-        mimeType: file.mimetype,
-        size: file.size,
-        fileType: getFileCategory(file.mimetype),
-      })),
-    };
+    // const orderNote = {
+    //   text: orderNoteText || "",
+    //   files: uploadedFiles.map((file) => ({
+    //     originalName: file.originalname,
+    //     fileName: file.filename,
+    //     filePath: file.path,
+    //     mimeType: file.mimetype,
+    //     size: file.size,
+    //     fileType: getFileCategory(file.mimetype),
+    //   })),
+    // };
 
-    if (!uploadedFiles.length && orderNoteText) {
-      orderNote.files = [];
+    // if (!uploadedFiles.length && orderNoteText) {
+    //   orderNote.files = [];
+    // }
+const processOrderNoteFile = async (uploadedFile) => {
+  const {
+    getFileUrl,
+  } = require("../../../middleware/orderNoteFileUpload");
+
+  let durationInSeconds = null;
+  let formattedDuration = null;
+
+  if (uploadedFile.mimetype.startsWith("audio/")) {
+    try {
+      const mm = require("music-metadata");
+
+      const metadata = await mm.parseFile(uploadedFile.path);
+
+      if (metadata.format.duration) {
+        durationInSeconds = metadata.format.duration;
+        formattedDuration = formatDuration(durationInSeconds);
+      }
+    } catch (err) {
+      console.warn(
+        "Could not extract audio duration:",
+        err.message
+      );
     }
+  }
 
+  return {
+    originalName: uploadedFile.originalname,
+    fileName:
+      uploadedFile.filename ||
+      uploadedFile.key?.split("/").pop(),
+    filePath: getFileUrl(req, uploadedFile),
+    mimeType: uploadedFile.mimetype,
+    size: uploadedFile.size,
+    fileType: getFileCategory(uploadedFile.mimetype),
+    duration: formattedDuration,
+    durationInSeconds,
+    uploadedAt: new Date(),
+    uploadedBy: req.user.name,
+  };
+};
+
+const uploadedFile = req.files?.orderNoteFiles?.[0];
+
+const orderNote = {
+  text: orderNoteText || "",
+  files: uploadedFile
+    ? await processOrderNoteFile(uploadedFile)
+    : null,
+};
     // ─────────────────────────────────────────────
     // VALIDATE APARTMENT ID
     // ─────────────────────────────────────────────
@@ -602,7 +651,17 @@ const createBooking = asyncHandler(async (req, res) => {
     const eventAmount = Math.floor(
       (event.amount || 0) * (finalTotalDaysOfEvent || 0),
     );
-
+  // let promoterTotal = 0;
+  // const promotersWithAmount = (promoters || []).map((p) => {
+  //   const promoterAmount = Math.floor(
+  //     (p.promoterPerDayCharge || 0) * (eventDays || 0),
+  //   );
+  //   promoterTotal += promoterAmount;
+  //   return {
+  //     ...p,
+  //     promoterAmount,
+  //   };
+  // });
     let promoterTotal = 0;
     const PROMOTER_PER_DAY_CHARGE =
       Number(process.env.PROMOTER_PER_DAY_CHARGE) || 1500;

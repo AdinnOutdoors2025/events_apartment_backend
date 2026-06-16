@@ -106,7 +106,7 @@ const OrderHistorySchema = new mongoose.Schema(
             default: "audio",
           },
           duration: { type: String, default: null }, // Store formatted duration like "3 min 3 sec"
-      durationInSeconds: { type: Number, default: null }, // Store raw seconds for calculations
+          durationInSeconds: { type: Number, default: null }, // Store raw seconds for calculations
           uploadedAt: { type: Date, default: Date.now },
           uploadedBy: { type: String },
         },
@@ -505,23 +505,55 @@ const OrderBookingSchema = new mongoose.Schema(
     //   uploadedAt: { type: Date, default: Date.now },
     // },
     // Order Notes
+    // orderNote: {
+    //   text: { type: String, default: "" },
+    //   files: [
+    //     {
+    //       originalName: { type: String },
+    //       fileName: { type: String },
+    //       filePath: { type: String },
+    //       mimeType: { type: String },
+    //       size: { type: Number },
+    //       fileType: {
+    //         type: String,
+    //         enum: ["image", "audio", "pdf", "excel", "word", "other"],
+    //       },
+    //     },
+    //   ],
+    // },
     orderNote: {
-      text: { type: String, default: "" },
-      files: [
-        {
-          originalName: { type: String },
-          fileName: { type: String },
-          filePath: { type: String },
-          mimeType: { type: String },
-          size: { type: Number },
-          fileType: {
-            type: String,
-            enum: ["image", "audio", "pdf", "excel", "word", "other"],
-          },
+      text: {
+        type: String,
+        default: "",
+      },
+      files: {
+        originalName: { type: String },
+        fileName: { type: String },
+        filePath: { type: String },
+        mimeType: { type: String },
+        size: { type: Number },
+        fileType: {
+          type: String,
+          enum: ["audio"],
+          default: "audio",
         },
-      ],
+        duration: {
+          type: String,
+          default: null,
+        },
+        durationInSeconds: {
+          type: Number,
+          default: null,
+        },
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        uploadedBy: {
+          type: String,
+        },
+      },
     },
-
     // Order History
     orderHistory: { type: [OrderHistorySchema], default: [] },
     // Mail Tracking Fields - Add these two fields

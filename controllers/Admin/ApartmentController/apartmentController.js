@@ -374,6 +374,7 @@ const getUploadSessions = async (req, res) => {
 
     const totalCount = sessions[0].totalCount[0]?.count || 0;
 
+    
     const formattedSessions = sessions[0].data.map((item) => ({
       sessionId: item._id,
       fileName: item.fileName,

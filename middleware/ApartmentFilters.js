@@ -302,11 +302,34 @@ const buildApartmentFilters = (body, userType) => {
   }
 
   // TG FILTER
-  if (minTG || maxTG) {
+   if (minRent || maxRent) {
+    filter.PerDayRent = {};
+    if (minRent) filter.PerDayRent.$gte = Number(minRent);
+    if (maxRent) filter.PerDayRent.$lte = Number(maxRent);
+  }
+
+  // ── FIXED TG FILTER ──
+  // Find apartments where TG range overlaps with the search range
+  if (minTG !== undefined || maxTG !== undefined) {
+    // Initialize both filters
     filter.FromTGValues = {};
     filter.ToTGValues = {};
-    if (minTG) filter.FromTGValues.$gte = Number(minTG);
-    if (maxTG) filter.ToTGValues.$lte = Number(maxTG);
+    
+    const minTGValue = minTG !== undefined ? Number(minTG) : null;
+    const maxTGValue = maxTG !== undefined ? Number(maxTG) : null;
+    
+    if (minTGValue !== null && maxTGValue !== null) {
+      // When both min and max are provided
+      // Find apartments where [FromTGValues, ToTGValues] overlaps with [minTG, maxTG]
+      filter.FromTGValues.$lte = maxTGValue;
+      filter.ToTGValues.$gte = minTGValue;
+    } else if (minTGValue !== null) {
+      // Only minTG provided: Find apartments where ToTGValues >= minTG
+      filter.ToTGValues.$gte = minTGValue;
+    } else if (maxTGValue !== null) {
+      // Only maxTG provided: Find apartments where FromTGValues <= maxTG
+      filter.FromTGValues.$lte = maxTGValue;
+    }
   }
 
   return filter;

@@ -486,7 +486,7 @@ const listApartments = async (req, res) => {
       .populate("createdBySession", "fileName createdAt")
       .populate("lastUpdatedBySession", "fileName createdAt")
       .populate("skippedBySession", "fileName createdAt")
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .skip(skip)
       .limit(count)
       .lean();
